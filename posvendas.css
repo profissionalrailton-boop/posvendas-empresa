@@ -1,5 +1,11 @@
 /* Estilos próprios do pós-vendas (o resto vem de styles.css, igual ao administrativo) */
 
+/* Lista aberta dos <select>: sem fundo sólido, o Windows desenha a lista clara e o texto
+   claro do tema escuro some (só aparecia a opção destacada pelo mouse). */
+select { color-scheme: var(--color-scheme); }
+select option, select optgroup { background-color: #161724; color: #f3f4fb; }
+:root[data-theme="light"] select option, :root[data-theme="light"] select optgroup { background-color: #ffffff; color: #171a2e; }
+
 .pv-page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .pv-page-head h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); }
 .pv-today { font-size: 12.5px; color: var(--text-muted); }
