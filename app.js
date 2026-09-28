@@ -464,10 +464,8 @@ function renderHoje() {
   const hoje = today();
   document.getElementById("hoje-data").textContent = formatDateBR(hoje);
   const ativos = state.vendas.filter((v) => ["atraso", "em_dia"].includes(sit(v).status));
-  const atrasados = ativos.filter((v) => sit(v).status === "atraso").sort((a, b) => sit(b).maxAtraso - sit(a).maxAtraso);
-  const estorno = atrasados.filter((v) => sit(v).riscoEstorno);
+  const atrasados = ativos.filter((v) => sit(v).status === "atraso");
   const lembretesHoje = state.lembretes.filter((l) => !l.concluido_em && parseDate(l.data) <= hoje);
-  const promessas = state.promessas.filter((p) => p.promessa_data && parseDate(p.promessa_data) <= hoje);
   const proximos = [];
   ativos.forEach((v) => sit(v).parcelas.forEach((p) => {
     if (p.pagamento) return;
@@ -475,39 +473,18 @@ function renderHoje() {
     if (d >= 0 && d <= DIAS_PROXIMOS) proximos.push({ v, p, d });
   }));
   proximos.sort((a, b) => a.d - b.d);
-  const semCobranca = state.vendas.filter((v) => sit(v).status === "sem_cobranca");
 
   document.getElementById("hoje-sum-atraso").textContent = atrasados.length;
   document.getElementById("hoje-sum-hoje").textContent = proximos.filter((x) => x.d === 0).length;
   document.getElementById("hoje-sum-lembretes").textContent = lembretesHoje.length;
   document.getElementById("hoje-sum-adimp").textContent = fmtPct(pct(ativos.length - atrasados.length, ativos.length));
 
-  const atrasoDetalhe = (v) => {
-    const s = sit(v);
-    return `${s.atrasadas.map((p) => `${p.numero}ª`).join(", ")} parcela${s.atrasadas.length > 1 ? "s" : ""} · ${s.maxAtraso} dia${s.maxAtraso > 1 ? "s" : ""} de atraso · ${v.vendedor}`;
-  };
   const baixaBtn = (v, p) => el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => darBaixa(v, p.numero, isoDate(today())) }, `Baixa ${p.numero}ª hoje`);
 
-  fillList("hoje-estorno", estorno, "Nenhum cliente com atraso nas primeiras parcelas. 👍", (v) =>
-    clienteRow(v, atrasoDetalhe(v), [el("span", { class: "pv-tag atraso" }, fmtMoney(sit(v).valorAtraso))]));
-  fillList("hoje-atrasados", atrasados, "Nenhum cliente em atraso. 🎉", (v) =>
-    clienteRow(v, atrasoDetalhe(v), [el("span", { class: "pend-client-days" }, fmtMoney(sit(v).valorAtraso)), baixaBtn(v, sit(v).atrasadas[0])]));
-  fillList("hoje-promessas", promessas, "Nenhuma promessa vencendo.", (p) => {
-    const v = vendaById(p.venda_id);
-    if (!v) return null;
-    return clienteRow(v, `Prometeu pagar em ${formatDateBR(p.promessa_data)} — ${p.texto}`, [
-      el("span", { class: "pv-tag " + sit(v).status }, sit(v).status === "atraso" ? "Ainda em atraso" : "Já regularizou"),
-      el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => resolverPromessa(p) }, "Resolvida"),
-    ]);
-  });
   fillList("hoje-proximos", proximos, "Nada vencendo nos próximos dias.", ({ v, p, d }) =>
     clienteRow(v, `${p.numero}ª parcela · vence ${d === 0 ? "hoje" : d === 1 ? "amanhã" : "em " + d + " dias"} (${formatDateBR(p.venc)}) · ${fmtMoney(Number(sit(v).cob.valor_parcela))}`,
       [baixaBtn(v, p)]));
   fillList("hoje-lembretes", lembretesHoje, "Nenhum lembrete para hoje.", (l) => lembreteRow(l));
-  fillList("hoje-sem-cobranca", semCobranca, "Todos os grupos têm dia de vencimento.", (v) =>
-    clienteRow(v, `Grupo ${v.grupo || "—"} · cota ${v.cota || "—"} · venda em ${formatDateBR(v.data_venda)} · ${v.vendedor}`, [
-      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => openFicha(v.id) }, "Preencher"),
-    ]));
 }
 function fillList(id, items, emptyMsg, render) {
   const box = document.getElementById(id);

@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="posvendas.css?v=10" />
+<link rel="stylesheet" href="posvendas.css?v=11" />
 </head>
 <body>
 <div id="app">
@@ -113,28 +113,12 @@
         </div>
 
         <div class="panel">
-          <div class="panel-header"><h3>⚠️ Risco de estorno de comissão</h3><span class="panel-total">Atraso em uma das 5 primeiras parcelas</span></div>
-          <div id="hoje-estorno"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-header"><h3>Em atraso</h3><span class="panel-total">Do atraso mais antigo para o mais novo</span></div>
-          <div id="hoje-atrasados"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-header"><h3>Promessas de pagamento</h3><span class="panel-total">Com data para hoje ou que já passou</span></div>
-          <div id="hoje-promessas"></div>
-        </div>
-        <div class="panel">
           <div class="panel-header"><h3>Vencem hoje e nos próximos 5 dias</h3><span class="panel-total">Conferir a baixa</span></div>
           <div id="hoje-proximos"></div>
         </div>
         <div class="panel">
           <div class="panel-header"><h3>Lembretes</h3><span class="panel-total">De hoje e atrasados</span></div>
           <div id="hoje-lembretes"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-header"><h3>Grupo sem dia de vencimento</h3><span class="panel-total">Preencha em "Grupos e vencimentos" — sem isso o cliente fica fora dos alertas</span></div>
-          <div id="hoje-sem-cobranca"></div>
         </div>
       </div>
 
@@ -347,6 +331,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

@@ -164,6 +164,13 @@ table.pv-parcelas th { padding: 8px 12px; }
 .pv-tipo.promessa { color: var(--warning); }
 .pv-tipo.observacao { color: var(--text-muted); }
 
+/* Abaixo de 860px o menu vira barra no topo; sem empilhar, ele ocupava 100% da linha e o
+   conteúdo ficava com largura 0 (página em branco). A barra rola de lado se não couber. */
+@media (max-width: 860px) {
+  .app-shell { flex-direction: column; }
+  .sidebar { min-width: 0; max-width: 100%; }
+}
+
 @media (max-width: 720px) {
   main { padding: 16px; }
   .pv-aging { grid-template-columns: repeat(2, 1fr); }
