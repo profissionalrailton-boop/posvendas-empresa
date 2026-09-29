@@ -41,7 +41,17 @@ select option, select optgroup { background-color: #161724; color: #f3f4fb; }
 .pv-tag.atraso { background: var(--danger-bg); color: var(--danger); }
 .pv-tag.em_dia { background: var(--success-bg); color: var(--success); }
 .pv-tag.sem_cobranca { background: var(--warning-bg); color: var(--warning); }
-.pv-tag.inativo { background: var(--surface-2); color: var(--text-faint); }
+.pv-tag.quitada { background: var(--surface-2); color: var(--text-faint); }
+.pv-tag.cancelada { background: var(--danger-bg); color: var(--danger); }
+
+/* etiqueta da situação da cota ao lado do nome (Contemplada / Quitada / Cancelada) */
+.pv-cota-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.pv-cota-tag.contemplada { color: var(--gold-light); background: rgba(217, 154, 78, 0.14); border: 1px solid rgba(217, 154, 78, 0.35); }
+.pv-cota-tag.quitada { color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); }
+.pv-cota-tag.cancelada { color: var(--danger); background: var(--danger-bg); border: 1px solid rgba(248, 113, 113, 0.35); }
+:root[data-theme="light"] .pv-cota-tag.contemplada { color: var(--gold-deep); }
+/* ponto de adimplência: cancelada conta como inadimplente */
+.pv-adimp.cancelada { background: var(--danger); opacity: 0.95; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18); }
 .pv-tag.aberto { background: rgba(96, 165, 250, 0.12); color: var(--accent-sapphire); }
 
 /* ---------- tabelas ---------- */
@@ -118,7 +128,7 @@ button.pv-cell:hover { border-color: var(--primary); }
 .pv-conf-vazio.late { background: var(--danger); opacity: 0.8; }
 
 /* ---------- aging ---------- */
-.pv-aging { display: grid; grid-template-columns: repeat(5, 1fr); }
+.pv-aging { display: grid; grid-template-columns: repeat(6, 1fr); }
 .pv-aging-item { padding: 16px; text-align: center; border-right: 1px solid var(--border-soft); }
 .pv-aging-item:last-child { border-right: none; }
 .pv-aging-n { font-size: 24px; font-weight: 800; color: var(--text-faint); font-variant-numeric: tabular-nums; }

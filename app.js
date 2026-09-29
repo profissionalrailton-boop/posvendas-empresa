@@ -145,15 +145,37 @@ function cobrancaEstimada(venda) {
   const s = sugestaoCobranca(venda);
   return { ...s, valor_parcela: venda.demais_parcelas ?? null, prazo: null, observacao: null, estimada: true };
 }
+// Situação da cota (ficha → Dados de cobrança):
+//   ativa / contemplada → contam na adimplência normalmente (em dia ou em atraso)
+//   quitada             → sai da adimplência e dos alertas
+//   cancelada           → continua contando como INADIMPLENTE
+const SITUACOES_COTA = [
+  { value: "ativa", label: "Ativa" },
+  { value: "contemplada", label: "Contemplada" },
+  { value: "quitada", label: "Quitada" },
+  { value: "cancelada", label: "Cancelada" },
+];
+function situacaoCota(cob) {
+  if (!cob) return "ativa";
+  if (cob.situacao) return cob.situacao;
+  return cob.ativo === false ? "quitada" : "ativa"; // cobranças salvas antes da coluna situacao
+}
+// Entra no cálculo de adimplência (todas menos quitada e sem dia de vencimento)
+function acompanhado(s) { return ["atraso", "em_dia", "cancelada"].includes(s.status); }
+// Conta como inadimplente: em atraso ou cota cancelada
+function inadimplente(s) { return s.status === "atraso" || s.status === "cancelada"; }
 function calcSituacao(venda) {
   const cob = state.cobranca.get(venda.id) || cobrancaEstimada(venda);
   if (!cob) return { status: "sem_cobranca", parcelas: [], atrasadas: [] };
   const parcelas = gerarParcelas(venda, cob, addDays(today(), HORIZONTE_DIAS));
-  if (!cob.ativo) return { status: "inativo", cob, parcelas, atrasadas: [] };
+  const cota = situacaoCota(cob);
+  if (cota === "quitada") return { status: "quitada", cota, cob, parcelas, atrasadas: [] };
+  if (cota === "cancelada") return { status: "cancelada", cota, cob, parcelas, atrasadas: [], maxAtraso: 0 };
   const atrasadas = parcelas.filter((p) => p.status === "atraso");
   const proxima = parcelas.find((p) => p.status === "hoje" || p.status === "aberto") || null;
   return {
     status: atrasadas.length ? "atraso" : "em_dia",
+    cota,
     cob,
     parcelas,
     atrasadas,
@@ -185,10 +207,15 @@ function recalcular() {
 }
 function sit(v) { return state.situacoes.get(v.id); }
 
-const SITUACAO_LABEL = { atraso: "Em atraso", em_dia: "Em dia", sem_cobranca: "Grupo sem dia de vencimento", inativo: "Cancelada/quitada" };
+const SITUACAO_LABEL = { atraso: "Em atraso", em_dia: "Em dia", sem_cobranca: "Grupo sem dia de vencimento", quitada: "Quitada", cancelada: "Cancelada" };
 function situacaoTag(s) {
   const txt = s.status === "atraso" ? `${s.atrasadas.length} em atraso · ${s.maxAtraso}d` : SITUACAO_LABEL[s.status];
   return el("span", { class: `pv-tag ${s.status}` }, txt);
+}
+// etiqueta ao lado do nome para cotas que não são "ativa"
+function cotaTag(s) {
+  if (!s.cota || s.cota === "ativa") return null;
+  return el("span", { class: `pv-cota-tag ${s.cota}` }, SITUACOES_COTA.find((o) => o.value === s.cota).label);
 }
 function adminBadge(adm) { return el("span", { class: `admin-badge ${adm}` }, adm); }
 
@@ -464,7 +491,10 @@ function vendaById(id) { return state.vendas.find((v) => v.id === id); }
 function renderHoje() {
   const hoje = today();
   document.getElementById("hoje-data").textContent = formatDateBR(hoje);
-  const ativos = state.vendas.filter((v) => ["atraso", "em_dia"].includes(sit(v).status));
+  const acompanhados = state.vendas.filter((v) => acompanhado(sit(v)));
+  const inadimplentes = acompanhados.filter((v) => inadimplente(sit(v)));
+  // cotas canceladas não entram em "em atraso" nem em "vencem": só pesam na adimplência
+  const ativos = acompanhados.filter((v) => sit(v).status !== "cancelada");
   const atrasados = ativos.filter((v) => sit(v).status === "atraso");
   const lembretesHoje = state.lembretes.filter((l) => !l.concluido_em && parseDate(l.data) <= hoje);
   const proximos = [];
@@ -478,7 +508,7 @@ function renderHoje() {
   document.getElementById("hoje-sum-atraso").textContent = atrasados.length;
   document.getElementById("hoje-sum-hoje").textContent = proximos.filter((x) => x.d === 0).length;
   document.getElementById("hoje-sum-lembretes").textContent = lembretesHoje.length;
-  document.getElementById("hoje-sum-adimp").textContent = fmtPct(pct(ativos.length - atrasados.length, ativos.length));
+  document.getElementById("hoje-sum-adimp").textContent = fmtPct(pct(acompanhados.length - inadimplentes.length, acompanhados.length));
 
   const baixaBtn = (v, p) => el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => darBaixa(v, p.numero, isoDate(today())) }, `Baixa ${p.numero}ª hoje`);
 
@@ -514,7 +544,7 @@ function renderClientes() {
   const list = doMes.filter((v) => {
     if (adm && v.administradora !== adm) return false;
     if (vendedor && v.vendedor !== vendedor) return false;
-    if (situacao && sit(v).status !== situacao) return false;
+    if (situacao === "contemplada" ? sit(v).cota !== "contemplada" : situacao && sit(v).status !== situacao) return false;
     if (q && !`${v.cliente} ${v.numero_contrato || ""} ${v.grupo || ""} ${v.cota || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -551,6 +581,7 @@ function renderClientes() {
         el("div", { class: "pv-nome-linha" }, [
           el("span", { class: `pv-adimp ${s.status}`, title: adimplenciaTitulo(s), "aria-label": adimplenciaTitulo(s) }),
           el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => openFicha(v.id) }, v.cliente),
+          cotaTag(s),
         ]),
         el("div", { class: "pv-muted" }, [adminBadge(v.administradora), ` ${v.vendedor}`]),
       ]),
@@ -588,6 +619,8 @@ document.getElementById("cli-next").addEventListener("click", () => {
 function adimplenciaTitulo(s) {
   if (s.status === "em_dia") return "Adimplente";
   if (s.status === "atraso") return `Inadimplente — ${s.atrasadas.length} parcela${s.atrasadas.length > 1 ? "s" : ""} em atraso, ${s.maxAtraso} dia${s.maxAtraso > 1 ? "s" : ""}`;
+  if (s.status === "cancelada") return "Inadimplente — cota cancelada";
+  if (s.status === "quitada") return "Cota quitada — fora da adimplência";
   return SITUACAO_LABEL[s.status];
 }
 
@@ -608,8 +641,8 @@ function parcelaCelula(v, s, n, hoje) {
   if (pago) {
     cls = "pago"; conteudo = [formatDateBR(pago.pago_em), el("span", { class: "pv-ic ok" }, "✓")];
     title = `Paga em ${formatDateBR(pago.pago_em)} · vencimento ${formatDateBR(venc)}`;
-  } else if (!cob.ativo) {
-    cls = "na"; conteudo = "—"; title = "Cota cancelada/quitada";
+  } else if (s.status === "quitada" || s.status === "cancelada") {
+    cls = "na"; conteudo = "—"; title = `Cota ${s.status}`;
   } else if (venc < hoje) {
     cls = "atraso"; conteudo = ["NÃO PAGOU", el("span", { class: "pv-ic x" }, "✕")];
     title = `Venceu em ${formatDateBR(venc)} · ${diffDays(hoje, venc)} dias de atraso`;
@@ -746,6 +779,7 @@ function renderConfirmacoes() {
         el("div", { class: "com-cliente-nome" }, [
           el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => openFicha(v.id) }, v.cliente),
           v.parcelinha ? el("span", { class: "com-tag-parcelinha" }, "Parcelinha") : null,
+          cotaTag(s),
         ]),
         el("div", { class: "com-cliente-sub" }, `Venda em ${formatDateBR(v.data_venda)} · ${v.vendedor}`),
       ]),
@@ -819,7 +853,7 @@ function renderConfirmacoes() {
 function credito(v) { return Number(v.valor_venda) || 0; }
 function somaCredito(vendas) { return vendas.reduce((s, v) => s + credito(v), 0); }
 function statsDe(vendas) {
-  const inad = vendas.filter((v) => sit(v).status === "atraso");
+  const inad = vendas.filter((v) => inadimplente(sit(v)));
   return {
     total: vendas.length,
     inad: inad.length,
@@ -830,7 +864,7 @@ function statsDe(vendas) {
 }
 function renderAdimplencia() {
   const { adm, vendedor } = state.filters.adimplencia;
-  const base = state.vendas.filter((v) => ["atraso", "em_dia"].includes(sit(v).status)
+  const base = state.vendas.filter((v) => acompanhado(sit(v))
     && (!adm || v.administradora === adm) && (!vendedor || v.vendedor === vendedor));
   const geral = statsDe(base);
   document.getElementById("adi-pct").textContent = fmtPct(geral.pct);
@@ -844,11 +878,12 @@ function renderAdimplencia() {
   const aging = document.getElementById("adi-aging");
   aging.innerHTML = "";
   const inad = base.filter((v) => sit(v).status === "atraso");
-  AGING.forEach((b) => {
-    const n = inad.filter((v) => sit(v).maxAtraso >= b.min && sit(v).maxAtraso <= b.max).length;
+  const faixas = AGING.map((b) => ({ label: b.label, n: inad.filter((v) => sit(v).maxAtraso >= b.min && sit(v).maxAtraso <= b.max).length }));
+  faixas.push({ label: "Canceladas", n: base.filter((v) => sit(v).status === "cancelada").length });
+  faixas.forEach(({ label, n }) => {
     aging.appendChild(el("div", { class: "pv-aging-item" + (n ? " has" : "") }, [
       el("div", { class: "pv-aging-n" }, n),
-      el("div", { class: "pv-aging-label" }, b.label),
+      el("div", { class: "pv-aging-label" }, label),
     ]));
   });
 
@@ -1143,10 +1178,8 @@ function buildCobrancaForm(v, s) {
     el("label", {}, ["1ª parcela acompanhada (nº)", el("input", { type: "number", min: "1", name: "primeira_parcela_numero", value: cob.primeira_parcela_numero, required: "required" })]),
     el("label", {}, ["Vencimento dessa parcela", el("input", { type: "date", name: "primeiro_vencimento", value: cob.primeiro_vencimento, required: "required" })]),
     el("label", {}, ["Prazo (total de parcelas)", el("input", { type: "number", min: "1", name: "prazo", value: cob.prazo ?? "", placeholder: "Opcional" })]),
-    el("label", {}, ["Situação da cota", el("select", { name: "ativo" }, [
-      el("option", { value: "1", selected: cob.ativo ? "selected" : null }, "Ativa"),
-      el("option", { value: "0", selected: cob.ativo ? null : "selected" }, "Cancelada / quitada"),
-    ])]),
+    el("label", {}, ["Situação da cota", el("select", { name: "situacao", title: "Quitada sai da adimplência · Cancelada conta como inadimplente · Contemplada conta normalmente" },
+      SITUACOES_COTA.map((o) => el("option", { value: o.value, selected: situacaoCota(s.cob) === o.value ? "selected" : null }, o.label)))]),
     el("label", { class: "span-2" }, ["Observação", el("input", { name: "observacao", value: cob.observacao ?? "" })]),
   ]);
   const btn = el("button", { type: "submit", class: "btn btn-primary btn-sm" }, salva ? "Salvar alterações" : "Salvar dados de cobrança");
@@ -1175,7 +1208,8 @@ async function salvarCobranca(v, fd) {
     primeira_parcela_numero: Number(fd.get("primeira_parcela_numero")),
     primeiro_vencimento: fd.get("primeiro_vencimento"),
     prazo: fd.get("prazo") ? Number(fd.get("prazo")) : null,
-    ativo: fd.get("ativo") === "1",
+    situacao: fd.get("situacao"),
+    ativo: ["ativa", "contemplada"].includes(fd.get("situacao")), // coluna antiga, mantida em sincronia
     observacao: (fd.get("observacao") || "").trim() || null,
     updated_at: new Date().toISOString(),
   };
