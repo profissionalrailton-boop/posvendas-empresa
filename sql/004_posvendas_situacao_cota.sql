@@ -8,5 +8,5 @@ alter table public.posvendas_cobranca
   check (situacao in ('ativa', 'contemplada', 'quitada', 'cancelada'));
 
 -- cotas já marcadas como "cancelada/quitada" no modelo antigo
--- (Raniely Quaresma Cardoso — classificada conforme o usuário informou)
-update public.posvendas_cobranca set situacao = :'situacao_raniely' where not ativo;
+-- (só havia a Raniely Quaresma Cardoso, informada como cancelada)
+update public.posvendas_cobranca set situacao = 'cancelada' where not ativo;
