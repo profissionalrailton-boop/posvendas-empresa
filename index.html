@@ -161,7 +161,7 @@
         <div class="summary-row">
           <div class="summary-card total"><div class="label">Clientes que pagaram</div><div class="value" id="conf-sum-vendas">0</div></div>
           <div class="summary-card revenue"><div class="label">Parcelas confirmadas</div><div class="value" id="conf-sum-parcelas">0</div></div>
-          <div class="summary-card invested"><div class="label">Valor confirmado</div><div class="value" id="conf-sum-valor">R$ 0,00</div></div>
+          <div class="summary-card invested"><div class="label">Crédito confirmado</div><div class="value" id="conf-sum-valor">R$ 0,00</div><div class="com-card-hint">Soma do crédito dos clientes que pagaram</div></div>
           <div class="summary-card pending"><div class="label">De vendas de outros meses</div><div class="value" id="conf-sum-mes">0</div></div>
         </div>
         <div class="panel">
@@ -193,7 +193,7 @@
           <div class="summary-card revenue"><div class="label">% de adimplência</div><div class="value" id="adi-pct">—</div></div>
           <div class="summary-card total"><div class="label">Clientes acompanhados</div><div class="value" id="adi-total">0</div></div>
           <div class="summary-card pv-danger"><div class="label">Inadimplentes</div><div class="value" id="adi-inad">0</div></div>
-          <div class="summary-card pending"><div class="label">Valor em atraso</div><div class="value" id="adi-valor">R$ 0,00</div></div>
+          <div class="summary-card pending"><div class="label">Crédito em atraso</div><div class="value" id="adi-valor">R$ 0,00</div><div class="com-card-hint" id="adi-valor-hint"></div></div>
         </div>
         <div class="panel">
           <div class="panel-header"><h3>Tempo de atraso</h3><span class="panel-total">Pelo atraso mais antigo de cada cliente</span></div>
@@ -331,6 +331,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

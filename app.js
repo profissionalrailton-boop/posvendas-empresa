@@ -152,7 +152,6 @@ function calcSituacao(venda) {
   if (!cob.ativo) return { status: "inativo", cob, parcelas, atrasadas: [] };
   const atrasadas = parcelas.filter((p) => p.status === "atraso");
   const proxima = parcelas.find((p) => p.status === "hoje" || p.status === "aberto") || null;
-  const valorParcela = Number(cob.valor_parcela) || 0;
   return {
     status: atrasadas.length ? "atraso" : "em_dia",
     cob,
@@ -160,7 +159,6 @@ function calcSituacao(venda) {
     atrasadas,
     proxima,
     maxAtraso: atrasadas.length ? Math.max(...atrasadas.map((p) => p.atraso)) : 0,
-    valorAtraso: atrasadas.length * valorParcela,
     riscoEstorno: atrasadas.some((p) => p.numero <= ESTORNO_ATE_PARCELA),
   };
 }
@@ -711,14 +709,15 @@ function renderConfirmacoes() {
   const ultimaBaixa = (v) => pagasNoMes(v).reduce((m, p) => (p.pago_em > m ? p.pago_em : m), "");
   list.sort((a, b) => ultimaBaixa(b).localeCompare(ultimaBaixa(a)) || a.cliente.localeCompare(b.cliente, "pt-BR"));
 
-  let parcelas = 0, valor = 0, deOutrosMeses = 0;
+  let parcelas = 0, deOutrosMeses = 0;
   list.forEach((v) => {
-    pagasNoMes(v).forEach((p) => { parcelas++; valor += valorPagamento(v, p); });
+    parcelas += pagasNoMes(v).length;
     if (!daProducao(v)) deOutrosMeses++;
   });
   document.getElementById("conf-sum-vendas").textContent = list.length;
   document.getElementById("conf-sum-parcelas").textContent = parcelas;
-  document.getElementById("conf-sum-valor").textContent = fmtMoney(valor);
+  // crédito (produção) dos clientes que pagaram no mês, uma vez por cliente
+  document.getElementById("conf-sum-valor").textContent = fmtMoney(somaCredito(list));
   document.getElementById("conf-sum-mes").textContent = deOutrosMeses;
 
   const colunas = Math.max(CONF_PARCELAS_MIN, ...list.map((v) => Math.max(...state.pagamentos.get(v.id).keys())));
@@ -816,13 +815,17 @@ function renderConfirmacoes() {
   state.filters.adimplencia = { adm: document.getElementById("adi-adm").value, vendedor: document.getElementById("adi-vendedor").value };
   renderAdimplencia();
 }));
+// Valores somados são sempre em CRÉDITO da venda (produção), contado uma vez por cliente.
+function credito(v) { return Number(v.valor_venda) || 0; }
+function somaCredito(vendas) { return vendas.reduce((s, v) => s + credito(v), 0); }
 function statsDe(vendas) {
   const inad = vendas.filter((v) => sit(v).status === "atraso");
   return {
     total: vendas.length,
     inad: inad.length,
     pct: pct(vendas.length - inad.length, vendas.length),
-    valor: inad.reduce((s, v) => s + sit(v).valorAtraso, 0),
+    creditoTotal: somaCredito(vendas),
+    creditoAtraso: somaCredito(inad),
   };
 }
 function renderAdimplencia() {
@@ -833,7 +836,10 @@ function renderAdimplencia() {
   document.getElementById("adi-pct").textContent = fmtPct(geral.pct);
   document.getElementById("adi-total").textContent = geral.total;
   document.getElementById("adi-inad").textContent = geral.inad;
-  document.getElementById("adi-valor").textContent = fmtMoney(geral.valor);
+  document.getElementById("adi-valor").textContent = fmtMoney(geral.creditoAtraso);
+  document.getElementById("adi-valor-hint").textContent = geral.creditoTotal
+    ? `${fmtPct(pct(geral.creditoAtraso, geral.creditoTotal))} de ${fmtMoney(geral.creditoTotal)} em produção`
+    : "";
 
   const aging = document.getElementById("adi-aging");
   aging.innerHTML = "";
@@ -869,7 +875,7 @@ function renderStatsTable(id, grupos, titulo, opts = {}) {
   if (!grupos.length) { box.appendChild(emptyState("Sem clientes com dados de cobrança.")); return; }
   if (!opts.preserveOrder) grupos.sort((a, b) => (a.pct ?? 101) - (b.pct ?? 101) || b.total - a.total);
   const table = el("table", { class: "pv-table pv-stats" }, [
-    el("thead", {}, [el("tr", {}, [el("th", {}, titulo), el("th", {}, "Clientes"), el("th", {}, "Inadimplentes"), el("th", {}, "Em atraso"), el("th", { class: "pv-bar-col" }, "Adimplência")])]),
+    el("thead", {}, [el("tr", {}, [el("th", {}, titulo), el("th", {}, "Clientes"), el("th", {}, "Inadimplentes"), el("th", {}, "Crédito em atraso"), el("th", { class: "pv-bar-col" }, "Adimplência")])]),
   ]);
   const tbody = el("tbody");
   grupos.forEach((g) => {
@@ -878,7 +884,7 @@ function renderStatsTable(id, grupos, titulo, opts = {}) {
       el("td", { class: "pv-strong" }, g.label),
       el("td", {}, g.total),
       el("td", {}, g.inad),
-      el("td", {}, fmtMoney(g.valor)),
+      el("td", {}, fmtMoney(g.creditoAtraso)),
       el("td", { class: "pv-bar-col" }, [el("div", { class: "pv-bar" }, [
         el("div", { class: "pv-bar-track" }, [el("div", { class: `pv-bar-fill ${cls}`, style: `width:${g.pct ?? 0}%` })]),
         el("span", { class: "pv-bar-val" }, fmtPct(g.pct)),
