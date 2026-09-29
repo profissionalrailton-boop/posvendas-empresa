@@ -349,6 +349,9 @@ function renderMonthNav() {
   const m = state.producaoMes;
   document.getElementById("month-label").textContent = `${MONTH_NAMES[m.getMonth()]} ${m.getFullYear()}`;
   document.getElementById("prev-month").disabled = m <= primeiroMesProducao();
+  document.getElementById("month-hint").textContent = state.activeTab === "confirmacoes"
+    ? "Pagamentos: parcelas com baixa nesse mês"
+    : "Produção: clientes vendidos no mês";
 }
 function mudarMes(delta) {
   const m = state.producaoMes;
@@ -684,8 +687,18 @@ const CONF_PARCELAS_MIN = 8;
     renderConfirmacoes();
   });
 });
+// Confirmações = pagamentos do mês: a venda entra no mês em que a parcela foi PAGA (data da baixa),
+// não no mês da venda. Ex.: venda de julho com parcela paga em setembro aparece em setembro.
+function pagasNoMes(v) {
+  const mes = mesKey(state.producaoMes);
+  return [...(state.pagamentos.get(v.id) || new Map()).values()].filter((p) => p.pago_em.slice(0, 7) === mes);
+}
+function valorPagamento(v, p) {
+  // baixas antigas podem ter ficado sem valor gravado: usa o valor da parcela do cadastro
+  return Number(p.valor ?? sit(v).cob?.valor_parcela ?? v.demais_parcelas) || 0;
+}
 function renderConfirmacoes() {
-  const comBaixa = state.vendas.filter((v) => daProducao(v) && state.pagamentos.get(v.id)?.size);
+  const comBaixa = state.vendas.filter((v) => pagasNoMes(v).length);
   const { search, adm, vendedor } = state.filters.confirmacoes;
   const q = search.trim().toLowerCase();
   const list = comBaixa.filter((v) => {
@@ -694,21 +707,19 @@ function renderConfirmacoes() {
     if (q && !`${v.cliente} ${v.numero_contrato || ""} ${v.grupo || ""} ${v.cota || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  // mais recente confirmação primeiro
-  const ultimaBaixa = (v) => [...state.pagamentos.get(v.id).values()].reduce((m, p) => (p.pago_em > m ? p.pago_em : m), "");
+  // pagamento mais recente do mês primeiro
+  const ultimaBaixa = (v) => pagasNoMes(v).reduce((m, p) => (p.pago_em > m ? p.pago_em : m), "");
   list.sort((a, b) => ultimaBaixa(b).localeCompare(ultimaBaixa(a)) || a.cliente.localeCompare(b.cliente, "pt-BR"));
 
-  const mesAtual = isoDate(today()).slice(0, 7);
-  let parcelas = 0, valor = 0, doMes = 0;
-  list.forEach((v) => state.pagamentos.get(v.id).forEach((p) => {
-    parcelas++;
-    valor += Number(p.valor) || 0;
-    if (p.pago_em.slice(0, 7) === mesAtual) doMes++;
-  }));
+  let parcelas = 0, valor = 0, deOutrosMeses = 0;
+  list.forEach((v) => {
+    pagasNoMes(v).forEach((p) => { parcelas++; valor += valorPagamento(v, p); });
+    if (!daProducao(v)) deOutrosMeses++;
+  });
   document.getElementById("conf-sum-vendas").textContent = list.length;
   document.getElementById("conf-sum-parcelas").textContent = parcelas;
   document.getElementById("conf-sum-valor").textContent = fmtMoney(valor);
-  document.getElementById("conf-sum-mes").textContent = doMes;
+  document.getElementById("conf-sum-mes").textContent = deOutrosMeses;
 
   const colunas = Math.max(CONF_PARCELAS_MIN, ...list.map((v) => Math.max(...state.pagamentos.get(v.id).keys())));
   const thead = document.getElementById("conf-thead");
@@ -723,7 +734,7 @@ function renderConfirmacoes() {
   tbody.innerHTML = "";
   if (!list.length) {
     tbody.appendChild(el("tr", {}, [el("td", { colspan: String(6 + colunas), class: "empty-state" },
-      comBaixa.length ? "Nenhuma venda com os filtros atuais." : "Nenhuma baixa nas vendas desse mês. Elas aparecem aqui assim que uma parcela for marcada como paga.")]));
+      comBaixa.length ? "Nenhuma venda com os filtros atuais." : "Nenhuma parcela paga nesse mês. Os clientes aparecem aqui assim que uma parcela receber baixa com data desse mês.")]));
     return;
   }
   list.forEach((v) => {
@@ -772,10 +783,17 @@ function renderConfirmacoes() {
         })]));
         continue;
       }
+      if (pago.pago_em.slice(0, 7) !== mesKey(state.producaoMes)) {
+        // paga em outro mês: aparece como histórico, travada (é desfeita no mês em que foi paga)
+        const box = el("input", { type: "checkbox", class: "com-check pv-check-adm", disabled: "disabled", title: `Paga em ${formatDateBR(pago.pago_em)} (outro mês)`, "aria-label": `Parcela ${n} de ${v.cliente}` });
+        box.checked = true;
+        tr.appendChild(el("td", { class: "com-p" }, [box]));
+        continue;
+      }
       const box = el("input", {
         type: "checkbox",
         class: "com-check",
-        title: `Paga em ${formatDateBR(pago.pago_em)}${pago.valor ? " · " + fmtMoney(Number(pago.valor)) : ""} — desmarque para desfazer a baixa`,
+        title: `Paga em ${formatDateBR(pago.pago_em)} · ${fmtMoney(valorPagamento(v, pago))} — desmarque para desfazer a baixa`,
         "aria-label": `Parcela ${n} de ${v.cliente}`,
       });
       box.checked = true;
@@ -997,8 +1015,9 @@ async function salvarDiaGrupo(administradora, grupo, input) {
 // ---------- baixa manual ----------
 async function darBaixa(venda, numero, pagoEm) {
   if (!pagoEm) { showToast("Informe a data do pagamento."); return; }
-  const cob = state.cobranca.get(venda.id);
-  const row = { venda_id: venda.id, numero, pago_em: pagoEm, valor: cob?.valor_parcela ?? null, created_by: userEmail() };
+  // valor da parcela: da cobrança salva ou da estimada pelo cadastro (demais_parcelas)
+  const valor = sit(venda)?.cob?.valor_parcela ?? venda.demais_parcelas ?? null;
+  const row = { venda_id: venda.id, numero, pago_em: pagoEm, valor, created_by: userEmail() };
   const { error } = await sb.from("posvendas_pagamentos").upsert(row);
   if (error) { showToast("Erro ao dar baixa: " + error.message); return; }
   if (!state.pagamentos.has(venda.id)) state.pagamentos.set(venda.id, new Map());

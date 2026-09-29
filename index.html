@@ -96,7 +96,7 @@
         <button class="icon-btn" id="prev-month" type="button" title="Mês anterior">‹</button>
         <div class="month-label" id="month-label">-</div>
         <button class="icon-btn" id="next-month" type="button" title="Próximo mês">›</button>
-        <span class="pv-today">Produção: clientes vendidos no mês</span>
+        <span class="pv-today" id="month-hint">Produção: clientes vendidos no mês</span>
       </div>
 
       <!-- HOJE -->
@@ -157,12 +157,12 @@
 
       <!-- CONFIRMAÇÕES -->
       <div id="tab-confirmacoes" class="hidden">
-        <div class="pv-page-head"><h2>Confirmações</h2><span class="pv-today">Só aparecem vendas com pelo menos uma parcela com baixa</span></div>
+        <div class="pv-page-head"><h2>Confirmações</h2><span class="pv-today">Clientes que pagaram parcela no mês (pela data da baixa)</span></div>
         <div class="summary-row">
-          <div class="summary-card total"><div class="label">Vendas com baixa</div><div class="value" id="conf-sum-vendas">0</div></div>
+          <div class="summary-card total"><div class="label">Clientes que pagaram</div><div class="value" id="conf-sum-vendas">0</div></div>
           <div class="summary-card revenue"><div class="label">Parcelas confirmadas</div><div class="value" id="conf-sum-parcelas">0</div></div>
           <div class="summary-card invested"><div class="label">Valor confirmado</div><div class="value" id="conf-sum-valor">R$ 0,00</div></div>
-          <div class="summary-card pending"><div class="label">Confirmadas este mês</div><div class="value" id="conf-sum-mes">0</div></div>
+          <div class="summary-card pending"><div class="label">De vendas de outros meses</div><div class="value" id="conf-sum-mes">0</div></div>
         </div>
         <div class="panel">
           <div class="panel-header"><h3>Parcelas pagas por venda</h3>
@@ -331,6 +331,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
