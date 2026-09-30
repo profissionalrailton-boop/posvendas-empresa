@@ -548,9 +548,11 @@ function renderClientes() {
     if (q && !`${v.cliente} ${v.numero_contrato || ""} ${v.grupo || ""} ${v.cota || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  // ordem: dia de vencimento (VENC do grupo); mesmo dia, por nome; sem dia de vencimento no final
+  // ordem: dia de vencimento (VENC do grupo); mesmo dia, por nome; sem dia de vencimento no final;
+  // cotas canceladas sempre por último
   const diaDe = (v) => state.grupos.get(grupoKey(v.administradora, v.grupo)) ?? 99;
-  list.sort((a, b) => diaDe(a) - diaDe(b) || a.cliente.localeCompare(b.cliente, "pt-BR"));
+  const cancelada = (v) => (sit(v).status === "cancelada" ? 1 : 0);
+  list.sort((a, b) => cancelada(a) - cancelada(b) || diaDe(a) - diaDe(b) || a.cliente.localeCompare(b.cliente, "pt-BR"));
   document.getElementById("clientes-count").textContent = list.length === doMes.length
     ? `${doMes.length} cliente${doMes.length === 1 ? "" : "s"} na produção`
     : `${list.length} de ${doMes.length} clientes na produção`;
@@ -1235,7 +1237,7 @@ function buildParcelas(v, s) {
     : null));
   if (!lista.length) { wrap.appendChild(emptyState("Nenhuma parcela no período.")); return wrap; }
   const tbody = el("tbody");
-  [...lista].reverse().forEach((p) => {
+  lista.forEach((p) => { // ordem crescente: 2ª, 3ª, 4ª...
     const statusTxt = p.pagamento ? `Pago em ${formatDateBR(p.pagamento.pago_em)}` : p.status === "atraso" ? `${p.atraso} dia${p.atraso > 1 ? "s" : ""} de atraso` : p.status === "hoje" ? "Vence hoje" : "A vencer";
     const statusCls = p.pagamento ? "em_dia" : p.status === "atraso" ? "atraso" : p.status === "hoje" ? "sem_cobranca" : "aberto";
     let acao;
