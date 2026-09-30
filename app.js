@@ -1151,10 +1151,13 @@ function renderFicha() {
 
 function sugestaoCobranca(v) {
   // Acompanhamos a partir da parcela seguinte à última já paga no administrativo (adesão, antecipadas
-  // ou mapa de comissão). Cada parcela paga cobre um mês: a 2ª vence no mês depois da venda.
+  // ou mapa de comissão). A 1ª parcela (paga no fechamento) vale para a PRIMEIRA ASSEMBLEIA do cliente,
+  // então a 2ª vence no mês seguinte à assembleia; sem data de assembleia, no mês seguinte à venda.
+  // Cada parcela já paga cobre um mês. Ex.: venda 20/09, assembleia 20/10 → 2ª vence em novembro.
   const primeira = Math.max(2, ultimaPagaAdm(v) + 1);
   const venda = parseDate(v.data_venda);
-  const mes = new Date(venda.getFullYear(), venda.getMonth() + 1 + (primeira - 2), 1);
+  const base = v.data_assembleia ? parseDate(v.data_assembleia) : venda;
+  const mes = new Date(base.getFullYear(), base.getMonth() + 1 + (primeira - 2), 1);
   const diaGrupo = state.grupos.get(grupoKey(v.administradora, v.grupo));
   const dia = Math.min(diaGrupo || venda.getDate(), lastDayOfMonth(mes.getFullYear(), mes.getMonth()));
   return {
