@@ -633,7 +633,16 @@ function parcelaCelula(v, s, n, hoje) {
   if (!pago && adm) {
     // já chega paga do administrativo: não precisa de baixa, só da oferta de lance
     const txt = { adesao: "Adesão", antecipada: "Antecipada", administrativo: "Paga" }[adm.origem];
-    return el("span", { class: "pv-cell pago adm", title: ORIGEM_LABEL[adm.origem] }, [txt, el("span", { class: "pv-ic ok" }, "✓")]);
+    const marca = [txt, el("span", { class: "pv-ic ok" }, "✓")];
+    // antecipada: mostra embaixo o vencimento que essa parcela teria (o mês que ela cobriu)
+    const vencOriginal = adm.origem === "antecipada" && cob ? vencimentoParcela(v, cob, n) : null;
+    if (vencOriginal) {
+      return el("span", { class: "pv-cell pago adm pv-cell-sub", title: `${ORIGEM_LABEL[adm.origem]} — cobriu o vencimento de ${formatDateBR(vencOriginal)}` }, [
+        el("span", { class: "pv-cell-linha" }, marca),
+        el("span", { class: "pv-cell-venc" }, `venc. ${formatDateBR(vencOriginal)}`),
+      ]);
+    }
+    return el("span", { class: "pv-cell pago adm", title: ORIGEM_LABEL[adm.origem] }, marca);
   }
   if (!cob) return el("span", { class: "pv-cell na", title: "Grupo sem dia de vencimento" }, "—");
   if (!pago && n < cob.primeira_parcela_numero) return el("span", { class: "pv-cell na", title: "Antes da primeira parcela acompanhada" }, "—");
@@ -794,7 +803,8 @@ function renderConfirmacoes() {
       const pago = pagos.get(n);
       const adm = state.pagasAdm.get(v.id)?.get(n);
       if (!pago && adm) {
-        const box = el("input", { type: "checkbox", class: "com-check pv-check-adm", disabled: "disabled", title: ORIGEM_LABEL[adm.origem], "aria-label": `Parcela ${n} de ${v.cliente}` });
+        const vencOriginal = adm.origem === "antecipada" && s.cob ? vencimentoParcela(v, s.cob, n) : null;
+        const box = el("input", { type: "checkbox", class: "com-check pv-check-adm", disabled: "disabled", title: ORIGEM_LABEL[adm.origem] + (vencOriginal ? ` — cobriu o vencimento de ${formatDateBR(vencOriginal)}` : ""), "aria-label": `Parcela ${n} de ${v.cliente}` });
         box.checked = true;
         tr.appendChild(el("td", { class: "com-p" }, [box]));
         continue;
