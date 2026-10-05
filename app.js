@@ -25,6 +25,8 @@ let state = {
   comissaoAte: new Map(), // venda_id -> { ate_parcela, recebido_em } (mapa de comissão do administrativo)
   pagasAdm: new Map(),    // venda_id -> Map(numero -> pagamento vindo do administrativo), calculado em recalcular()
   lancesOk: true,         // false se a tabela posvendas_lances ainda não existir
+  controle: new Map(),    // venda_id -> "Controle feito" (primeiro contato do pós-vendas)
+  controleOk: true,       // false se a tabela posvendas_controle ainda não existir
   clientesInicio: 2,      // primeira parcela mostrada na grade da aba Clientes
   producaoMes: (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); })(), // abas Clientes e Confirmações
   lembretes: [],
@@ -32,8 +34,8 @@ let state = {
   situacoes: new Map(),   // venda_id -> resultado de calcSituacao
   fichaId: null,
   filters: {
-    clientes: { search: "", adm: "", vendedor: "", situacao: "" },
-    confirmacoes: { search: "", adm: "", vendedor: "" },
+    clientes: { search: "", adm: "", vendedor: "", situacao: "", controle: "" },
+    confirmacoes: { search: "", adm: "", vendedor: "", comissao: "" },
     adimplencia: { adm: "", vendedor: "" },
   },
 };
@@ -418,7 +420,7 @@ async function loadAll() {
     });
     state.lembretes = lembretes;
     state.promessas = promessas;
-    await Promise.all([loadLances(), loadPagasAdministrativo()]);
+    await Promise.all([loadLances(), loadPagasAdministrativo(), loadControle()]);
     recalcular();
     populateFilterOptions();
     renderActiveTab();
@@ -439,6 +441,30 @@ async function loadLances() {
   } catch (err) {
     state.lancesOk = false; // tabela ainda não criada: a grade mostra os checkboxes de lance desativados
   }
+}
+async function loadControle() {
+  try {
+    const rows = await fetchAllRows(() => sb.from("posvendas_controle").select("venda_id, feito_em").order("venda_id"));
+    state.controle = new Map(rows.map((r) => [r.venda_id, r]));
+    state.controleOk = true;
+  } catch (err) {
+    state.controle = new Map();
+    state.controleOk = false; // tabela ainda não criada: a caixinha aparece desativada
+  }
+}
+async function toggleControle(v, box) {
+  const marcar = box.checked;
+  box.disabled = true;
+  const row = { venda_id: v.id, feito_em: isoDate(today()), created_by: userEmail() };
+  const { error } = marcar
+    ? await sb.from("posvendas_controle").upsert(row)
+    : await sb.from("posvendas_controle").delete().eq("venda_id", v.id);
+  box.disabled = false;
+  if (error) { box.checked = !marcar; showToast("Erro ao salvar: " + error.message); return; }
+  if (marcar) state.controle.set(v.id, row); else state.controle.delete(v.id);
+  // com o filtro de controle ativo, o cliente sai/entra da lista
+  if (state.filters.clientes.controle) renderClientes();
+  else box.title = marcar ? `Primeiro contato feito em ${formatDateBR(row.feito_em)}` : "Marcar primeiro contato feito";
 }
 async function loadPagasAdministrativo() {
   const { data, error } = await sb.rpc("posvendas_pagas_administrativo");
@@ -526,25 +552,28 @@ function fillList(id, items, emptyMsg, render) {
 }
 
 // ---------- CLIENTES ----------
-["cli-search", "cli-adm", "cli-vendedor", "cli-situacao"].forEach((id) => {
+["cli-search", "cli-adm", "cli-vendedor", "cli-situacao", "cli-controle"].forEach((id) => {
   document.getElementById(id).addEventListener(id === "cli-search" ? "input" : "change", () => {
     state.filters.clientes = {
       search: document.getElementById("cli-search").value,
       adm: document.getElementById("cli-adm").value,
       vendedor: document.getElementById("cli-vendedor").value,
       situacao: document.getElementById("cli-situacao").value,
+      controle: document.getElementById("cli-controle").value,
     };
     renderClientes();
   });
 });
 function renderClientes() {
-  const { search, adm, vendedor, situacao } = state.filters.clientes;
+  const { search, adm, vendedor, situacao, controle } = state.filters.clientes;
   const q = search.trim().toLowerCase();
   const doMes = state.vendas.filter(daProducao);
   const list = doMes.filter((v) => {
     if (adm && v.administradora !== adm) return false;
     if (vendedor && v.vendedor !== vendedor) return false;
     if (situacao === "contemplada" ? sit(v).cota !== "contemplada" : situacao && sit(v).status !== situacao) return false;
+    if (controle === "feito" && !state.controle.has(v.id)) return false;
+    if (controle === "pendente" && state.controle.has(v.id)) return false;
     if (q && !`${v.cliente} ${v.numero_contrato || ""} ${v.grupo || ""} ${v.cota || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -567,12 +596,13 @@ function renderClientes() {
   thead.appendChild(el("tr", {}, [
     el("th", {}, "Cliente"), el("th", {}, "Grupo / cota"), el("th", {}, "Parcela"),
     ...numeros.flatMap((n) => [el("th", { class: "pv-grid-parc" }, `${n}ª`), el("th", { class: "pv-grid-lance" }, "Lance")]),
+    el("th", { class: "pv-grid-controle" }, "Controle feito"),
   ]));
 
   const tbody = document.getElementById("clientes-tbody");
   tbody.innerHTML = "";
   if (!list.length) {
-    tbody.appendChild(el("tr", {}, [el("td", { colspan: String(3 + CLIENTES_COLUNAS * 2) }, [emptyState(doMes.length ? "Nenhum cliente com os filtros atuais." : "Nenhuma venda nesse mês.")])]));
+    tbody.appendChild(el("tr", {}, [el("td", { colspan: String(4 + CLIENTES_COLUNAS * 2) }, [emptyState(doMes.length ? "Nenhum cliente com os filtros atuais." : "Nenhuma venda nesse mês.")])]));
     return;
   }
   const hoje = today();
@@ -604,6 +634,18 @@ function renderClientes() {
       box.addEventListener("change", () => toggleLance(v, n, box));
       tr.appendChild(el("td", { class: "pv-grid-lance" }, [box]));
     });
+    // Controle feito: primeiro contato do pós-vendas com o cliente
+    const ctrl = state.controle.get(v.id);
+    const ctrlBox = el("input", {
+      type: "checkbox",
+      class: "com-check",
+      disabled: state.controleOk ? null : "disabled",
+      title: !state.controleOk ? "Controle ainda não disponível" : ctrl ? `Primeiro contato feito em ${formatDateBR(ctrl.feito_em)}` : "Marcar primeiro contato feito",
+      "aria-label": `Controle feito de ${v.cliente}`,
+    });
+    ctrlBox.checked = !!ctrl;
+    ctrlBox.addEventListener("change", () => toggleControle(v, ctrlBox));
+    tr.appendChild(el("td", { class: "pv-grid-controle" }, [ctrlBox]));
     tbody.appendChild(tr);
   });
 }
@@ -719,12 +761,13 @@ document.getElementById("baixa-desfazer").addEventListener("click", async () => 
 // Igual ao mapa de comissão do administrativo, mas para as baixas: só entra venda com pelo menos
 // uma parcela paga, e cada coluna mostra se aquela parcela já teve baixa.
 const CONF_PARCELAS_MIN = 8;
-["conf-search", "conf-adm", "conf-vendedor"].forEach((id) => {
+["conf-search", "conf-adm", "conf-vendedor", "conf-comissao"].forEach((id) => {
   document.getElementById(id).addEventListener(id === "conf-search" ? "input" : "change", () => {
     state.filters.confirmacoes = {
       search: document.getElementById("conf-search").value,
       adm: document.getElementById("conf-adm").value,
       vendedor: document.getElementById("conf-vendedor").value,
+      comissao: document.getElementById("conf-comissao").value,
     };
     renderConfirmacoes();
   });
@@ -735,12 +778,29 @@ function pagasNoMes(v) {
   const mes = mesKey(state.producaoMes);
   return [...(state.pagamentos.get(v.id) || new Map()).values()].filter((p) => p.pago_em.slice(0, 7) === mes);
 }
+// Comissão do pós-vendas: só algumas parcelas pagas entram.
+//   Parcelinha → até a 8ª parcela · Âncora → até a 3ª parcela · demais → não entram
+// Parcelinha segue o mesmo critério do mapa de comissão do administrativo (flag ou tabela "parcelinha").
+function ehParcelinha(v) {
+  const t = (v.tabela || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return !!v.parcelinha || t.includes("parcelinha");
+}
+function parcelaComissionada(v, numero) {
+  if (ehParcelinha(v)) return numero <= 8;
+  if (v.administradora === "Âncora") return numero <= 3;
+  return false;
+}
+// parcelas pagas no mês que entram no filtro de comissão escolhido ("" = todas)
+function pagasConsideradas(v) {
+  const filtro = state.filters.confirmacoes.comissao;
+  return pagasNoMes(v).filter((p) => !filtro || (filtro === "comissionadas") === parcelaComissionada(v, p.numero));
+}
 function valorPagamento(v, p) {
   // baixas antigas podem ter ficado sem valor gravado: usa o valor da parcela do cadastro
   return Number(p.valor ?? sit(v).cob?.valor_parcela ?? v.demais_parcelas) || 0;
 }
 function renderConfirmacoes() {
-  const comBaixa = state.vendas.filter((v) => pagasNoMes(v).length);
+  const comBaixa = state.vendas.filter((v) => pagasConsideradas(v).length);
   const { search, adm, vendedor } = state.filters.confirmacoes;
   const q = search.trim().toLowerCase();
   const list = comBaixa.filter((v) => {
@@ -755,7 +815,7 @@ function renderConfirmacoes() {
 
   let parcelas = 0, deOutrosMeses = 0;
   list.forEach((v) => {
-    parcelas += pagasNoMes(v).length;
+    parcelas += pagasConsideradas(v).length;
     if (!daProducao(v)) deOutrosMeses++;
   });
   document.getElementById("conf-sum-vendas").textContent = list.length;
@@ -789,8 +849,10 @@ function renderConfirmacoes() {
       el("td", { class: "com-cliente" }, [
         el("div", { class: "com-cliente-nome" }, [
           el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => openFicha(v.id) }, v.cliente),
-          v.parcelinha ? el("span", { class: "com-tag-parcelinha" }, "Parcelinha") : null,
+          ehParcelinha(v) ? el("span", { class: "com-tag-parcelinha" }, "Parcelinha") : null,
           cotaTag(s),
+          pagasNoMes(v).some((p) => parcelaComissionada(v, p.numero))
+            ? el("span", { class: "pv-tag-comissao", title: "Tem parcela paga no mês que entra na comissão do pós-vendas" }, "Comissão PV") : null,
         ]),
         el("div", { class: "com-cliente-sub" }, `Venda em ${formatDateBR(v.data_venda)} · ${v.vendedor}`),
       ]),
@@ -835,10 +897,11 @@ function renderConfirmacoes() {
         tr.appendChild(el("td", { class: "com-p" }, [box]));
         continue;
       }
+      const comissionada = parcelaComissionada(v, n);
       const box = el("input", {
         type: "checkbox",
-        class: "com-check",
-        title: `Paga em ${formatDateBR(pago.pago_em)} · ${fmtMoney(valorPagamento(v, pago))} — desmarque para desfazer a baixa`,
+        class: "com-check" + (comissionada ? " pv-check-com" : ""),
+        title: `Paga em ${formatDateBR(pago.pago_em)} · ${fmtMoney(valorPagamento(v, pago))}${comissionada ? " · entra na comissão do pós-vendas" : ""} — desmarque para desfazer a baixa`,
         "aria-label": `Parcela ${n} de ${v.cliente}`,
       });
       box.checked = true;
@@ -999,13 +1062,16 @@ function lembreteRow(l, opts = {}) {
   const quando = l.concluido_em ? `Concluído em ${formatDateTimeBR(l.concluido_em)}`
     : atraso > 0 ? `Atrasado ${atraso} dia${atraso > 1 ? "s" : ""} (${formatDateBR(l.data)})`
     : atraso === 0 ? "Hoje" : formatDateBR(l.data);
+  // ordem: data · nome do cliente · informação (na ficha do cliente o nome é omitido)
   return el("div", { class: "pend-client-row pv-row" + (l.concluido_em ? " pv-done" : "") }, [
     el("span", { class: "pv-lembrete-data" + (atraso > 0 ? " late" : "") }, quando),
+    opts.semCliente ? null : el("span", { class: "pv-lembrete-cliente" }, [
+      v ? el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => openFicha(v.id) }, v.cliente) : el("span", { class: "pv-muted" }, "—"),
+    ]),
     el("div", { class: "pv-lembrete-txt" }, [
       el("div", { class: "pv-strong" }, [l.titulo, l.repetir_dias ? el("span", { class: "pv-repeat", title: "Repete a cada " + l.repetir_dias + " dias" }, ` ↻ ${l.repetir_dias}d`) : null]),
       l.descricao ? el("div", { class: "pv-muted" }, l.descricao) : null,
     ]),
-    v && !opts.semCliente ? el("button", { type: "button", class: "pv-link", onclick: () => openFicha(v.id) }, v.cliente) : null,
     l.concluido_em
       ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => reabrirLembrete(l) }, "Reabrir")
       : el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => concluirLembrete(l) }, "Concluir"),

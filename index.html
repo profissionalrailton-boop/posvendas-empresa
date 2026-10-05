@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="posvendas.css?v=16" />
+<link rel="stylesheet" href="posvendas.css?v=18" />
 </head>
 <body>
 <div id="app">
@@ -138,6 +138,11 @@
             <option value="quitada">Quitada</option>
             <option value="cancelada">Cancelada</option>
           </select>
+          <select id="cli-controle">
+            <option value="">Controle: todos</option>
+            <option value="feito">Controle feito</option>
+            <option value="pendente">Controle não feito</option>
+          </select>
         </div>
         <div class="panel">
           <div class="panel-header"><h3>Parcelas e oferta de lance</h3>
@@ -174,6 +179,11 @@
             <input type="search" id="conf-search" placeholder="Buscar cliente, contrato, grupo ou cota" />
             <select id="conf-adm"><option value="">Todas as administradoras</option></select>
             <select id="conf-vendedor"><option value="">Todos os vendedores</option></select>
+            <select id="conf-comissao" title="Comissão do pós-vendas: parcelinha até a 8ª parcela, Âncora até a 3ª">
+              <option value="">Confirmações totais</option>
+              <option value="comissionadas">Só comissionadas (pós-vendas)</option>
+              <option value="nao">Não comissionadas</option>
+            </select>
           </div>
           <div class="table-scroll">
             <table class="bills-table comissao-table">
@@ -333,6 +343,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
