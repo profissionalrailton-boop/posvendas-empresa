@@ -72,6 +72,8 @@ function formatDateBR(s) {
   const d = typeof s === "string" ? parseDate(s) : s;
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
+// dd/mm/aa — usada nas células da grade de Clientes, onde o espaço é curto
+function formatDateCurta(s) { return formatDateBR(s).replace(/\/\d{2}(\d{2})$/, "/$1"); }
 function formatDateTimeBR(s) {
   const d = new Date(s);
   return `${formatDateBR(d)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -594,7 +596,7 @@ function renderClientes() {
   const thead = document.getElementById("clientes-thead");
   thead.innerHTML = "";
   thead.appendChild(el("tr", {}, [
-    el("th", {}, "Cliente"), el("th", {}, "Grupo / cota"), el("th", {}, "Parcela"),
+    el("th", {}, "Cliente"), el("th", {}, "Grupo/cota"), el("th", {}, "Parcela"),
     ...numeros.flatMap((n) => [el("th", { class: "pv-grid-parc" }, `${n}ª`), el("th", { class: "pv-grid-lance" }, "Lance")]),
     el("th", { class: "pv-grid-controle" }, "Controle feito"),
   ]));
@@ -681,7 +683,7 @@ function parcelaCelula(v, s, n, hoje) {
     if (vencOriginal) {
       return el("span", { class: "pv-cell pago adm pv-cell-sub", title: `${ORIGEM_LABEL[adm.origem]} — cobriu o vencimento de ${formatDateBR(vencOriginal)}` }, [
         el("span", { class: "pv-cell-linha" }, marca),
-        el("span", { class: "pv-cell-venc" }, `venc. ${formatDateBR(vencOriginal)}`),
+        el("span", { class: "pv-cell-venc" }, `venc. ${formatDateCurta(vencOriginal)}`),
       ]);
     }
     return el("span", { class: "pv-cell pago adm", title: ORIGEM_LABEL[adm.origem] }, marca);
@@ -692,7 +694,7 @@ function parcelaCelula(v, s, n, hoje) {
   const venc = vencimentoParcela(v, cob, n);
   let cls, conteudo, title;
   if (pago) {
-    cls = "pago"; conteudo = [formatDateBR(pago.pago_em), el("span", { class: "pv-ic ok" }, "✓")];
+    cls = "pago"; conteudo = [formatDateCurta(pago.pago_em), el("span", { class: "pv-ic ok" }, "✓")];
     title = `Paga em ${formatDateBR(pago.pago_em)} · vencimento ${formatDateBR(venc)}`;
   } else if (s.status === "quitada" || s.status === "cancelada") {
     cls = "na"; conteudo = "—"; title = `Cota ${s.status}`;

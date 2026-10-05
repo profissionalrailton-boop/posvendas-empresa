@@ -125,6 +125,35 @@ button.pv-cell:hover { border-color: var(--primary); }
 .pv-ic.x { color: var(--danger); font-size: 13px; }
 :root[data-theme="light"] .pv-ic.ok { color: #fff; }
 
+/* Grade da aba Clientes compacta: cabe inteira em notebook (1280–1366px) sem rolar de lado */
+table.pv-grid { font-size: 12.5px; }
+table.pv-grid th { font-size: 10px; letter-spacing: 0.03em; }
+table.pv-grid th, table.pv-grid td { padding: 7px 4px; }
+table.pv-grid th:first-child, table.pv-grid td:first-child { padding-left: 14px; }
+table.pv-grid th:last-child, table.pv-grid td:last-child { padding-right: 12px; }
+.pv-grid-nome { min-width: 150px; max-width: 200px; }
+.pv-grid-nome .pend-client-name { font-size: 12.5px; line-height: 1.25; }
+.pv-grid-nome .pv-muted { font-size: 11px; gap: 5px; margin-top: 3px; }
+.pv-grid-nome .admin-badge { font-size: 9px; padding: 1px 6px; }
+.pv-grid-nome .pv-cota-tag { font-size: 9px; padding: 1px 6px; flex: none; }
+/* nome longo + etiqueta: a etiqueta desce para a linha de baixo em vez de espremer o nome */
+.pv-grid-nome .pv-nome-linha { flex-wrap: wrap; row-gap: 3px; }
+.pv-grid-nome .pv-nome-linha .pend-client-name { flex: 1 1 120px; }
+table.pv-grid th.pv-grid-controle { white-space: normal; line-height: 1.2; width: 58px; }
+.pv-grid .pv-cell { min-width: 80px; padding: 4px 5px; font-size: 11.5px; gap: 4px; }
+.pv-grid .pv-cell.atraso { font-size: 10.5px; letter-spacing: 0; }
+.pv-grid .pv-ic { width: 14px; height: 14px; font-size: 10px; }
+.pv-grid .pv-cell-venc { font-size: 10px; }
+.pv-grid .com-check { width: 18px; height: 18px; }
+.pv-grid .com-check:checked::after { left: 5px; top: 1px; }
+@media (max-width: 1200px) {
+  main { padding-left: 16px; padding-right: 16px; }
+  .pv-grid-nome { min-width: 130px; }
+  table.pv-grid th, table.pv-grid td { padding-left: 3px; padding-right: 3px; }
+  .pv-grid .pv-cell { min-width: 0; padding: 4px; font-size: 11px; }
+  .pv-grid .pv-cell.atraso { font-size: 10px; }
+}
+
 .pv-baixa-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 
 /* ---------- confirmações ---------- */
