@@ -8,7 +8,6 @@ const PAINEL_META_PARCELINHA = 3000000;
 const PAINEL_META_NORMAL = 1000000;
 const MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
-const brl0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const brl2 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const num = new Intl.NumberFormat("pt-BR");
 const pctFmt = (v) => (v === null || v === undefined || !isFinite(v) ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`);
@@ -97,16 +96,16 @@ async function carregarPainel() {
   const desenharKpis = () => {
     kpis.innerHTML = "";
     kpis.appendChild(k.vendas
-      ? card("Crédito vendido no mês", brl0.format(k.vendas.credito), `${num.format(k.vendas.qtd)} vendas · ${k.vendas.variacaoTexto}`, { destaque: true })
+      ? card("Crédito vendido no mês", brl2.format(k.vendas.credito), `${num.format(k.vendas.qtd)} vendas · ${k.vendas.variacaoTexto}`, { destaque: true })
       : card("Crédito vendido no mês", "…"));
     kpis.appendChild(k.pos
       ? card("Adimplência", pctFmt(k.pos.pctAdimplencia), `${num.format(k.pos.inadimplentes)} inadimplentes de ${num.format(k.pos.acompanhados)}`, { status: k.pos.pctAdimplencia >= 90 ? "bom" : k.pos.pctAdimplencia >= 75 ? "atencao" : "critico" })
       : card("Adimplência", k.pos === false ? "—" : "…", k.pos === false ? "sem acesso aos dados" : null));
     kpis.appendChild(k.fin
-      ? card("Resultado do mês", brl0.format(k.fin.resultado), `Faturamento ${brl0.format(k.fin.faturamento)} − despesas ${brl0.format(k.fin.despesas)}`, { status: k.fin.resultado >= 0 ? "bom" : "critico" })
+      ? card("Resultado do mês", brl2.format(k.fin.resultado), `Faturamento ${brl2.format(k.fin.faturamento)} − despesas ${brl2.format(k.fin.despesas)}`, { status: k.fin.resultado >= 0 ? "bom" : "critico" })
       : card("Resultado do mês", k.fin === false ? "—" : "…"));
     kpis.appendChild(k.fin
-      ? card("Saldo em conta", brl0.format(k.fin.saldoConta), "Acumulado até este mês", { status: k.fin.saldoConta >= 0 ? "bom" : "critico" })
+      ? card("Saldo em conta", brl2.format(k.fin.saldoConta), "Acumulado até este mês", { status: k.fin.saldoConta >= 0 ? "bom" : "critico" })
       : card("Saldo em conta", k.fin === false ? "—" : "…"));
   };
   desenharKpis();
@@ -160,15 +159,15 @@ async function painelVendas(hoje) {
 
   preencher("px-vendas", [
     el("div", { class: "px-grid" }, [
-      card("Vendas no mês", num.format(doMes.length), `Ticket médio ${doMes.length ? brl0.format(total / doMes.length) : "—"}`),
-      card("Parcelinha", brl0.format(parcelinha.reduce((s, v) => s + credito(v), 0)), `${parcelinha.length} vendas`),
-      card("Adesão", brl0.format(normal.reduce((s, v) => s + credito(v), 0)), `${normal.length} vendas`),
-      card("Vendas hoje", num.format(vendasHoje.length), vendasHoje.length ? brl0.format(vendasHoje.reduce((s, v) => s + credito(v), 0)) : "nenhuma ainda"),
+      card("Vendas no mês", num.format(doMes.length), `Ticket médio ${doMes.length ? brl2.format(total / doMes.length) : "—"}`),
+      card("Parcelinha", brl2.format(parcelinha.reduce((s, v) => s + credito(v), 0)), `${parcelinha.length} vendas`),
+      card("Adesão", brl2.format(normal.reduce((s, v) => s + credito(v), 0)), `${normal.length} vendas`),
+      card("Vendas hoje", num.format(vendasHoje.length), vendasHoje.length ? brl2.format(vendasHoje.reduce((s, v) => s + credito(v), 0)) : "nenhuma ainda"),
       card("Documentação pendente", num.format(pendentes.length), pendentes.length ? "vendas do mês com documento faltando" : "tudo em dia neste mês", { status: pendentes.length ? "atencao" : "bom" }),
     ]),
     el("div", { class: "px-grid px-duplo" }, [
-      el("div", { class: "px-card px-lista" }, [el("div", { class: "px-titulo" }, "Crédito por administradora"), barras(agrupar(doMes, (v) => v.administradora), (x) => brl0.format(x))]),
-      el("div", { class: "px-card px-lista" }, [el("div", { class: "px-titulo" }, "Top vendedores do mês"), barras(agrupar(doMes, (v) => v.vendedor).slice(0, 6), (x) => brl0.format(x))]),
+      el("div", { class: "px-card px-lista" }, [el("div", { class: "px-titulo" }, "Crédito por administradora"), barras(agrupar(doMes, (v) => v.administradora), (x) => brl2.format(x))]),
+      el("div", { class: "px-card px-lista" }, [el("div", { class: "px-titulo" }, "Top vendedores do mês"), barras(agrupar(doMes, (v) => v.vendedor).slice(0, 6), (x) => brl2.format(x))]),
     ]),
   ]);
   return { credito: total, qtd: doMes.length, variacaoTexto };
@@ -178,8 +177,8 @@ async function painelVendas(hoje) {
 function painelPos(r) {
   preencher("px-pos", el("div", { class: "px-grid" }, [
     card("Inadimplentes", num.format(r.inadimplentes), `${num.format(r.emAtraso)} em atraso · ${num.format(r.canceladas)} canceladas`, { status: r.inadimplentes ? "critico" : "bom" }),
-    card("Crédito em atraso", brl0.format(r.creditoAtraso), `${pctFmt(r.creditoTotal ? (r.creditoAtraso / r.creditoTotal) * 100 : null)} de ${brl0.format(r.creditoTotal)} acompanhados`),
-    card("Pagaram no mês", num.format(r.confirmados.clientes), `${num.format(r.confirmados.parcelas)} parcelas · ${brl0.format(r.confirmados.credito)} em crédito`),
+    card("Crédito em atraso", brl2.format(r.creditoAtraso), `${pctFmt(r.creditoTotal ? (r.creditoAtraso / r.creditoTotal) * 100 : null)} de ${brl2.format(r.creditoTotal)} acompanhados`),
+    card("Pagaram no mês", num.format(r.confirmados.clientes), `${num.format(r.confirmados.parcelas)} parcelas · ${brl2.format(r.confirmados.credito)} em crédito`),
     card("Vencem em 7 dias", num.format(r.vencem7), "parcelas ainda sem baixa" + (r.semVencimento ? ` · ${num.format(r.semVencimento)} cliente${r.semVencimento > 1 ? "s" : ""} sem dia de vencimento no grupo` : ""), { status: r.semVencimento ? "atencao" : null }),
     card("Contempladas", num.format(r.contempladas), "cotas marcadas como contempladas"),
   ]));
@@ -195,10 +194,10 @@ function painelFin(r) {
     : null;
   preencher("px-fin", [
     el("div", { class: "px-grid" }, [
-      card("Faturamento do mês", brl0.format(r.faturamento), "receitas lançadas"),
-      card("Despesas do mês", brl0.format(r.despesas), `${brl0.format(r.pagas)} pagas · ${brl0.format(r.pendentes)} a pagar`),
+      card("Faturamento do mês", brl2.format(r.faturamento), "receitas lançadas"),
+      card("Despesas do mês", brl2.format(r.despesas), `${brl2.format(r.pagas)} pagas · ${brl2.format(r.pendentes)} a pagar`),
       card("Contas vencidas", num.format(r.vencidas.qtd), r.vencidas.qtd ? `${brl2.format(r.vencidas.valor)} em aberto` : "nenhuma em atraso", { status: r.vencidas.qtd ? "critico" : "bom" }),
-      card("A pagar em 7 dias", brl0.format(r.proximas7.valor), `${num.format(r.proximas7.qtd)} conta${r.proximas7.qtd === 1 ? "" : "s"}`, { status: r.proximas7.qtd ? "atencao" : "bom" }),
+      card("A pagar em 7 dias", brl2.format(r.proximas7.valor), `${num.format(r.proximas7.qtd)} conta${r.proximas7.qtd === 1 ? "" : "s"}`, { status: r.proximas7.qtd ? "atencao" : "bom" }),
     ]),
     contas,
   ]);
@@ -221,13 +220,13 @@ async function painelCampanha() {
     .sort((a, b) => b.prog - a.prog).slice(0, 5);
   preencher("px-campanha", [
     el("div", { class: "px-grid" }, [
-      card("Parcelinha no time", brl0.format(totalP), "somando todos os vendedores"),
-      card("Adesão no time", brl0.format(totalN), "somando todos os vendedores"),
+      card("Parcelinha no time", brl2.format(totalP), "somando todos os vendedores"),
+      card("Adesão no time", brl2.format(totalN), "somando todos os vendedores"),
       card("Viagens garantidas", num.format(ganhadores.length), ganhadores.length ? ganhadores.map((g) => g.nome).join(", ") : "ninguém bateu as duas metas ainda", { status: ganhadores.length ? "bom" : null }),
     ]),
     el("div", { class: "px-card px-lista" }, [
       el("div", { class: "px-titulo" }, "Mais perto da viagem (média das duas metas)"),
-      barras(progresso.map((x) => ({ nome: x.nome, valor: x.prog * 100, extra: `Parcelinha ${brl0.format(x.p)} · Adesão ${brl0.format(x.n)}` })), (v) => pctFmt(v)),
+      barras(progresso.map((x) => ({ nome: x.nome, valor: x.prog * 100, extra: `Parcelinha ${brl2.format(x.p)} · Adesão ${brl2.format(x.n)}` })), (v) => pctFmt(v)),
     ]),
   ]);
 }
