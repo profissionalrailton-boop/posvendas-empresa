@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    { "source": "/administrativo", "destination": "/administrativo/", "permanent": false },
+    { "source": "/posvendas", "destination": "/posvendas/", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/administrativo/", "destination": "https://administrativo-empresa.vercel.app/" },
+    { "source": "/administrativo/:path*", "destination": "https://administrativo-empresa.vercel.app/:path*" }
+  ]
+}

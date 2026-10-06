@@ -1,0 +1,83 @@
+/* Sistema Infinity: menu lateral com grupos (Administrativo / Pós-vendas) e subitens.
+   Cores e componentes vêm de posvendas/styles.css (os mesmos dos dois sistemas). */
+body { margin: 0; overflow: hidden; }
+#main-app, .sx-shell { height: 100vh; }
+.sx-shell { display: flex; }
+
+/* ---------- menu lateral ---------- */
+.sx-sidebar {
+  width: 236px; flex: none; height: 100vh; display: flex; flex-direction: column;
+  background: var(--sidebar-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border); box-shadow: var(--sidebar-shadow); z-index: 30;
+}
+.sx-brand { padding: 18px 18px 14px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: center; }
+.sx-brand img { height: 42px; width: auto; }
+.sx-nav { flex: 1; overflow-y: auto; padding: 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+
+.sx-item {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: none; border-radius: 12px;
+  background: none; color: var(--sidebar-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sx-item:hover { background: rgba(var(--w), 0.06); color: var(--text); }
+.sx-ic { width: 20px; height: 20px; flex: none; display: inline-flex; }
+.sx-ic svg { width: 20px; height: 20px; }
+.sx-grupo-titulo { flex: 1; }
+.sx-seta { font-size: 18px; line-height: 1; transition: transform 0.2s ease; color: var(--text-faint); }
+.sx-grupo.aberto .sx-seta { transform: rotate(90deg); }
+.sx-grupo.contem-ativo { color: var(--text); background: rgba(var(--w), 0.05); }
+
+.sx-sub { display: flex; flex-direction: column; gap: 1px; padding: 2px 0 6px 16px; }
+.sx-sub.fechado { display: none; }
+.sx-subitem {
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: none; border-radius: 10px; background: none;
+  color: var(--sidebar-text); font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sx-subitem:hover { background: rgba(var(--w), 0.06); color: var(--text); }
+.sx-bolinha { width: 9px; height: 9px; flex: none; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0.7; }
+.sx-subitem.ativo { background: var(--sidebar-active-bg); color: var(--sidebar-text-active); font-weight: 700; box-shadow: var(--glow-primary); }
+.sx-subitem.ativo .sx-bolinha { background: currentColor; opacity: 1; }
+
+.sx-rodape { border-top: 1px solid var(--border-soft); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.sx-tema .ic-moon, .sx-tema .lbl-escuro { display: none; }
+:root[data-theme="light"] .sx-tema .ic-sun, :root[data-theme="light"] .sx-tema .lbl-claro { display: none; }
+:root[data-theme="light"] .sx-tema .ic-moon, :root[data-theme="light"] .sx-tema .lbl-escuro { display: inline-flex; }
+.sx-usuario { font-size: 11.5px; color: var(--text-faint); padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-usuario-acoes { display: flex; gap: 6px; }
+.sx-usuario-acoes .btn { flex: 1; }
+
+/* ---------- conteúdo (sistemas encaixados) ---------- */
+.sx-conteudo { flex: 1; min-width: 0; height: 100vh; position: relative; }
+.sx-frame { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
+.sx-frame.hidden { display: none; }
+.sx-carregando { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 14px; }
+.sx-sem-acesso { margin: 28px; }
+
+/* ---------- alertas dos lembretes ---------- */
+.sx-alertas { position: fixed; top: 16px; right: 16px; z-index: 90; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 32px)); }
+.sx-alertas:empty { display: none; }
+.pv-alerta {
+  background: var(--modal-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(251, 191, 36, 0.45); border-left: 4px solid var(--warning);
+  border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text);
+}
+.pv-alerta-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; color: var(--warning); font-size: 12px; }
+.pv-alerta-acoes { display: flex; gap: 8px; margin-top: 4px; }
+.pv-strong { font-weight: 600; }
+.pv-muted { color: var(--text-muted); font-size: 12px; }
+
+/* ---------- celular / tela estreita: menu vira gaveta ---------- */
+.sx-topbar, .sx-fundo-menu { display: none; }
+@media (max-width: 860px) {
+  .sx-shell { flex-direction: column; }
+  .sx-topbar { display: flex; align-items: center; gap: 10px; height: 52px; flex: none; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--sidebar-bg); }
+  .sx-topbar-logo { height: 26px; }
+  .sx-topbar-titulo { font-size: 13px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sx-sidebar { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-105%); transition: transform 0.25s ease; z-index: 70; }
+  .sx-menu-aberto .sx-sidebar { transform: none; }
+  .sx-menu-aberto .sx-fundo-menu { display: block; position: fixed; inset: 0; background: var(--overlay-bg); z-index: 60; }
+  .sx-conteudo { height: calc(100vh - 52px); }
+}
+@media (prefers-reduced-motion: reduce) { .sx-sidebar { transition: none; } }

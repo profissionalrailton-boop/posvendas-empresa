@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Infinity | Pós-vendas</title>
+<link rel="icon" href="logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="posvendas.css?v=25" />
+</head>
+<body>
+<div id="app">
+
+  <!-- AUTH SCREEN -->
+  <div id="auth-screen" class="auth-wrap">
+    <button type="button" class="theme-toggle-auth" id="theme-toggle-auth" aria-label="Alternar tema claro/escuro" title="Alternar tema claro/escuro"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="ic-sun"><circle cx="10" cy="10" r="3.4"/><path d="M10 2.5v1.7M10 15.8v1.7M2.5 10h1.7M15.8 10h1.7M4.7 4.7l1.2 1.2M14.1 14.1l1.2 1.2M4.7 15.3l1.2-1.2M14.1 5.9l1.2-1.2"/></svg><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="ic-moon"><path d="M16.5 11.6A6.6 6.6 0 0 1 8.4 3.5a6.6 6.6 0 1 0 8.1 8.1z"/></svg></button>
+    <div class="auth-card">
+      <img class="auth-logo" src="logo.png" alt="Infinity Soluções Financeiras" />
+      <h1 id="auth-title">Entrar</h1>
+      <p class="sub" id="auth-sub">Pós-vendas e adimplência</p>
+      <div id="auth-error" class="auth-error hidden"></div>
+      <div id="auth-notice" class="auth-notice hidden"></div>
+      <form id="auth-form">
+        <div class="field">
+          <label>E-mail</label>
+          <input type="email" name="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <input type="password" name="password" required autocomplete="current-password" minlength="6" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="auth-submit">Entrar</button>
+      </form>
+      <div class="auth-toggle">
+        <span id="auth-toggle-text">Ainda não tem conta?</span>
+        <a id="auth-toggle-link">Criar conta</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="main-app" class="hidden">
+   <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand"><img src="logo.png" alt="Infinity Soluções Financeiras" /><span class="sidebar-brand-title">Pós-vendas</span></div>
+      <nav class="sidebar-nav">
+        <button class="tab-btn active" data-tab="hoje">
+          <span class="tab-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/><path d="M7.5 12.3l1.8 1.8 3.3-3.4"/></svg></span>
+          <span class="tab-label">Hoje</span>
+        </button>
+        <button class="tab-btn" data-tab="clientes">
+          <span class="tab-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="6.5" r="3"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg></span>
+          <span class="tab-label">Clientes</span>
+        </button>
+        <button class="tab-btn" data-tab="confirmacoes">
+          <span class="tab-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3"/><path d="M6.8 10.2l2.2 2.2 4.3-4.6"/></svg></span>
+          <span class="tab-label">Confirmações</span>
+        </button>
+        <button class="tab-btn" data-tab="adimplencia">
+          <span class="tab-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16V10M10 16V6M16 16v-4"/></svg></span>
+          <span class="tab-label">Adimplência</span>
+        </button>
+        <button class="tab-btn" data-tab="lembretes">
+          <span class="tab-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8a5 5 0 0 1 10 0c0 4.5 2 5.5 2 5.5H3S5 12.5 5 8z"/><path d="M8.3 16.5a1.8 1.8 0 0 0 3.4 0"/></svg></span>
+          <span class="tab-label">Lembretes</span>
+        </button>
+        <button class="tab-btn" data-tab="grupos">
+          <span class="tab-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.2" cy="7" r="2.6"/><circle cx="13.4" cy="8" r="2.1"/><path d="M2.6 16.8c.3-2.9 2.3-5 4.6-5s4.1 1.8 4.6 4.3"/><path d="M11.6 16.8c.2-2.1 1.7-3.8 3.6-3.8 2 0 3.5 1.7 3.6 4.1"/></svg></span>
+          <span class="tab-label">Grupos e vencimentos</span>
+        </button>
+      </nav>
+      <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro">
+        <span class="tab-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="ic-sun"><circle cx="10" cy="10" r="3.4"/><path d="M10 2.5v1.7M10 15.8v1.7M2.5 10h1.7M15.8 10h1.7M4.7 4.7l1.2 1.2M14.1 14.1l1.2 1.2M4.7 15.3l1.2-1.2M14.1 5.9l1.2-1.2"/></svg><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="ic-moon"><path d="M16.5 11.6A6.6 6.6 0 0 1 8.4 3.5a6.6 6.6 0 1 0 8.1 8.1z"/></svg></span>
+        <span class="tab-label lbl-claro">Tema claro</span>
+        <span class="tab-label lbl-escuro">Tema escuro</span>
+      </button>
+      <div class="sidebar-user">
+        <span class="user-email" id="user-email"></span>
+        <button class="btn btn-sidebar btn-sm" id="change-password-btn">Trocar senha</button>
+        <button class="btn btn-sidebar btn-sm" id="logout-btn">Sair</button>
+      </div>
+    </aside>
+
+    <div class="app-content">
+    <main>
+      <div id="no-access" class="panel hidden">
+        <div class="empty-state">Seu e-mail ainda não tem acesso ao pós-vendas. Peça para liberarem o acesso e entre de novo.</div>
+      </div>
+
+      <!-- mês de produção (mês da venda) — usado nas abas Clientes e Confirmações -->
+      <div class="month-nav hidden" id="month-nav-wrap">
+        <button class="icon-btn" id="prev-month" type="button" title="Mês anterior">‹</button>
+        <div class="month-label" id="month-label">-</div>
+        <button class="icon-btn" id="next-month" type="button" title="Próximo mês">›</button>
+        <span class="pv-today" id="month-hint">Produção: clientes vendidos no mês</span>
+      </div>
+
+      <!-- HOJE -->
+      <div id="tab-hoje">
+        <div class="pv-page-head">
+          <h2>Fila de hoje</h2>
+          <span class="pv-today" id="hoje-data"></span>
+        </div>
+        <div class="summary-row">
+          <div class="summary-card pv-danger"><div class="label">Clientes em atraso</div><div class="value" id="hoje-sum-atraso">0</div></div>
+          <div class="summary-card pending"><div class="label">Vencem hoje</div><div class="value" id="hoje-sum-hoje">0</div></div>
+          <div class="summary-card total"><div class="label">Lembretes para hoje</div><div class="value" id="hoje-sum-lembretes">0</div></div>
+          <div class="summary-card revenue"><div class="label">Adimplência</div><div class="value" id="hoje-sum-adimp">—</div></div>
+        </div>
+
+        <div class="panel" id="hoje-contatos-panel">
+          <div class="panel-header"><h3>💬 Contatos dos vendedores</h3><span class="panel-total">Registrados pelos vendedores nos últimos 7 dias</span></div>
+          <div id="hoje-contatos"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Vencem hoje e nos próximos 5 dias</h3><span class="panel-total">Conferir a baixa</span></div>
+          <div id="hoje-proximos"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Lembretes</h3><span class="panel-total">De hoje e atrasados</span></div>
+          <div id="hoje-lembretes"></div>
+        </div>
+      </div>
+
+      <!-- CLIENTES -->
+      <div id="tab-clientes" class="hidden">
+        <div class="pv-page-head"><h2>Clientes</h2><span class="pv-today" id="clientes-count"></span></div>
+        <div class="filters-row">
+          <input type="search" id="cli-search" placeholder="Buscar por nome, contrato, grupo ou cota" />
+          <select id="cli-adm"><option value="">Todas as administradoras</option></select>
+          <select id="cli-vendedor" class="so-completo"><option value="">Todos os vendedores</option></select>
+          <select id="cli-situacao">
+            <option value="">Todas as situações</option>
+            <option value="atraso">Em atraso</option>
+            <option value="em_dia">Em dia</option>
+            <option value="sem_cobranca">Grupo sem dia de vencimento</option>
+            <option value="contemplada">Contemplada</option>
+            <option value="quitada">Quitada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+          <select id="cli-controle" class="so-completo">
+            <option value="">Controle: todos</option>
+            <option value="feito">Controle feito</option>
+            <option value="pendente">Controle não feito</option>
+          </select>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Parcelas e oferta de lance</h3>
+            <div class="pv-col-nav">
+              <span class="panel-total so-completo">Clique na parcela para dar baixa</span>
+              <button class="icon-btn pv-icon-sm" id="cli-prev" type="button" title="Parcelas anteriores">‹</button>
+              <span class="pv-col-label" id="cli-col-label"></span>
+              <button class="icon-btn pv-icon-sm" id="cli-next" type="button" title="Próximas parcelas">›</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="pv-table pv-grid">
+              <thead id="clientes-thead"></thead>
+              <tbody id="clientes-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONFIRMAÇÕES -->
+      <div id="tab-confirmacoes" class="hidden">
+        <div class="pv-page-head"><h2>Confirmações</h2><span class="pv-today">Clientes que pagaram parcela no mês (pela data da baixa)</span></div>
+        <div class="summary-row">
+          <div class="summary-card total"><div class="label">Clientes que pagaram</div><div class="value" id="conf-sum-vendas">0</div></div>
+          <div class="summary-card revenue"><div class="label">Parcelas confirmadas</div><div class="value" id="conf-sum-parcelas">0</div></div>
+          <div class="summary-card invested"><div class="label">Crédito confirmado</div><div class="value" id="conf-sum-valor">R$ 0,00</div><div class="com-card-hint">Soma do crédito dos clientes que pagaram</div></div>
+          <div class="summary-card pending"><div class="label">De vendas de outros meses</div><div class="value" id="conf-sum-mes">0</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Parcelas pagas por venda</h3>
+            <span class="panel-total so-completo">Só a parcela com baixa fica marcada · desmarque para desfazer</span>
+          </div>
+          <div class="filters-row pv-filters-in-panel">
+            <input type="search" id="conf-search" placeholder="Buscar cliente, contrato, grupo ou cota" />
+            <select id="conf-adm"><option value="">Todas as administradoras</option></select>
+            <select id="conf-vendedor" class="so-completo"><option value="">Todos os vendedores</option></select>
+            <select id="conf-tipo" title="Filtrar por tipo de venda">
+              <option value="">Todos os tipos</option>
+              <option value="parcelinha">Só parcelinha</option>
+              <option value="normal">Sem parcelinha</option>
+            </select>
+            <select id="conf-comissao" class="so-completo" title="Comissão do pós-vendas: parcelinha até a 8ª parcela, Âncora até a 3ª">
+              <option value="">Confirmações totais</option>
+              <option value="comissionadas">Só comissionadas (pós-vendas)</option>
+              <option value="nao">Não comissionadas</option>
+            </select>
+          </div>
+          <div class="table-scroll">
+            <table class="bills-table comissao-table">
+              <thead id="conf-thead"></thead>
+              <tbody id="conf-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADIMPLÊNCIA -->
+      <div id="tab-adimplencia" class="hidden">
+        <div class="pv-page-head"><h2>Adimplência</h2><span class="pv-today">Inadimplente = 1 dia ou mais de atraso sem baixa</span></div>
+        <div class="filters-row">
+          <select id="adi-adm"><option value="">Todas as administradoras</option></select>
+          <select id="adi-vendedor" class="so-completo"><option value="">Todos os vendedores</option></select>
+        </div>
+        <div class="summary-row">
+          <div class="summary-card revenue"><div class="label">% de adimplência</div><div class="value" id="adi-pct">—</div></div>
+          <div class="summary-card total"><div class="label">Clientes acompanhados</div><div class="value" id="adi-total">0</div></div>
+          <div class="summary-card pv-danger"><div class="label">Inadimplentes</div><div class="value" id="adi-inad">0</div></div>
+          <div class="summary-card pending"><div class="label">Crédito em atraso</div><div class="value" id="adi-valor">R$ 0,00</div><div class="com-card-hint" id="adi-valor-hint"></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Tempo de atraso</h3><span class="panel-total">Pelo atraso mais antigo de cada cliente</span></div>
+          <div class="pv-aging" id="adi-aging"></div>
+        </div>
+        <div class="pv-two-col">
+          <div class="panel">
+            <div class="panel-header"><h3>Por administradora</h3></div>
+            <div id="adi-por-adm"></div>
+          </div>
+          <div class="panel so-completo">
+            <div class="panel-header"><h3>Por vendedor</h3></div>
+            <div id="adi-por-vendedor"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Por mês de venda</h3><span class="panel-total">Mostra se as vendas de um mês estão pagando pior</span></div>
+          <div id="adi-por-mes"></div>
+        </div>
+      </div>
+
+      <!-- LEMBRETES -->
+      <div id="tab-lembretes" class="hidden">
+        <div class="pv-page-head"><h2>Lembretes</h2>
+          <div class="pv-aviso-status">
+            <span class="pv-today" id="aviso-status">Avisos sonoros: deixe o sistema aberto numa aba para tocar.</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="aviso-testar">🔔 Testar som</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>+ Novo lembrete</h3></div>
+          <form id="lembrete-form" class="client-form">
+            <div class="client-form-grid">
+              <label class="span-2">O que fazer<input name="titulo" required placeholder="Ex.: ligar para confirmar pagamento" /></label>
+              <label>Data<input type="date" name="data" required /></label>
+              <label>Hora (opcional)<input type="time" name="hora" /></label>
+              <label>Avisar com som
+                <select name="avisar_min">
+                  <option value="">Sem aviso</option>
+                  <option value="0">Na hora</option>
+                  <option value="5">5 minutos antes</option>
+                  <option value="10">10 minutos antes</option>
+                </select>
+              </label>
+              <label>Repetir
+                <select name="repetir_dias">
+                  <option value="">Não repetir</option>
+                  <option value="7">Toda semana</option>
+                  <option value="15">A cada 15 dias</option>
+                  <option value="30">Todo mês</option>
+                </select>
+              </label>
+              <label class="span-2">Cliente (opcional)<select name="venda_id" id="lembrete-cliente"><option value="">Sem vínculo com um cliente</option></select></label>
+              <label class="span-2">Detalhes (opcional)<input name="descricao" /></label>
+            </div>
+            <div class="client-form-actions"><button type="submit" class="btn btn-primary btn-sm">Salvar lembrete</button></div>
+          </form>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Pendentes</h3><span class="panel-total" id="lembretes-pend-count"></span></div>
+          <div id="lembretes-pendentes"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Concluídos recentes</h3></div>
+          <div id="lembretes-concluidos"></div>
+        </div>
+      </div>
+
+      <!-- GRUPOS -->
+      <div id="tab-grupos" class="hidden">
+        <div class="pv-page-head"><h2>Grupos e vencimentos</h2><span class="pv-today">O dia de vencimento é o mesmo para todos do grupo</span></div>
+        <div class="panel">
+          <div class="table-scroll">
+            <table class="pv-table">
+              <thead><tr><th>Administradora</th><th>Grupo</th><th>Clientes</th><th>Dia de vencimento</th></tr></thead>
+              <tbody id="grupos-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+    </div>
+   </div>
+  </div>
+</div>
+
+<!-- FICHA DO CLIENTE -->
+<div class="modal-overlay hidden" id="ficha-overlay">
+  <div class="modal-box pv-ficha">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="ficha-title">Cliente</div>
+        <div class="modal-sub" id="ficha-sub"></div>
+      </div>
+      <button class="icon-btn" id="ficha-close" type="button">✕</button>
+    </div>
+    <div id="ficha-body"></div>
+  </div>
+</div>
+
+<!-- BAIXA DE PARCELA -->
+<div class="modal-overlay hidden" id="baixa-overlay">
+  <div class="modal-box" style="max-width: 380px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="baixa-title">Dar baixa</div>
+        <div class="modal-sub" id="baixa-sub"></div>
+      </div>
+      <button class="icon-btn" id="baixa-close" type="button">✕</button>
+    </div>
+    <form id="baixa-form">
+      <div class="field">
+        <label>Data do pagamento</label>
+        <input type="date" name="pago_em" required />
+      </div>
+      <div class="pv-baixa-actions">
+        <button type="button" class="btn btn-danger btn-sm hidden" id="baixa-desfazer">Desfazer baixa</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="baixa-salvar">Salvar baixa</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="change-password-overlay">
+  <div class="modal-box" style="max-width: 400px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Trocar senha</div>
+        <div class="modal-sub">Defina uma nova senha para sua conta</div>
+      </div>
+      <button class="icon-btn" id="change-password-close" type="button">✕</button>
+    </div>
+    <div id="change-password-error" class="auth-error hidden"></div>
+    <form id="change-password-form">
+      <div class="field">
+        <label>Nova senha</label>
+        <input type="password" name="password" required minlength="6" autocomplete="new-password" />
+      </div>
+      <div class="field">
+        <label>Confirmar nova senha</label>
+        <input type="password" name="passwordConfirm" required minlength="6" autocomplete="new-password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="change-password-submit">Salvar nova senha</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js?v=23"></script>
+</body>
+</html>

@@ -1,4 +1,7 @@
 const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+// Aberto dentro do sistema unificado (menu Administrativo/Pós-vendas)? Ver "DENTRO DO SISTEMA UNIFICADO".
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
 
 const MONTH_NAMES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const ESTORNO_ATE_PARCELA = 5;       // atraso até essa parcela = risco de estorno de comissão
@@ -468,6 +471,7 @@ async function loadAll() {
     populateFilterOptions();
     renderActiveTab();
     if (state.fichaId) renderFicha();
+    avisarSistema({ tipo: "pronto" });
   } catch (err) {
     showToast("Erro ao carregar os dados: " + err.message);
   }
@@ -1633,6 +1637,13 @@ function mostrarAlerta(l, texto) {
 
 function dispararAviso(l, minutosParaHora) {
   const texto = minutosParaHora > 0 ? `em ${minutosParaHora} min (${horaCurta(l.hora)})` : `agora (${horaCurta(l.hora)})`;
+  if (EMBUTIDO) {
+    // dentro do sistema unificado o pós-vendas pode estar escondido atrás de outra aba:
+    // quem toca o som e mostra o alerta é a tela principal
+    const v = l.venda_id ? vendaById(l.venda_id) : null;
+    avisarSistema({ tipo: "aviso-lembrete", id: l.id, titulo: l.titulo, descricao: l.descricao || "", cliente: v ? v.cliente : "", vendaId: v ? v.id : null, texto });
+    return;
+  }
   tocarSom();
   mostrarAlerta(l, texto);
   try {
@@ -1672,8 +1683,34 @@ function atualizarStatusAviso() {
       : "Avisos sonoros: deixe o sistema aberto numa aba. Clique em Testar som para liberar.";
 }
 document.getElementById("aviso-testar").addEventListener("click", async () => {
+  if (EMBUTIDO) { avisarSistema({ tipo: "testar-som" }); return; } // a tela principal toca e pede a permissão
   tocarSom();
   try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) { /* opcional */ }
   atualizarStatusAviso();
 });
 atualizarStatusAviso();
+
+// ---------- DENTRO DO SISTEMA UNIFICADO ----------
+// Quando aberto dentro do "Sistema Infinity" (menu com Administrativo e Pós-vendas), o pós-vendas
+// esconde o próprio menu e obedece ao menu da tela principal. Sozinho, funciona como sempre.
+function avisarSistema(msg) {
+  if (EMBUTIDO) window.parent.postMessage({ app: "posvendas", ...msg }, location.origin);
+}
+if (EMBUTIDO) {
+  window.addEventListener("message", (e) => {
+    if (e.origin !== location.origin || e.source !== window.parent) return;
+    const m = e.data || {};
+    if (m.tipo === "abrir-aba") {
+      const btn = document.querySelector(`.tab-btn[data-tab="${m.aba}"]`);
+      if (btn && state.activeTab !== m.aba) btn.click();
+    }
+    if (m.tipo === "tema") setTheme(m.tema, false);
+    if (m.tipo === "abrir-ficha" && m.vendaId) openFicha(m.vendaId);
+    if (m.tipo === "concluir-lembrete") {
+      const l = state.lembretes.find((x) => x.id === m.id);
+      if (l && !l.concluido_em) concluirLembrete(l);
+    }
+  });
+  // avisa o menu quando a aba muda por dentro (para destacar o item certo)
+  document.querySelectorAll(".tab-btn").forEach((b) => b.addEventListener("click", () => avisarSistema({ tipo: "aba-mudou", aba: b.dataset.tab })));
+}

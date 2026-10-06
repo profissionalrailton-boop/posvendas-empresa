@@ -1,0 +1,382 @@
+// Sistema Infinity: tela principal que une o Administrativo e o Pós-vendas num menu só.
+// Cada sistema continua sendo o mesmo de sempre (e funciona sozinho no endereço dele); aqui ele é
+// aberto "encaixado" na área de conteúdo, no mesmo endereço, então o login é compartilhado.
+// Cada login só vê os grupos/abas que tem permissão — a trava real continua no banco (RLS).
+const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+const ic = (path) => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+const ICONES = {
+  administrativo: ic('<rect x="2.5" y="6" width="15" height="10.5" rx="2"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6M2.5 10.5h15"/>'),
+  posvendas: ic('<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5z"/><path d="M6.5 8.5h7M6.5 11h4.5"/>'),
+};
+
+// Menu: grupos e abas. "exige" = permissão necessária (ver descobrirPermissoes).
+const GRUPOS = [
+  {
+    app: "administrativo", titulo: "Administrativo", url: "/administrativo/", exige: "adm",
+    itens: [
+      { aba: "clientes", label: "Clientes" },
+      { aba: "producao", label: "Produção" },
+      { aba: "pendencias", label: "Pendências" },
+      { aba: "checagem", label: "Checagem" },
+      { aba: "analise", label: "Análise de gravação" },
+      { aba: "radar", label: "Cadastro de vendas" },
+      { aba: "reincidencia", label: "Reincidência" },
+      { aba: "gestao", label: "Gestão" },
+      { aba: "vendedores", label: "Vendedores" },
+      { aba: "comissao", label: "Mapa de comissão", exige: "comissao" },
+    ],
+  },
+  {
+    app: "posvendas", titulo: "Pós-vendas", url: "/posvendas/", exige: "pos",
+    itens: [
+      { aba: "hoje", label: "Fila de hoje", soPosVendas: true },
+      { aba: "clientes", label: "Clientes" },
+      { aba: "confirmacoes", label: "Confirmações" },
+      { aba: "adimplencia", label: "Adimplência" },
+      { aba: "lembretes", label: "Lembretes", soPosVendas: true },
+      { aba: "grupos", label: "Grupos e vencimentos", soPosVendas: true },
+    ],
+  },
+];
+
+const PREFS_KEY = "infinity-sistema-prefs"; // último item aberto e grupos recolhidos (só conveniência)
+let perms = null;          // { adm, comissao, pos: "completo" | "vendedor" | null }
+let atual = null;          // { app, aba }
+const frames = {};         // app -> { el, pronto, pendente }
+
+// ---------- helpers ----------
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k === "html") node.innerHTML = v;
+    else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined && v !== false) node.setAttribute(k, v);
+  }
+  for (const c of [].concat(children)) {
+    if (c === null || c === undefined || c === false) continue;
+    node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  }
+  return node;
+}
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+function lerPrefs() { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); } catch (e) { return {}; } }
+function salvarPrefs(p) { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...lerPrefs(), ...p })); } catch (e) { /* sem armazenamento */ } }
+
+// ---------- tema (mesma chave dos dois sistemas) ----------
+const THEME_KEY = "infinity-admin-theme";
+function currentTheme() { return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"; }
+function setTheme(theme) {
+  const root = document.documentElement;
+  root.classList.add("theme-transition");
+  if (theme === "light") root.setAttribute("data-theme", "light"); else root.removeAttribute("data-theme");
+  try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* só nesta visita */ }
+  Object.values(frames).forEach((f) => enviar(f, { tipo: "tema", tema: theme }));
+  setTimeout(() => root.classList.remove("theme-transition"), 350);
+}
+document.querySelectorAll("#theme-toggle, #theme-toggle-auth").forEach((b) => b.addEventListener("click", () => setTheme(currentTheme() === "light" ? "dark" : "light")));
+
+// ---------- login ----------
+const authScreen = document.getElementById("auth-screen");
+const mainApp = document.getElementById("main-app");
+const authForm = document.getElementById("auth-form");
+const authError = document.getElementById("auth-error");
+const authNotice = document.getElementById("auth-notice");
+const authSubmit = document.getElementById("auth-submit");
+let authMode = "login";
+function setAuthMode(mode) {
+  authMode = mode;
+  authError.classList.add("hidden");
+  authNotice.classList.add("hidden");
+  const login = mode === "login";
+  document.getElementById("auth-title").textContent = login ? "Entrar" : "Criar conta";
+  document.getElementById("auth-sub").textContent = login ? "Administrativo e pós-vendas" : "Apenas e-mails autorizados têm acesso aos dados";
+  authSubmit.textContent = login ? "Entrar" : "Criar conta";
+  document.getElementById("auth-toggle-text").textContent = login ? "Ainda não tem conta?" : "Já tem conta?";
+  document.getElementById("auth-toggle-link").textContent = login ? "Criar conta" : "Entrar";
+}
+document.getElementById("auth-toggle-link").addEventListener("click", () => setAuthMode(authMode === "login" ? "signup" : "login"));
+function translateAuthError(msg) {
+  if (/invalid login credentials/i.test(msg)) return "E-mail ou senha incorretos.";
+  if (/already registered/i.test(msg)) return "Este e-mail já possui conta. Tente entrar.";
+  if (/password.*at least/i.test(msg)) return "A senha precisa ter pelo menos 6 caracteres.";
+  return msg;
+}
+authForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  authError.classList.add("hidden");
+  authNotice.classList.add("hidden");
+  const email = authForm.email.value.trim();
+  const password = authForm.password.value;
+  authSubmit.disabled = true;
+  try {
+    if (authMode === "login") {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } else {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (error) throw error;
+      if (data.session === null) {
+        authNotice.textContent = "Conta criada. Verifique seu e-mail para confirmar antes de entrar.";
+        authNotice.classList.remove("hidden");
+      }
+    }
+  } catch (err) {
+    authError.textContent = translateAuthError(err.message);
+    authError.classList.remove("hidden");
+  } finally {
+    authSubmit.disabled = false;
+  }
+});
+document.getElementById("logout-btn").addEventListener("click", () => sb.auth.signOut());
+
+// ---------- trocar senha ----------
+const cpOverlay = document.getElementById("change-password-overlay");
+const cpForm = document.getElementById("change-password-form");
+const cpError = document.getElementById("change-password-error");
+document.getElementById("change-password-btn").addEventListener("click", () => { cpForm.reset(); cpError.classList.add("hidden"); cpOverlay.classList.remove("hidden"); });
+document.getElementById("change-password-close").addEventListener("click", () => cpOverlay.classList.add("hidden"));
+cpOverlay.addEventListener("click", (e) => { if (e.target === cpOverlay) cpOverlay.classList.add("hidden"); });
+cpForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  cpError.classList.add("hidden");
+  if (cpForm.password.value !== cpForm.passwordConfirm.value) {
+    cpError.textContent = "As senhas não coincidem.";
+    cpError.classList.remove("hidden");
+    return;
+  }
+  const btn = document.getElementById("change-password-submit");
+  btn.disabled = true;
+  try {
+    const { error } = await sb.auth.updateUser({ password: cpForm.password.value });
+    if (error) { cpError.textContent = error.message; cpError.classList.remove("hidden"); return; }
+    cpOverlay.classList.add("hidden");
+    showToast("Senha alterada com sucesso.");
+  } finally { btn.disabled = false; }
+});
+
+let logado = false;
+sb.auth.onAuthStateChange((_event, session) => {
+  if (session) {
+    authScreen.classList.add("hidden");
+    mainApp.classList.remove("hidden");
+    document.getElementById("user-email").textContent = session.user.email;
+    if (!logado) { logado = true; iniciar(); }
+  } else {
+    logado = false;
+    perms = null;
+    atual = null;
+    // derruba os sistemas encaixados (eles também saem pela sessão compartilhada)
+    Object.keys(frames).forEach((app) => { frames[app].el.remove(); delete frames[app]; });
+    document.getElementById("sx-nav").innerHTML = "";
+    document.getElementById("sx-alertas").innerHTML = "";
+    mainApp.classList.add("hidden");
+    authScreen.classList.remove("hidden");
+    setAuthMode("login");
+    authForm.reset();
+  }
+});
+
+// ---------- permissões ----------
+// Cada consulta só devolve a linha do próprio e-mail (RLS "self read"), então "achou" = tem acesso.
+async function temLinha(tabela) {
+  const { data, error } = await sb.from(tabela).select("email").limit(1);
+  return !error && Array.isArray(data) && data.length > 0;
+}
+async function descobrirPermissoes() {
+  const [adm, comissao, posCompleto, vendedor] = await Promise.all([
+    temLinha("admin_allowed_users"),
+    temLinha("comissao_acesso"),
+    temLinha("posvendas_allowed_users"),
+    temLinha("posvendas_vendedor_acesso"),
+  ]);
+  return { adm, comissao, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null };
+}
+function itensPermitidos(grupo) {
+  if (grupo.exige === "adm" && !perms.adm) return [];
+  if (grupo.exige === "pos" && !perms.pos) return [];
+  return grupo.itens.filter((it) => {
+    if (it.exige === "comissao" && !perms.comissao) return false;
+    if (it.soPosVendas && perms.pos !== "completo") return false;
+    return true;
+  });
+}
+function permitido(app, aba) {
+  const g = GRUPOS.find((x) => x.app === app);
+  return !!g && itensPermitidos(g).some((it) => it.aba === aba);
+}
+
+// ---------- menu ----------
+function montarMenu() {
+  const nav = document.getElementById("sx-nav");
+  nav.innerHTML = "";
+  const recolhidos = new Set(lerPrefs().recolhidos || []);
+  GRUPOS.forEach((g) => {
+    const itens = itensPermitidos(g);
+    if (!itens.length) return;
+    const aberto = !recolhidos.has(g.app);
+    const lista = el("div", { class: "sx-sub", id: `sx-sub-${g.app}` }, itens.map((it) =>
+      el("button", { type: "button", class: "sx-subitem", "data-app": g.app, "data-aba": it.aba, onclick: () => abrir(g.app, it.aba) }, [
+        el("span", { class: "sx-bolinha" }), el("span", {}, it.label),
+      ])));
+    const cab = el("button", { type: "button", class: "sx-item sx-grupo" + (aberto ? " aberto" : ""), "aria-expanded": String(aberto), "aria-controls": `sx-sub-${g.app}` }, [
+      el("span", { class: "sx-ic", html: ICONES[g.app] }),
+      el("span", { class: "sx-grupo-titulo" }, g.titulo),
+      el("span", { class: "sx-seta", "aria-hidden": "true" }, "›"),
+    ]);
+    if (!aberto) lista.classList.add("fechado");
+    cab.addEventListener("click", () => {
+      const fechar = !lista.classList.contains("fechado");
+      lista.classList.toggle("fechado", fechar);
+      cab.classList.toggle("aberto", !fechar);
+      cab.setAttribute("aria-expanded", String(!fechar));
+      const rec = new Set(lerPrefs().recolhidos || []);
+      if (fechar) rec.add(g.app); else rec.delete(g.app);
+      salvarPrefs({ recolhidos: [...rec] });
+    });
+    nav.appendChild(el("div", { class: "sx-bloco" }, [cab, lista]));
+  });
+}
+function marcarAtivo() {
+  document.querySelectorAll(".sx-subitem").forEach((b) => b.classList.toggle("ativo", !!atual && b.dataset.app === atual.app && b.dataset.aba === atual.aba));
+  document.querySelectorAll(".sx-grupo").forEach((b) => b.classList.toggle("contem-ativo", !!atual && b.getAttribute("aria-controls") === `sx-sub-${atual.app}`));
+  if (atual) {
+    const g = GRUPOS.find((x) => x.app === atual.app);
+    const it = g.itens.find((x) => x.aba === atual.aba);
+    document.getElementById("sx-topbar-titulo").textContent = `${g.titulo} · ${it ? it.label : ""}`;
+    document.title = `Infinity | ${it ? it.label : g.titulo}`;
+  }
+}
+
+// ---------- sistemas encaixados ----------
+function enviar(f, msg) { if (f && f.pronto && f.el.contentWindow) f.el.contentWindow.postMessage(msg, location.origin); }
+function garantirFrame(app) {
+  if (frames[app]) return frames[app];
+  const g = GRUPOS.find((x) => x.app === app);
+  const iframe = el("iframe", { class: "sx-frame hidden", src: g.url, title: g.titulo });
+  document.getElementById("sx-conteudo").appendChild(iframe);
+  frames[app] = { el: iframe, pronto: false, pendente: null };
+  return frames[app];
+}
+function abrir(app, aba) {
+  if (!permitido(app, aba)) return;
+  const f = garantirFrame(app);
+  Object.entries(frames).forEach(([nome, x]) => x.el.classList.toggle("hidden", nome !== app));
+  document.getElementById("sx-carregando").classList.toggle("hidden", f.pronto);
+  if (f.pronto) enviar(f, { tipo: "abrir-aba", aba }); else f.pendente = aba;
+  atual = { app, aba };
+  salvarPrefs({ ultimo: atual });
+  marcarAtivo();
+  // abre o grupo do item, se estiver recolhido
+  const lista = document.getElementById(`sx-sub-${app}`);
+  if (lista && lista.classList.contains("fechado")) lista.previousElementSibling.click();
+  fecharMenuCelular();
+}
+
+window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin) return;
+  const app = Object.keys(frames).find((nome) => frames[nome].el.contentWindow === e.source);
+  if (!app) return;
+  const f = frames[app];
+  const m = e.data || {};
+  if (m.tipo === "pronto") {
+    f.pronto = true;
+    enviar(f, { tipo: "tema", tema: currentTheme() });
+    if (f.pendente) { enviar(f, { tipo: "abrir-aba", aba: f.pendente }); f.pendente = null; }
+    if (atual && atual.app === app) document.getElementById("sx-carregando").classList.add("hidden");
+  }
+  if (m.tipo === "aba-mudou" && atual && atual.app === app && permitido(app, m.aba)) {
+    atual = { app, aba: m.aba };
+    salvarPrefs({ ultimo: atual });
+    marcarAtivo();
+  }
+  if (m.tipo === "aviso-lembrete") mostrarAvisoLembrete(m);
+  if (m.tipo === "testar-som") testarSom();
+});
+
+async function iniciar() {
+  document.getElementById("sx-carregando").classList.remove("hidden");
+  document.getElementById("sx-sem-acesso").classList.add("hidden");
+  perms = await descobrirPermissoes();
+  montarMenu();
+  const primeiro = GRUPOS.map((g) => ({ g, itens: itensPermitidos(g) })).find((x) => x.itens.length);
+  if (!primeiro) {
+    document.getElementById("sx-carregando").classList.add("hidden");
+    document.getElementById("sx-sem-acesso").classList.remove("hidden");
+    return;
+  }
+  // o pós-vendas fica carregado em segundo plano para os lembretes tocarem em qualquer aba
+  if (perms.pos === "completo") garantirFrame("posvendas");
+  const ultimo = lerPrefs().ultimo;
+  if (ultimo && permitido(ultimo.app, ultimo.aba)) abrir(ultimo.app, ultimo.aba);
+  else abrir(primeiro.g.app, primeiro.itens[0].aba);
+}
+
+// ---------- menu no celular ----------
+function fecharMenuCelular() { document.body.classList.remove("sx-menu-aberto"); }
+document.getElementById("sx-menu-btn").addEventListener("click", () => document.body.classList.toggle("sx-menu-aberto"));
+document.getElementById("sx-fundo-menu").addEventListener("click", fecharMenuCelular);
+
+// ---------- avisos dos lembretes (vindos do pós-vendas) ----------
+// O som e o alerta ficam aqui na tela principal, porque o pós-vendas pode estar escondido atrás
+// do administrativo — e o navegador só libera som na janela onde a pessoa clica.
+let audioCtx = null;
+function destravarAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) { /* sem suporte a áudio */ }
+}
+document.addEventListener("click", destravarAudio);
+document.addEventListener("keydown", destravarAudio);
+function tocarSom() {
+  destravarAudio();
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime + 0.02;
+  [[880, 0], [1175, 0.18], [1568, 0.36]].forEach(([freq, atraso]) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, t0 + atraso);
+    gain.gain.exponentialRampToValueAtTime(0.35, t0 + atraso + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + atraso + 0.5);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0 + atraso);
+    osc.stop(t0 + atraso + 0.55);
+  });
+}
+async function testarSom() {
+  tocarSom();
+  try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) { /* opcional */ }
+}
+function mostrarAvisoLembrete(m) {
+  tocarSom();
+  const card = el("div", { class: "pv-alerta" }, [
+    el("div", { class: "pv-alerta-head" }, [el("span", {}, "🔔 Lembrete"), el("span", { class: "pv-muted" }, m.texto)]),
+    el("div", { class: "pv-strong" }, m.titulo),
+    m.cliente ? el("div", { class: "pv-muted" }, m.cliente) : null,
+    m.descricao ? el("div", { class: "pv-muted" }, m.descricao) : null,
+    el("div", { class: "pv-alerta-acoes" }, [
+      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { card.remove(); enviar(frames.posvendas, { tipo: "concluir-lembrete", id: m.id }); } }, "Concluir"),
+      el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => {
+        card.remove();
+        abrir("posvendas", "lembretes");
+        if (m.vendaId) enviar(frames.posvendas, { tipo: "abrir-ficha", vendaId: m.vendaId });
+      } }, "Abrir"),
+      el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => card.remove() }, "Fechar"),
+    ]),
+  ]);
+  document.getElementById("sx-alertas").appendChild(card);
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(`Lembrete ${m.texto}`, { body: m.titulo + (m.cliente ? ` — ${m.cliente}` : ""), icon: "logo.png", tag: "lembrete-" + m.id });
+    }
+  } catch (e) { /* notificação do sistema é opcional */ }
+}

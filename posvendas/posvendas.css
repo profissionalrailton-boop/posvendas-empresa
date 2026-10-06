@@ -253,3 +253,8 @@ table.pv-parcelas th { padding: 8px 12px; }
 body.modo-vendedor .so-completo { display: none !important; }
 /* nome do vendedor nos contatos registrados por ele */
 .pv-autor-vendedor { color: var(--accent-cyan); font-weight: 700; }
+
+/* Dentro do sistema unificado: o menu é o da tela principal */
+.embutido .sidebar { display: none !important; }
+.embutido .app-content { margin-left: 0 !important; }
+.embutido #auth-screen .theme-toggle-auth { display: none; }
