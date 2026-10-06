@@ -379,8 +379,8 @@ window.addEventListener("message", (e) => {
     salvarPrefs({ ultimo: atual });
     marcarAtivo();
   }
-  if (m.tipo === "aviso-lembrete") mostrarAvisoLembrete(m);
-  if (m.tipo === "testar-som") testarSom();
+  if (m.tipo === "aviso-lembrete") mostrarAvisoLembrete(m, app);
+  if (m.tipo === "testar-som") testarSom(m.silencioso);
 });
 
 async function iniciar() {
@@ -396,6 +396,8 @@ async function iniciar() {
   }
   // o pós-vendas fica carregado em segundo plano para os lembretes tocarem em qualquer aba
   if (perms.pos === "completo") garantirFrame("posvendas");
+  // o administrativo também, para os lembretes da checagem
+  if (perms.adm) garantirFrame("administrativo");
   const [app, aba] = paginaInicial(liberados);
   abrir(app, aba);
 }
@@ -434,7 +436,7 @@ function fecharMenuCelular() { document.body.classList.remove("sx-menu-aberto");
 document.getElementById("sx-menu-btn").addEventListener("click", () => document.body.classList.toggle("sx-menu-aberto"));
 document.getElementById("sx-fundo-menu").addEventListener("click", fecharMenuCelular);
 
-// ---------- avisos dos lembretes (vindos do pós-vendas) ----------
+// ---------- avisos dos lembretes (pós-vendas e checagem do administrativo) ----------
 // O som e o alerta ficam aqui na tela principal, porque o pós-vendas pode estar escondido atrás
 // do administrativo — e o navegador só libera som na janela onde a pessoa clica.
 let audioCtx = null;
@@ -463,23 +465,24 @@ function tocarSom() {
     osc.stop(t0 + atraso + 0.55);
   });
 }
-async function testarSom() {
-  tocarSom();
+async function testarSom(silencioso) {
+  if (silencioso) destravarAudio(); else tocarSom();
   try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) { /* opcional */ }
 }
-function mostrarAvisoLembrete(m) {
+function mostrarAvisoLembrete(m, app = "posvendas") {
   tocarSom();
   const card = el("div", { class: "pv-alerta" }, [
-    el("div", { class: "pv-alerta-head" }, [el("span", {}, "🔔 Lembrete"), el("span", { class: "pv-muted" }, m.texto)]),
+    el("div", { class: "pv-alerta-head" }, [el("span", {}, m.rotulo || "🔔 Lembrete"), el("span", { class: "pv-muted" }, m.texto)]),
     el("div", { class: "pv-strong" }, m.titulo),
     m.cliente ? el("div", { class: "pv-muted" }, m.cliente) : null,
     m.descricao ? el("div", { class: "pv-muted" }, m.descricao) : null,
     el("div", { class: "pv-alerta-acoes" }, [
-      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { card.remove(); enviar(frames.posvendas, { tipo: "concluir-lembrete", id: m.id }); } }, "Concluir"),
+      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { card.remove(); enviar(frames[app], { tipo: "concluir-lembrete", id: m.id }); } }, "Concluir"),
+      m.podeAdiar ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => { card.remove(); enviar(frames[app], { tipo: "adiar-lembrete", id: m.id, min: 10 }); } }, "Adiar 10 min") : null,
       el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => {
         card.remove();
-        abrir("posvendas", "lembretes");
-        if (m.vendaId) enviar(frames.posvendas, { tipo: "abrir-ficha", vendaId: m.vendaId });
+        abrir(app, m.aba || "lembretes");
+        if (m.vendaId) enviar(frames[app], { tipo: "abrir-ficha", vendaId: m.vendaId });
       } }, "Abrir"),
       el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => card.remove() }, "Fechar"),
     ]),
@@ -487,7 +490,7 @@ function mostrarAvisoLembrete(m) {
   document.getElementById("sx-alertas").appendChild(card);
   try {
     if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(`Lembrete ${m.texto}`, { body: m.titulo + (m.cliente ? ` — ${m.cliente}` : ""), icon: "logo.png", tag: "lembrete-" + m.id });
+      new Notification(`Lembrete ${m.texto}`, { body: m.titulo + (m.cliente ? ` — ${m.cliente}` : ""), icon: "logo.png", tag: `${app}-${m.id}` });
     }
   } catch (e) { /* notificação do sistema é opcional */ }
 }
