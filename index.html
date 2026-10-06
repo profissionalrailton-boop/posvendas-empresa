@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="posvendas.css?v=21" />
+<link rel="stylesheet" href="posvendas.css?v=22" />
 </head>
 <body>
 <div id="app">
@@ -128,7 +128,7 @@
         <div class="filters-row">
           <input type="search" id="cli-search" placeholder="Buscar por nome, contrato, grupo ou cota" />
           <select id="cli-adm"><option value="">Todas as administradoras</option></select>
-          <select id="cli-vendedor"><option value="">Todos os vendedores</option></select>
+          <select id="cli-vendedor" class="so-completo"><option value="">Todos os vendedores</option></select>
           <select id="cli-situacao">
             <option value="">Todas as situações</option>
             <option value="atraso">Em atraso</option>
@@ -138,7 +138,7 @@
             <option value="quitada">Quitada</option>
             <option value="cancelada">Cancelada</option>
           </select>
-          <select id="cli-controle">
+          <select id="cli-controle" class="so-completo">
             <option value="">Controle: todos</option>
             <option value="feito">Controle feito</option>
             <option value="pendente">Controle não feito</option>
@@ -147,7 +147,7 @@
         <div class="panel">
           <div class="panel-header"><h3>Parcelas e oferta de lance</h3>
             <div class="pv-col-nav">
-              <span class="panel-total">Clique na parcela para dar baixa</span>
+              <span class="panel-total so-completo">Clique na parcela para dar baixa</span>
               <button class="icon-btn pv-icon-sm" id="cli-prev" type="button" title="Parcelas anteriores">‹</button>
               <span class="pv-col-label" id="cli-col-label"></span>
               <button class="icon-btn pv-icon-sm" id="cli-next" type="button" title="Próximas parcelas">›</button>
@@ -357,6 +357,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

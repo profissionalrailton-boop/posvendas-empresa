@@ -17,6 +17,8 @@ let state = {
   authMode: "login",
   activeTab: "hoje",
   hasAccess: false,
+  modo: null,             // "completo" | "vendedor" (ver descobrirModo)
+  meuVendedor: null,      // nome do vendedor logado, no modo vendedor
   vendas: [],
   grupos: new Map(),      // "adm|grupo" -> dia_vencimento
   cobranca: new Map(),    // venda_id -> posvendas_cobranca
@@ -392,19 +394,54 @@ document.getElementById("prev-month").addEventListener("click", () => { if (!doc
 document.getElementById("next-month").addEventListener("click", () => mudarMes(1));
 
 // ---------- data loading ----------
-async function loadAll() {
+// Modo de acesso:
+//   "completo" → pós-vendas (Caio) e gestão: sistema inteiro
+//   "vendedor" → só a aba Clientes, só os próprios clientes, só consulta + registrar contato
+// A trava real é no banco (RLS/funções, sql/007); aqui só escondemos o que não se aplica.
+function somenteLeitura() { return state.modo === "vendedor"; }
+async function descobrirModo() {
   const { data: acesso } = await sb.from("posvendas_allowed_users").select("email").limit(1);
-  state.hasAccess = Array.isArray(acesso) && acesso.length > 0;
+  if (Array.isArray(acesso) && acesso.length) return { modo: "completo" };
+  const { data: vend } = await sb.from("posvendas_vendedor_acesso").select("vendedor").limit(1);
+  if (Array.isArray(vend) && vend.length) return { modo: "vendedor", vendedor: vend[0].vendedor };
+  return { modo: null };
+}
+function aplicarModo() {
+  const vendedor = somenteLeitura();
+  document.body.classList.toggle("modo-vendedor", vendedor);
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("hidden", vendedor && b.dataset.tab !== "clientes"));
+  document.querySelector(".sidebar-brand-title").textContent = vendedor ? "Meus clientes" : "Pós-vendas";
+  document.querySelector('#tab-clientes .pv-page-head h2').textContent = vendedor ? `Meus clientes · ${state.meuVendedor}` : "Clientes";
+  if (vendedor && state.activeTab !== "clientes") {
+    state.activeTab = "clientes";
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === "clientes"));
+  }
+}
+async function buscarVendas() {
+  if (somenteLeitura()) {
+    // só os clientes do vendedor, com os campos liberados (sem CPF, renda, documentos, crédito)
+    const { data, error } = await sb.rpc("posvendas_meus_clientes");
+    if (error) throw error;
+    return (data || []).sort((a, b) => a.cliente.localeCompare(b.cliente, "pt-BR"));
+  }
+  return fetchAllRows(() => sb.from("administrativo_vendas")
+    .select("id, cliente, vendedor, administradora, grupo, cota, numero_contrato, numero_contato, email, cpf, valor_venda, data_venda, data_assembleia, tipo_plano, tabela, parcelinha, parcela_antecipada, meses_antecipados, primeira_parcela, demais_parcelas")
+    .order("cliente"));
+}
+async function loadAll() {
+  const acesso = await descobrirModo();
+  state.modo = acesso.modo;
+  state.meuVendedor = acesso.vendedor || null;
+  state.hasAccess = !!state.modo;
   if (!state.hasAccess) { renderActiveTab(); return; }
+  aplicarModo();
   try {
     const [vendas, grupos, cobranca, pagamentos, lembretes, promessas] = await Promise.all([
-      fetchAllRows(() => sb.from("administrativo_vendas")
-        .select("id, cliente, vendedor, administradora, grupo, cota, numero_contrato, numero_contato, email, cpf, valor_venda, data_venda, data_assembleia, tipo_plano, tabela, parcelinha, parcela_antecipada, meses_antecipados, primeira_parcela, demais_parcelas")
-        .order("cliente")),
+      buscarVendas(),
       fetchAllRows(() => sb.from("posvendas_grupos").select("administradora, grupo, dia_vencimento").order("grupo")),
       fetchAllRows(() => sb.from("posvendas_cobranca").select("*").order("venda_id")),
       fetchAllRows(() => sb.from("posvendas_pagamentos").select("venda_id, numero, pago_em, valor").order("venda_id").order("numero")),
-      fetchAllRows(() => sb.from("posvendas_lembretes").select("*")
+      somenteLeitura() ? Promise.resolve([]) : fetchAllRows(() => sb.from("posvendas_lembretes").select("*")
         .or(`concluido_em.is.null,concluido_em.gte.${isoDate(addDays(today(), -30))}`)
         .order("data").order("id")),
       fetchAllRows(() => sb.from("posvendas_anotacoes").select("*").eq("tipo", "promessa").is("resolvido_em", null).order("promessa_data").order("id")),
@@ -599,13 +636,13 @@ function renderClientes() {
   thead.appendChild(el("tr", {}, [
     el("th", {}, "Cliente"), el("th", {}, "Grupo/cota"), el("th", {}, "Parcela"),
     ...numeros.flatMap((n) => [el("th", { class: "pv-grid-parc" }, `${n}ª`), el("th", { class: "pv-grid-lance" }, "Lance")]),
-    el("th", { class: "pv-grid-controle" }, "Controle feito"),
+    somenteLeitura() ? null : el("th", { class: "pv-grid-controle" }, "Controle feito"),
   ]));
 
   const tbody = document.getElementById("clientes-tbody");
   tbody.innerHTML = "";
   if (!list.length) {
-    tbody.appendChild(el("tr", {}, [el("td", { colspan: String(4 + CLIENTES_COLUNAS * 2) }, [emptyState(doMes.length ? "Nenhum cliente com os filtros atuais." : "Nenhuma venda nesse mês.")])]));
+    tbody.appendChild(el("tr", {}, [el("td", { colspan: String((somenteLeitura() ? 3 : 4) + CLIENTES_COLUNAS * 2) }, [emptyState(doMes.length ? "Nenhum cliente com os filtros atuais." : "Nenhuma venda nesse mês.")])]));
     return;
   }
   const hoje = today();
@@ -629,15 +666,16 @@ function renderClientes() {
       const box = el("input", {
         type: "checkbox",
         class: "com-check",
-        disabled: state.lancesOk && s.cob ? null : "disabled",
-        title: !state.lancesOk ? "Oferta de lance ainda não disponível" : lance ? `Lance ofertado em ${formatDateBR(lance.feito_em)}` : `Marcar oferta de lance da ${n}ª parcela`,
+        disabled: state.lancesOk && s.cob && !somenteLeitura() ? null : "disabled",
+        title: !state.lancesOk ? "Oferta de lance ainda não disponível" : lance ? `Lance ofertado em ${formatDateBR(lance.feito_em)}` : somenteLeitura() ? `Lance da ${n}ª parcela ainda não ofertado` : `Marcar oferta de lance da ${n}ª parcela`,
         "aria-label": `Oferta de lance da ${n}ª parcela de ${v.cliente}`,
       });
       box.checked = !!lance;
       box.addEventListener("change", () => toggleLance(v, n, box));
       tr.appendChild(el("td", { class: "pv-grid-lance" }, [box]));
     });
-    // Controle feito: primeiro contato do pós-vendas com o cliente
+    // Controle feito: primeiro contato do pós-vendas com o cliente (não aparece para o vendedor)
+    if (somenteLeitura()) { tbody.appendChild(tr); return; }
     const ctrl = state.controle.get(v.id);
     const ctrlBox = el("input", {
       type: "checkbox",
@@ -708,6 +746,7 @@ function parcelaCelula(v, s, n, hoje) {
     title = `Vence em ${formatDateBR(venc)}`;
   }
   if (cls === "na") return el("span", { class: "pv-cell na", title }, conteudo);
+  if (somenteLeitura()) return el("span", { class: `pv-cell ${cls}`, title }, conteudo);
   return el("button", { type: "button", class: `pv-cell ${cls}`, title: title + " — clique para " + (pago ? "alterar" : "dar baixa"), onclick: () => openBaixa(v, n) }, conteudo);
 }
 
@@ -1234,16 +1273,32 @@ function renderFicha() {
     detail("E-mail", v.email),
     detail("Data da venda", formatDateBR(v.data_venda)),
     detail("Assembleia", formatDateBR(v.data_assembleia)),
-    detail("Crédito", v.valor_venda ? fmtMoney(Number(v.valor_venda)) : "—"),
+    somenteLeitura() ? null : detail("Crédito", v.valor_venda ? fmtMoney(Number(v.valor_venda)) : "—"),
     detail("Plano / tabela", [v.tipo_plano, v.tabela].filter(Boolean).join(" · ") || "—"),
     detail("Tipo", [v.parcelinha ? "Parcelinha" : "Adesão", v.parcela_antecipada ? `antecipou${v.meses_antecipados ? " " + v.meses_antecipados + " meses" : ""}` : null].filter(Boolean).join(" · ")),
   ]));
 
-  body.appendChild(buildCobrancaForm(v, s));
+  body.appendChild(somenteLeitura() ? buildCobrancaResumo(v, s) : buildCobrancaForm(v, s));
   if (s.cob) body.appendChild(buildParcelas(v, s));
   body.appendChild(buildHistorico(v));
-  body.appendChild(buildLembretesCliente(v));
+  if (!somenteLeitura()) body.appendChild(buildLembretesCliente(v));
   body.scrollTop = scroll;
+}
+
+// Modo vendedor: dados de cobrança só para consulta
+function buildCobrancaResumo(v, s) {
+  const wrap = el("div", { class: "pv-section" });
+  wrap.appendChild(sectionTitle("Cobrança"));
+  const dia = state.grupos.get(grupoKey(v.administradora, v.grupo));
+  const cota = SITUACOES_COTA.find((o) => o.value === (s.cota || "ativa"))?.label || "Ativa";
+  wrap.appendChild(el("div", { class: "detail-grid" }, [
+    detail("Situação", adimplenciaTitulo(s)),
+    detail("Situação da cota", cota),
+    detail("Valor da parcela", s.cob?.valor_parcela != null ? fmtMoney(Number(s.cob.valor_parcela)) : "—"),
+    detail("Dia de vencimento", dia ? `Todo dia ${dia}` : "Ainda não definido"),
+    detail("Próxima parcela", s.proxima ? `${s.proxima.numero}ª · ${formatDateBR(s.proxima.venc)}` : "—"),
+  ]));
+  return wrap;
 }
 
 function sugestaoCobranca(v) {
@@ -1341,7 +1396,9 @@ function buildParcelas(v, s) {
     const statusTxt = p.pagamento ? `Pago em ${formatDateBR(p.pagamento.pago_em)}` : p.status === "atraso" ? `${p.atraso} dia${p.atraso > 1 ? "s" : ""} de atraso` : p.status === "hoje" ? "Vence hoje" : "A vencer";
     const statusCls = p.pagamento ? "em_dia" : p.status === "atraso" ? "atraso" : p.status === "hoje" ? "sem_cobranca" : "aberto";
     let acao;
-    if (p.pagamento) {
+    if (somenteLeitura()) {
+      acao = null; // vendedor só consulta: sem baixa nem desfazer
+    } else if (p.pagamento) {
       acao = el("button", { type: "button", class: "pv-link pv-muted", onclick: () => desfazerBaixa(v, p.numero) }, "desfazer");
     } else {
       const data = el("input", { type: "date", class: "pv-date-sm", value: isoDate(hoje) });
@@ -1364,10 +1421,11 @@ function buildParcelas(v, s) {
 function buildHistorico(v) {
   const wrap = el("div", { class: "pv-section" });
   wrap.appendChild(sectionTitle("Histórico de contatos e promessas"));
+  // vendedor só registra "Contato feito" (o banco também só aceita esse tipo dele)
   const tipo = el("select", { name: "tipo" }, [
     el("option", { value: "contato" }, "Contato feito"),
-    el("option", { value: "promessa" }, "Promessa de pagamento"),
-    el("option", { value: "observacao" }, "Observação"),
+    somenteLeitura() ? null : el("option", { value: "promessa" }, "Promessa de pagamento"),
+    somenteLeitura() ? null : el("option", { value: "observacao" }, "Observação"),
   ]);
   const promessaLabel = el("label", { class: "hidden" }, ["Vai pagar em", el("input", { type: "date", name: "promessa_data", value: isoDate(addDays(today(), 3)) })]);
   tipo.addEventListener("change", () => promessaLabel.classList.toggle("hidden", tipo.value !== "promessa"));
@@ -1410,7 +1468,7 @@ function buildHistorico(v) {
       el("div", {}, a.texto),
       a.tipo === "promessa" ? el("div", { class: "pv-muted" }, [
         `Vai pagar em ${formatDateBR(a.promessa_data)} · `,
-        a.resolvido_em ? "resolvida" : el("button", { type: "button", class: "pv-link", onclick: () => resolverPromessa(a) }, "marcar como resolvida"),
+        a.resolvido_em ? "resolvida" : somenteLeitura() ? "em aberto" : el("button", { type: "button", class: "pv-link", onclick: () => resolverPromessa(a) }, "marcar como resolvida"),
       ]) : null,
     ]));
   });

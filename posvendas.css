@@ -248,3 +248,6 @@ table.pv-parcelas th { padding: 8px 12px; }
   .client-form-grid .span-2 { grid-column: auto; }
   .pend-client-missing { min-width: 0; }
 }
+
+/* Modo vendedor (só consulta): esconde o que é do pós-vendas */
+body.modo-vendedor .so-completo { display: none !important; }
