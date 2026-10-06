@@ -7,7 +7,7 @@
   "rewrites": [
     { "source": "/administrativo/", "destination": "https://administrativo-empresa.vercel.app/" },
     { "source": "/administrativo/:path*", "destination": "https://administrativo-empresa.vercel.app/:path*" },
-    { "source": "/financeiro/", "destination": "https://financeiro-empresa.vercel.app/" },
-    { "source": "/financeiro/:path*", "destination": "https://financeiro-empresa.vercel.app/:path*" }
+    { "source": "/financeiro/", "destination": "https://financeiro-empresa-sigma.vercel.app/" },
+    { "source": "/financeiro/:path*", "destination": "https://financeiro-empresa-sigma.vercel.app/:path*" }
   ]
 }
