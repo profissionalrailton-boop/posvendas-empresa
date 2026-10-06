@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="posvendas.css?v=20" />
+<link rel="stylesheet" href="posvendas.css?v=21" />
 </head>
 <body>
 <div id="app">
@@ -229,13 +229,27 @@
 
       <!-- LEMBRETES -->
       <div id="tab-lembretes" class="hidden">
-        <div class="pv-page-head"><h2>Lembretes</h2></div>
+        <div class="pv-page-head"><h2>Lembretes</h2>
+          <div class="pv-aviso-status">
+            <span class="pv-today" id="aviso-status">Avisos sonoros: deixe o sistema aberto numa aba para tocar.</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="aviso-testar">🔔 Testar som</button>
+          </div>
+        </div>
         <div class="panel">
           <div class="panel-header"><h3>+ Novo lembrete</h3></div>
           <form id="lembrete-form" class="client-form">
             <div class="client-form-grid">
               <label class="span-2">O que fazer<input name="titulo" required placeholder="Ex.: ligar para confirmar pagamento" /></label>
               <label>Data<input type="date" name="data" required /></label>
+              <label>Hora (opcional)<input type="time" name="hora" /></label>
+              <label>Avisar com som
+                <select name="avisar_min">
+                  <option value="">Sem aviso</option>
+                  <option value="0">Na hora</option>
+                  <option value="5">5 minutos antes</option>
+                  <option value="10">10 minutos antes</option>
+                </select>
+              </label>
               <label>Repetir
                 <select name="repetir_dias">
                   <option value="">Não repetir</option>
@@ -343,6 +357,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

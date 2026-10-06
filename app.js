@@ -421,6 +421,7 @@ async function loadAll() {
       state.pagamentos.get(p.venda_id).set(p.numero, p);
     });
     state.lembretes = lembretes;
+    ordenarLembretes();
     state.promessas = promessas;
     await Promise.all([loadLances(), loadPagasAdministrativo(), loadControle()]);
     recalcular();
@@ -1013,20 +1014,34 @@ lembreteForm.elements["data"].value = isoDate(today());
 lembreteForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(lembreteForm);
+  const horaAviso = lerHoraAviso(fd);
+  if (!horaAviso) return;
   const ok = await criarLembrete({
     titulo: fd.get("titulo").trim(),
     data: fd.get("data"),
+    ...horaAviso,
     repetir_dias: fd.get("repetir_dias") ? Number(fd.get("repetir_dias")) : null,
     venda_id: fd.get("venda_id") || null,
     descricao: fd.get("descricao").trim() || null,
   });
   if (ok) { lembreteForm.reset(); lembreteForm.elements["data"].value = isoDate(today()); }
 });
+// hora (opcional) + aviso sonoro; aviso exige hora. Devolve null se inválido.
+function lerHoraAviso(fd) {
+  const hora = fd.get("hora") || null;
+  const avisar = fd.get("avisar_min");
+  if (avisar !== "" && avisar !== null && !hora) { showToast("Para avisar com som, informe a hora do lembrete."); return null; }
+  return { hora, avisar_min: avisar !== "" && avisar !== null ? Number(avisar) : null };
+}
+function horaCurta(h) { return h ? h.slice(0, 5) : ""; }
+function ordenarLembretes() {
+  state.lembretes.sort((a, b) => a.data.localeCompare(b.data) || (a.hora || "99").localeCompare(b.hora || "99"));
+}
 async function criarLembrete(payload) {
   const { data, error } = await sb.from("posvendas_lembretes").insert({ ...payload, created_by: userEmail() }).select().single();
   if (error) { showToast("Erro ao salvar lembrete: " + error.message); return false; }
   state.lembretes.push(data);
-  state.lembretes.sort((a, b) => a.data.localeCompare(b.data));
+  ordenarLembretes();
   showToast("Lembrete salvo.");
   refreshViews();
   return true;
@@ -1039,7 +1054,7 @@ async function concluirLembrete(l) {
   if (l.repetir_dias) {
     // o próximo conta a partir da data do lembrete (ou de hoje, se ele estava atrasado)
     const base = parseDate(l.data) < today() ? today() : parseDate(l.data);
-    await criarLembrete({ titulo: l.titulo, descricao: l.descricao, venda_id: l.venda_id, repetir_dias: l.repetir_dias, data: isoDate(addDays(base, l.repetir_dias)) });
+    await criarLembrete({ titulo: l.titulo, descricao: l.descricao, venda_id: l.venda_id, repetir_dias: l.repetir_dias, data: isoDate(addDays(base, l.repetir_dias)), hora: l.hora ?? null, avisar_min: l.avisar_min ?? null });
     return;
   }
   showToast("Lembrete concluído.");
@@ -1061,12 +1076,16 @@ async function excluirLembrete(l) {
 function lembreteRow(l, opts = {}) {
   const v = l.venda_id ? vendaById(l.venda_id) : null;
   const atraso = !l.concluido_em ? diffDays(today(), parseDate(l.data)) : 0;
+  const hora = l.hora ? ` · ${horaCurta(l.hora)}` : "";
   const quando = l.concluido_em ? `Concluído em ${formatDateTimeBR(l.concluido_em)}`
-    : atraso > 0 ? `Atrasado ${atraso} dia${atraso > 1 ? "s" : ""} (${formatDateBR(l.data)})`
-    : atraso === 0 ? "Hoje" : formatDateBR(l.data);
+    : atraso > 0 ? `Atrasado ${atraso} dia${atraso > 1 ? "s" : ""} (${formatDateBR(l.data)}${hora})`
+    : atraso === 0 ? `Hoje${hora}` : formatDateBR(l.data) + hora;
+  const aviso = !l.concluido_em && l.hora && l.avisar_min != null
+    ? el("span", { class: "pv-aviso-ic", title: l.avisar_min ? `Aviso com som ${l.avisar_min} min antes` : "Aviso com som na hora" }, l.avisar_min ? `🔔 ${l.avisar_min}min` : "🔔")
+    : null;
   // ordem: data · nome do cliente · informação (na ficha do cliente o nome é omitido)
   return el("div", { class: "pend-client-row pv-row" + (l.concluido_em ? " pv-done" : "") }, [
-    el("span", { class: "pv-lembrete-data" + (atraso > 0 ? " late" : "") }, quando),
+    el("span", { class: "pv-lembrete-data" + (atraso > 0 ? " late" : "") }, [quando, aviso]),
     opts.semCliente ? null : el("span", { class: "pv-lembrete-cliente" }, [
       v ? el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => openFicha(v.id) }, v.cliente) : el("span", { class: "pv-muted" }, "—"),
     ]),
@@ -1407,14 +1426,142 @@ function buildLembretesCliente(v) {
   const form = el("form", { class: "client-form-grid pv-hist-form" }, [
     el("label", { class: "span-2" }, ["O que fazer", titulo]),
     el("label", {}, ["Data", data]),
+    el("label", {}, ["Hora (opcional)", el("input", { type: "time", name: "hora" })]),
+    el("label", {}, ["Avisar com som", el("select", { name: "avisar_min" }, [
+      el("option", { value: "" }, "Sem aviso"),
+      el("option", { value: "0" }, "Na hora"),
+      el("option", { value: "5" }, "5 minutos antes"),
+      el("option", { value: "10" }, "10 minutos antes"),
+    ])]),
     el("div", { class: "pv-hist-actions" }, [el("button", { type: "submit", class: "btn btn-primary btn-sm" }, "Criar lembrete")]),
   ]);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    await criarLembrete({ titulo: titulo.value.trim(), data: data.value, venda_id: v.id });
+    const horaAviso = lerHoraAviso(new FormData(form));
+    if (!horaAviso) return;
+    await criarLembrete({ titulo: titulo.value.trim(), data: data.value, venda_id: v.id, ...horaAviso });
   });
   wrap.appendChild(form);
   const doCliente = state.lembretes.filter((l) => l.venda_id === v.id && !l.concluido_em);
   if (doCliente.length) doCliente.forEach((l) => wrap.appendChild(lembreteRow(l, { semCliente: true })));
   return wrap;
 }
+
+// ---------- AVISO SONORO DOS LEMBRETES ----------
+// Funciona com o sistema aberto numa aba do navegador (não precisa estar na frente).
+// Para cada lembrete pendente com hora e aviso: toca um som, mostra um alerta na tela e, se
+// permitido, uma notificação do Windows — 10 min antes, 5 min antes ou na hora.
+const AVISOS_KEY = "posvendas-avisos-tocados";
+const AVISO_TOLERANCIA_MIN = 30; // se o sistema abrir até 30 min depois do horário, ainda avisa
+let audioCtx = null;
+
+function avisosTocados() {
+  try { return new Set(JSON.parse(localStorage.getItem(AVISOS_KEY) || "[]")); } catch (e) { return new Set(); }
+}
+function marcarTocado(chave) {
+  const s = avisosTocados();
+  s.add(chave);
+  // guarda só os últimos 200 para não crescer sem fim
+  try { localStorage.setItem(AVISOS_KEY, JSON.stringify([...s].slice(-200))); } catch (e) { /* sem armazenamento: só vale nesta visita */ }
+  avisosDaSessao.add(chave);
+}
+const avisosDaSessao = new Set(); // reserva caso o navegador bloqueie o localStorage
+
+function horarioDoLembrete(l) {
+  const d = parseDate(l.data);
+  const [h, m] = l.hora.split(":").map(Number);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m);
+}
+
+function destravarAudio() {
+  // navegadores só liberam som depois de um clique na página
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) { /* sem suporte a áudio */ }
+}
+document.addEventListener("click", destravarAudio);
+document.addEventListener("keydown", destravarAudio);
+
+function tocarSom() {
+  destravarAudio();
+  if (!audioCtx) return;
+  // "plim-plim-plim" curto e agradável (3 notas)
+  const t0 = audioCtx.currentTime + 0.02;
+  [[880, 0], [1175, 0.18], [1568, 0.36]].forEach(([freq, atraso]) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, t0 + atraso);
+    gain.gain.exponentialRampToValueAtTime(0.35, t0 + atraso + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + atraso + 0.5);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0 + atraso);
+    osc.stop(t0 + atraso + 0.55);
+  });
+}
+
+function mostrarAlerta(l, texto) {
+  let box = document.getElementById("pv-alertas");
+  if (!box) { box = el("div", { id: "pv-alertas", class: "pv-alertas", role: "alert" }); document.body.appendChild(box); }
+  const v = l.venda_id ? vendaById(l.venda_id) : null;
+  const card = el("div", { class: "pv-alerta" }, [
+    el("div", { class: "pv-alerta-head" }, [el("span", {}, "🔔 Lembrete"), el("span", { class: "pv-muted" }, texto)]),
+    el("div", { class: "pv-strong" }, l.titulo),
+    v ? el("button", { type: "button", class: "pv-link", onclick: () => { openFicha(v.id); card.remove(); } }, v.cliente) : null,
+    l.descricao ? el("div", { class: "pv-muted" }, l.descricao) : null,
+    el("div", { class: "pv-alerta-acoes" }, [
+      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: async () => { card.remove(); await concluirLembrete(l); } }, "Concluir"),
+      el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => card.remove() }, "Fechar"),
+    ]),
+  ]);
+  box.appendChild(card);
+}
+
+function dispararAviso(l, minutosParaHora) {
+  const texto = minutosParaHora > 0 ? `em ${minutosParaHora} min (${horaCurta(l.hora)})` : `agora (${horaCurta(l.hora)})`;
+  tocarSom();
+  mostrarAlerta(l, texto);
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      const v = l.venda_id ? vendaById(l.venda_id) : null;
+      new Notification(`Lembrete ${texto}`, { body: l.titulo + (v ? ` — ${v.cliente}` : ""), icon: "logo.png", tag: "lembrete-" + l.id });
+    }
+  } catch (e) { /* notificação do sistema é opcional */ }
+}
+
+function checarAvisos() {
+  if (!state.session || !state.hasAccess) return;
+  const agora = new Date();
+  const tocados = avisosTocados();
+  state.lembretes.forEach((l) => {
+    if (l.concluido_em || !l.hora || l.avisar_min == null) return;
+    const chave = `${l.id}|${l.data}|${l.hora}|${l.avisar_min}`;
+    if (tocados.has(chave) || avisosDaSessao.has(chave)) return;
+    const horario = horarioDoLembrete(l);
+    const momentoAviso = new Date(horario.getTime() - l.avisar_min * 60000);
+    if (agora < momentoAviso) return;
+    if (agora - horario > AVISO_TOLERANCIA_MIN * 60000) return; // passou muito do horário: não toca mais
+    marcarTocado(chave);
+    dispararAviso(l, Math.max(0, Math.ceil((horario - agora) / 60000)));
+  });
+}
+setInterval(checarAvisos, 15000);
+
+function atualizarStatusAviso() {
+  const elStatus = document.getElementById("aviso-status");
+  if (!elStatus) return;
+  const perm = "Notification" in window ? Notification.permission : "unsupported";
+  elStatus.textContent = perm === "granted"
+    ? "Avisos ativos: som + notificação do Windows (com o sistema aberto numa aba)."
+    : perm === "denied"
+      ? "Avisos com som ativos. Notificação do Windows bloqueada no navegador."
+      : "Avisos sonoros: deixe o sistema aberto numa aba. Clique em Testar som para liberar.";
+}
+document.getElementById("aviso-testar").addEventListener("click", async () => {
+  tocarSom();
+  try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) { /* opcional */ }
+  atualizarStatusAviso();
+});
+atualizarStatusAviso();
