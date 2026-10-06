@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="posvendas.css?v=22" />
+<link rel="stylesheet" href="posvendas.css?v=23" />
 </head>
 <body>
 <div id="app">
@@ -112,6 +112,10 @@
           <div class="summary-card revenue"><div class="label">Adimplência</div><div class="value" id="hoje-sum-adimp">—</div></div>
         </div>
 
+        <div class="panel" id="hoje-contatos-panel">
+          <div class="panel-header"><h3>💬 Contatos dos vendedores</h3><span class="panel-total">Registrados pelos vendedores nos últimos 7 dias</span></div>
+          <div id="hoje-contatos"></div>
+        </div>
         <div class="panel">
           <div class="panel-header"><h3>Vencem hoje e nos próximos 5 dias</h3><span class="panel-total">Conferir a baixa</span></div>
           <div id="hoje-proximos"></div>
@@ -168,18 +172,18 @@
         <div class="summary-row">
           <div class="summary-card total"><div class="label">Clientes que pagaram</div><div class="value" id="conf-sum-vendas">0</div></div>
           <div class="summary-card revenue"><div class="label">Parcelas confirmadas</div><div class="value" id="conf-sum-parcelas">0</div></div>
-          <div class="summary-card invested"><div class="label">Crédito confirmado</div><div class="value" id="conf-sum-valor">R$ 0,00</div><div class="com-card-hint">Soma do crédito dos clientes que pagaram</div></div>
+          <div class="summary-card invested so-completo"><div class="label">Crédito confirmado</div><div class="value" id="conf-sum-valor">R$ 0,00</div><div class="com-card-hint">Soma do crédito dos clientes que pagaram</div></div>
           <div class="summary-card pending"><div class="label">De vendas de outros meses</div><div class="value" id="conf-sum-mes">0</div></div>
         </div>
         <div class="panel">
           <div class="panel-header"><h3>Parcelas pagas por venda</h3>
-            <span class="panel-total">Só a parcela com baixa fica marcada · desmarque para desfazer</span>
+            <span class="panel-total so-completo">Só a parcela com baixa fica marcada · desmarque para desfazer</span>
           </div>
           <div class="filters-row pv-filters-in-panel">
             <input type="search" id="conf-search" placeholder="Buscar cliente, contrato, grupo ou cota" />
             <select id="conf-adm"><option value="">Todas as administradoras</option></select>
-            <select id="conf-vendedor"><option value="">Todos os vendedores</option></select>
-            <select id="conf-comissao" title="Comissão do pós-vendas: parcelinha até a 8ª parcela, Âncora até a 3ª">
+            <select id="conf-vendedor" class="so-completo"><option value="">Todos os vendedores</option></select>
+            <select id="conf-comissao" class="so-completo" title="Comissão do pós-vendas: parcelinha até a 8ª parcela, Âncora até a 3ª">
               <option value="">Confirmações totais</option>
               <option value="comissionadas">Só comissionadas (pós-vendas)</option>
               <option value="nao">Não comissionadas</option>
@@ -357,6 +361,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

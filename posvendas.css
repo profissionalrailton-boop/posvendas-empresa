@@ -251,3 +251,5 @@ table.pv-parcelas th { padding: 8px 12px; }
 
 /* Modo vendedor (só consulta): esconde o que é do pós-vendas */
 body.modo-vendedor .so-completo { display: none !important; }
+/* nome do vendedor nos contatos registrados por ele */
+.pv-autor-vendedor { color: var(--accent-cyan); font-weight: 700; }

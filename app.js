@@ -19,6 +19,8 @@ let state = {
   hasAccess: false,
   modo: null,             // "completo" | "vendedor" (ver descobrirModo)
   meuVendedor: null,      // nome do vendedor logado, no modo vendedor
+  vendedoresPorEmail: new Map(), // e-mail (minúsculo) → nome do vendedor (para mostrar quem registrou)
+  contatosVendedores: [], // contatos registrados por vendedores nos últimos dias (Fila de hoje do Caio)
   vendas: [],
   grupos: new Map(),      // "adm|grupo" -> dia_vencimento
   cobranca: new Map(),    // venda_id -> posvendas_cobranca
@@ -399,6 +401,7 @@ document.getElementById("next-month").addEventListener("click", () => mudarMes(1
 //   "vendedor" → só a aba Clientes, só os próprios clientes, só consulta + registrar contato
 // A trava real é no banco (RLS/funções, sql/007); aqui só escondemos o que não se aplica.
 function somenteLeitura() { return state.modo === "vendedor"; }
+const ABAS_VENDEDOR = ["clientes", "confirmacoes"];
 async function descobrirModo() {
   const { data: acesso } = await sb.from("posvendas_allowed_users").select("email").limit(1);
   if (Array.isArray(acesso) && acesso.length) return { modo: "completo" };
@@ -409,10 +412,10 @@ async function descobrirModo() {
 function aplicarModo() {
   const vendedor = somenteLeitura();
   document.body.classList.toggle("modo-vendedor", vendedor);
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("hidden", vendedor && b.dataset.tab !== "clientes"));
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("hidden", vendedor && !ABAS_VENDEDOR.includes(b.dataset.tab)));
   document.querySelector(".sidebar-brand-title").textContent = vendedor ? "Meus clientes" : "Pós-vendas";
   document.querySelector('#tab-clientes .pv-page-head h2').textContent = vendedor ? `Meus clientes · ${state.meuVendedor}` : "Clientes";
-  if (vendedor && state.activeTab !== "clientes") {
+  if (vendedor && !ABAS_VENDEDOR.includes(state.activeTab)) {
     state.activeTab = "clientes";
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === "clientes"));
   }
@@ -460,7 +463,7 @@ async function loadAll() {
     state.lembretes = lembretes;
     ordenarLembretes();
     state.promessas = promessas;
-    await Promise.all([loadLances(), loadPagasAdministrativo(), loadControle()]);
+    await Promise.all([loadLances(), loadPagasAdministrativo(), loadControle(), loadVendedoresAcesso()]);
     recalcular();
     populateFilterOptions();
     renderActiveTab();
@@ -481,6 +484,33 @@ async function loadLances() {
   } catch (err) {
     state.lancesOk = false; // tabela ainda não criada: a grade mostra os checkboxes de lance desativados
   }
+}
+// Quem é vendedor (para mostrar o nome no histórico) e os contatos que eles registraram nos últimos 7 dias.
+const DIAS_CONTATOS_VENDEDORES = 7;
+async function loadVendedoresAcesso() {
+  state.vendedoresPorEmail = new Map();
+  state.contatosVendedores = [];
+  if (somenteLeitura()) return;
+  try {
+    const { data, error } = await sb.from("posvendas_vendedor_acesso").select("email, vendedor");
+    if (error) throw error;
+    state.vendedoresPorEmail = new Map((data || []).map((r) => [r.email.toLowerCase(), r.vendedor]));
+    if (!state.vendedoresPorEmail.size) return;
+    const desde = addDays(today(), -DIAS_CONTATOS_VENDEDORES).toISOString();
+    const contatos = await fetchAllRows(() => sb.from("posvendas_anotacoes").select("*")
+      .eq("tipo", "contato").gte("created_at", desde).order("created_at", { ascending: false }).order("id"));
+    state.contatosVendedores = contatos.filter((a) => state.vendedoresPorEmail.has((a.created_by || "").toLowerCase()));
+  } catch (err) {
+    // tabela de vendedores ainda não criada: segue sem os nomes
+  }
+}
+// "Felipe Cavalcante (vendedor)" para quem é vendedor; e-mail para os demais
+function autorAnotacao(email) {
+  if (!email) return "";
+  const nome = state.vendedoresPorEmail.get(email.toLowerCase());
+  if (nome) return el("span", { class: "pv-autor-vendedor" }, `${nome} · vendedor`);
+  if (somenteLeitura() && email.toLowerCase() === (userEmail() || "").toLowerCase()) return "você";
+  return email;
 }
 async function loadControle() {
   try {
@@ -582,6 +612,18 @@ function renderHoje() {
     clienteRow(v, `${p.numero}ª parcela · vence ${d === 0 ? "hoje" : d === 1 ? "amanhã" : "em " + d + " dias"} (${formatDateBR(p.venc)}) · ${fmtMoney(Number(sit(v).cob.valor_parcela))}`,
       [baixaBtn(v, p)]));
   fillList("hoje-lembretes", lembretesHoje, "Nenhum lembrete para hoje.", (l) => lembreteRow(l));
+  fillList("hoje-contatos", state.contatosVendedores, "Nenhum contato registrado pelos vendedores nos últimos 7 dias.", (a) => {
+    const v = vendaById(a.venda_id);
+    if (!v) return null;
+    return el("div", { class: "pend-client-row pv-row" }, [
+      el("span", { class: "pv-lembrete-data" }, formatDateTimeBR(a.created_at)),
+      el("span", { class: "pv-lembrete-cliente" }, [el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => openFicha(v.id) }, v.cliente)]),
+      el("div", { class: "pv-lembrete-txt" }, [
+        el("div", { class: "pv-autor-vendedor" }, state.vendedoresPorEmail.get((a.created_by || "").toLowerCase())),
+        el("div", {}, a.texto),
+      ]),
+    ]);
+  });
 }
 function fillList(id, items, emptyMsg, render) {
   const box = document.getElementById(id);
@@ -893,7 +935,7 @@ function renderConfirmacoes() {
           el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => openFicha(v.id) }, v.cliente),
           ehParcelinha(v) ? el("span", { class: "com-tag-parcelinha" }, "Parcelinha") : null,
           cotaTag(s),
-          pagasNoMes(v).some((p) => parcelaComissionada(v, p.numero))
+          !somenteLeitura() && pagasNoMes(v).some((p) => parcelaComissionada(v, p.numero))
             ? el("span", { class: "pv-tag-comissao", title: "Tem parcela paga no mês que entra na comissão do pós-vendas" }, "Comissão PV") : null,
         ]),
         el("div", { class: "com-cliente-sub" }, `Venda em ${formatDateBR(v.data_venda)} · ${v.vendedor}`),
@@ -935,6 +977,13 @@ function renderConfirmacoes() {
       if (pago.pago_em.slice(0, 7) !== mesKey(state.producaoMes)) {
         // paga em outro mês: aparece como histórico, travada (é desfeita no mês em que foi paga)
         const box = el("input", { type: "checkbox", class: "com-check pv-check-adm", disabled: "disabled", title: `Paga em ${formatDateBR(pago.pago_em)} (outro mês)`, "aria-label": `Parcela ${n} de ${v.cliente}` });
+        box.checked = true;
+        tr.appendChild(el("td", { class: "com-p" }, [box]));
+        continue;
+      }
+      if (somenteLeitura()) {
+        // vendedor: só vê que foi paga (sem desfazer, sem marcação de comissão do pós-vendas)
+        const box = el("input", { type: "checkbox", class: "com-check", disabled: "disabled", title: `Paga em ${formatDateBR(pago.pago_em)}`, "aria-label": `Parcela ${n} de ${v.cliente}` });
         box.checked = true;
         tr.appendChild(el("td", { class: "com-p" }, [box]));
         continue;
@@ -1429,7 +1478,9 @@ function buildHistorico(v) {
   ]);
   const promessaLabel = el("label", { class: "hidden" }, ["Vai pagar em", el("input", { type: "date", name: "promessa_data", value: isoDate(addDays(today(), 3)) })]);
   tipo.addEventListener("change", () => promessaLabel.classList.toggle("hidden", tipo.value !== "promessa"));
-  const texto = el("input", { name: "texto", required: "required", placeholder: "Ex.: liguei, disse que paga na sexta" });
+  const texto = el("input", { name: "texto", required: "required", placeholder: somenteLeitura()
+    ? "Conte como foi o contato com o cliente — o pós-vendas vai ver"
+    : "Ex.: liguei, disse que paga na sexta" });
   const form = el("form", { class: "client-form-grid pv-hist-form" }, [
     el("label", {}, ["Tipo", tipo]),
     promessaLabel,
@@ -1463,7 +1514,7 @@ function buildHistorico(v) {
     list.appendChild(el("div", { class: "pv-timeline-item" }, [
       el("div", { class: "pv-timeline-head" }, [
         el("span", { class: `pv-tipo ${a.tipo}` }, TIPO_LABEL[a.tipo]),
-        el("span", { class: "pv-muted" }, formatDateTimeBR(a.created_at) + (a.created_by ? " · " + a.created_by : "")),
+        el("span", { class: "pv-muted" }, [formatDateTimeBR(a.created_at), a.created_by ? " · " : null, autorAnotacao(a.created_by)]),
       ]),
       el("div", {}, a.texto),
       a.tipo === "promessa" ? el("div", { class: "pv-muted" }, [

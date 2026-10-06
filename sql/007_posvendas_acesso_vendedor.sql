@@ -8,13 +8,17 @@ create table if not exists public.posvendas_vendedor_acesso (
   created_at timestamptz not null default now()
 );
 alter table public.posvendas_vendedor_acesso enable row level security;
+-- e-mails comparados sem diferença de maiúsculas/minúsculas
 create policy "self read own row" on public.posvendas_vendedor_acesso
-  for select to authenticated using (email = (auth.jwt() ->> 'email'));
+  for select to authenticated using (lower(email) = lower(auth.jwt() ->> 'email'));
+-- o pós-vendas vê a lista inteira, para mostrar o nome do vendedor nos contatos registrados
+create policy "posvendas read all" on public.posvendas_vendedor_acesso
+  for select to authenticated using (private.is_posvendas_user());
 grant select on public.posvendas_vendedor_acesso to authenticated;
 
 create or replace function private.vendedor_logado()
 returns text language sql stable security definer set search_path to 'public' as $$
-  select vendedor from public.posvendas_vendedor_acesso where email = (auth.jwt() ->> 'email');
+  select vendedor from public.posvendas_vendedor_acesso where lower(email) = lower(auth.jwt() ->> 'email');
 $$;
 
 create or replace function private.venda_do_vendedor(p_venda uuid)
@@ -59,7 +63,7 @@ create policy "vendedor registra contato" on public.posvendas_anotacoes
   with check (
     private.venda_do_vendedor(venda_id)
     and tipo = 'contato'
-    and created_by = (auth.jwt() ->> 'email')
+    and lower(created_by) = lower(auth.jwt() ->> 'email')
   );
 
 -- Parcelas já pagas no administrativo: também para o vendedor, só das vendas dele
