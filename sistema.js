@@ -8,6 +8,7 @@ const ic = (path) => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
 const ICONES = {
   administrativo: ic('<rect x="2.5" y="6" width="15" height="10.5" rx="2"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6M2.5 10.5h15"/>'),
   posvendas: ic('<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5z"/><path d="M6.5 8.5h7M6.5 11h4.5"/>'),
+  radar: ic('<circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4"/><path d="M10 10l4.5-4.5"/><circle cx="10" cy="10" r="0.8" fill="currentColor"/>'),
   ranking: ic('<path d="M6.5 3h7v3.5a3.5 3.5 0 0 1-7 0V3z"/><path d="M6.5 4.5H4a2 2 0 0 0 2.6 2.9M13.5 4.5H16a2 2 0 0 1-2.6 2.9M10 10v3.5M7 17h6M8 13.5h4V17H8z"/>'),
   financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
 };
@@ -19,6 +20,20 @@ const GRUPOS = [
     // semProtocolo: o ranking não conversa com o menu; "pronto" = página carregada.
     app: "ranking", titulo: "Ranking da premiação", url: "/ranking/", exige: "qualquer", unico: true, semProtocolo: true,
     itens: [{ aba: "ranking", label: "Ranking da premiação" }],
+  },
+  {
+    // Radar de Oportunidades (Lovable): aberto do endereço dele, para a extensão "Infinity Convert+
+    // Bridge" continuar funcionando (ela só atua em *.lovable.app). Visível para quem tem acesso ao
+    // pós-vendas (Caio, vendedores e gestão); a equipe só do administrativo não vê.
+    app: "radar", titulo: "Radar de Oportunidades", url: "https://infinity-radar-oportunidades.lovable.app", exige: "pos",
+    semProtocolo: true, permitir: "clipboard-read; clipboard-write",
+    itens: [
+      { aba: "inicio", label: "Início", caminho: "/" },
+      { aba: "embracon", label: "Radar Embracon", caminho: "/radar-embracon" },
+      { aba: "ancora", label: "Radar Âncora", caminho: "/radar-ancora" },
+      { aba: "cartas", label: "Cartas contempladas", caminho: "/cartas-contempladas" },
+      { aba: "propostas", label: "Propostas selecionadas", caminho: "/propostas-selecionadas" },
+    ],
   },
   {
     app: "administrativo", titulo: "Administrativo", url: "/administrativo/", exige: "adm",
@@ -286,12 +301,18 @@ function marcarAtivo() {
 
 // ---------- sistemas encaixados ----------
 function enviar(f, msg) { if (f && f.pronto && f.el.contentWindow) f.el.contentWindow.postMessage(msg, location.origin); }
-function garantirFrame(app) {
+// endereço da página de um item (sistemas sem protocolo, como o Radar, trocam de página pelo endereço)
+function urlDoItem(g, aba) {
+  const it = g.itens.find((x) => x.aba === aba);
+  return it && it.caminho ? new URL(it.caminho, g.url).href : g.url;
+}
+function garantirFrame(app, aba) {
   if (frames[app]) return frames[app];
   const g = GRUPOS.find((x) => x.app === app);
-  const iframe = el("iframe", { class: "sx-frame hidden", src: g.url, title: g.titulo });
+  const src = aba ? urlDoItem(g, aba) : g.url;
+  const iframe = el("iframe", { class: "sx-frame hidden", src, title: g.titulo, allow: g.permitir || null });
   document.getElementById("sx-conteudo").appendChild(iframe);
-  frames[app] = { el: iframe, pronto: false, pendente: null };
+  frames[app] = { el: iframe, pronto: false, pendente: null, src };
   if (g.semProtocolo) {
     iframe.addEventListener("load", () => {
       frames[app].pronto = true;
@@ -302,11 +323,16 @@ function garantirFrame(app) {
 }
 function abrir(app, aba) {
   if (!permitido(app, aba)) return;
-  const f = garantirFrame(app);
+  const g = GRUPOS.find((x) => x.app === app);
+  const f = garantirFrame(app, aba);
+  if (g.semProtocolo) {
+    // sem conversa com o menu: troca de página pelo endereço (se o item tiver um caminho próprio)
+    const destino = urlDoItem(g, aba);
+    if (g.itens.some((x) => x.caminho) && destino !== f.src) { f.src = destino; f.pronto = false; f.el.src = destino; }
+  }
   Object.entries(frames).forEach(([nome, x]) => x.el.classList.toggle("hidden", nome !== app));
   document.getElementById("sx-carregando").classList.toggle("hidden", f.pronto);
-  const semProtocolo = GRUPOS.find((x) => x.app === app).semProtocolo;
-  if (!semProtocolo) { if (f.pronto) enviar(f, { tipo: "abrir-aba", aba }); else f.pendente = aba; }
+  if (!g.semProtocolo) { if (f.pronto) enviar(f, { tipo: "abrir-aba", aba }); else f.pendente = aba; }
   atual = { app, aba };
   salvarPrefs({ ultimo: atual });
   marcarAtivo();
