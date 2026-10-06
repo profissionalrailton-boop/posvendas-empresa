@@ -345,7 +345,7 @@ html, body {
 
 .app-content { flex: 1; min-width: 0; margin-left: 72px; }
 
-main { padding: 22px 28px; max-width: 1180px; }
+main { padding: 22px 28px; max-width: 1440px; margin: 0 auto; }
 
 .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .month-nav .month-label {
