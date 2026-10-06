@@ -39,7 +39,7 @@ let state = {
   fichaId: null,
   filters: {
     clientes: { search: "", adm: "", vendedor: "", situacao: "", controle: "" },
-    confirmacoes: { search: "", adm: "", vendedor: "", comissao: "" },
+    confirmacoes: { search: "", adm: "", vendedor: "", comissao: "", tipo: "" },
     adimplencia: { adm: "", vendedor: "" },
   },
 };
@@ -401,7 +401,7 @@ document.getElementById("next-month").addEventListener("click", () => mudarMes(1
 //   "vendedor" → só a aba Clientes, só os próprios clientes, só consulta + registrar contato
 // A trava real é no banco (RLS/funções, sql/007); aqui só escondemos o que não se aplica.
 function somenteLeitura() { return state.modo === "vendedor"; }
-const ABAS_VENDEDOR = ["clientes", "confirmacoes"];
+const ABAS_VENDEDOR = ["clientes", "confirmacoes", "adimplencia"];
 async function descobrirModo() {
   const { data: acesso } = await sb.from("posvendas_allowed_users").select("email").limit(1);
   if (Array.isArray(acesso) && acesso.length) return { modo: "completo" };
@@ -845,13 +845,14 @@ document.getElementById("baixa-desfazer").addEventListener("click", async () => 
 // Igual ao mapa de comissão do administrativo, mas para as baixas: só entra venda com pelo menos
 // uma parcela paga, e cada coluna mostra se aquela parcela já teve baixa.
 const CONF_PARCELAS_MIN = 8;
-["conf-search", "conf-adm", "conf-vendedor", "conf-comissao"].forEach((id) => {
+["conf-search", "conf-adm", "conf-vendedor", "conf-comissao", "conf-tipo"].forEach((id) => {
   document.getElementById(id).addEventListener(id === "conf-search" ? "input" : "change", () => {
     state.filters.confirmacoes = {
       search: document.getElementById("conf-search").value,
       adm: document.getElementById("conf-adm").value,
       vendedor: document.getElementById("conf-vendedor").value,
       comissao: document.getElementById("conf-comissao").value,
+      tipo: document.getElementById("conf-tipo").value,
     };
     renderConfirmacoes();
   });
@@ -885,11 +886,13 @@ function valorPagamento(v, p) {
 }
 function renderConfirmacoes() {
   const comBaixa = state.vendas.filter((v) => pagasConsideradas(v).length);
-  const { search, adm, vendedor } = state.filters.confirmacoes;
+  const { search, adm, vendedor, tipo } = state.filters.confirmacoes;
   const q = search.trim().toLowerCase();
   const list = comBaixa.filter((v) => {
     if (adm && v.administradora !== adm) return false;
     if (vendedor && v.vendedor !== vendedor) return false;
+    if (tipo === "parcelinha" && !ehParcelinha(v)) return false;
+    if (tipo === "normal" && ehParcelinha(v)) return false;
     if (q && !`${v.cliente} ${v.numero_contrato || ""} ${v.grupo || ""} ${v.cota || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -1322,7 +1325,7 @@ function renderFicha() {
     detail("E-mail", v.email),
     detail("Data da venda", formatDateBR(v.data_venda)),
     detail("Assembleia", formatDateBR(v.data_assembleia)),
-    somenteLeitura() ? null : detail("Crédito", v.valor_venda ? fmtMoney(Number(v.valor_venda)) : "—"),
+    detail("Crédito", v.valor_venda ? fmtMoney(Number(v.valor_venda)) : "—"),
     detail("Plano / tabela", [v.tipo_plano, v.tabela].filter(Boolean).join(" · ") || "—"),
     detail("Tipo", [v.parcelinha ? "Parcelinha" : "Adesão", v.parcela_antecipada ? `antecipou${v.meses_antecipados ? " " + v.meses_antecipados + " meses" : ""}` : null].filter(Boolean).join(" · ")),
   ]));
