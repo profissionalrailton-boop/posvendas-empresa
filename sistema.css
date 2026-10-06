@@ -4,14 +4,26 @@ body { margin: 0; overflow: hidden; }
 #main-app, .sx-shell { height: 100vh; }
 .sx-shell { display: flex; }
 
-/* ---------- menu lateral ---------- */
+/* ---------- menu lateral ----------
+   Recolhido (só ícones) por padrão; abre ao passar o mouse, por cima do conteúdo.
+   Com "Fixar menu" (body.sx-fixo) fica sempre aberto e o conteúdo se ajusta. */
+:root { --sx-menu-fechado: 68px; --sx-menu-aberto: 236px; }
 .sx-sidebar {
-  width: 236px; flex: none; height: 100vh; display: flex; flex-direction: column;
-  background: var(--sidebar-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid var(--border); box-shadow: var(--sidebar-shadow); z-index: 30;
+  position: fixed; top: 0; left: 0; bottom: 0; width: var(--sx-menu-fechado); display: flex; flex-direction: column;
+  overflow: hidden; background: var(--sidebar-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border); z-index: 40; transition: width 0.2s ease, box-shadow 0.2s ease;
 }
-.sx-brand { padding: 18px 18px 14px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: center; }
-.sx-brand img { height: 42px; width: auto; }
+.sx-sidebar:hover, .sx-fixo .sx-sidebar { width: var(--sx-menu-aberto); }
+.sx-sidebar:hover { box-shadow: var(--sidebar-shadow); }
+.sx-brand { position: relative; height: 72px; flex: none; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center; padding: 0 12px; }
+.sx-brand img { height: 40px; width: auto; max-width: 170px; object-fit: contain; transition: height 0.2s ease; }
+.sx-fixar {
+  position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.sx-fixar svg { width: 15px; height: 15px; }
+.sx-fixar:hover { color: var(--primary-light); border-color: rgba(139, 92, 246, 0.4); }
+.sx-fixo .sx-fixar { color: var(--primary-light); background: rgba(139, 92, 246, 0.16); border-color: rgba(139, 92, 246, 0.45); }
 .sx-nav { flex: 1; overflow-y: auto; padding: 10px 10px; display: flex; flex-direction: column; gap: 6px; }
 
 .sx-item {
@@ -38,6 +50,9 @@ body { margin: 0; overflow: hidden; }
 .sx-bolinha { width: 9px; height: 9px; flex: none; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0.7; }
 .sx-subitem.ativo { background: var(--sidebar-active-bg); color: var(--sidebar-text-active); font-weight: 700; box-shadow: var(--glow-primary); }
 .sx-subitem.ativo .sx-bolinha { background: currentColor; opacity: 1; }
+.sx-unico.ativo { background: var(--sidebar-active-bg); color: var(--sidebar-text-active); box-shadow: var(--glow-primary); }
+.sx-unico .sx-ic { color: var(--gold-light); }
+.sx-unico.ativo .sx-ic { color: inherit; }
 
 .sx-rodape { border-top: 1px solid var(--border-soft); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .sx-tema .ic-moon, .sx-tema .lbl-escuro { display: none; }
@@ -47,8 +62,24 @@ body { margin: 0; overflow: hidden; }
 .sx-usuario-acoes { display: flex; gap: 6px; }
 .sx-usuario-acoes .btn { flex: 1; }
 
+/* recolhido: só os ícones (grupo do item aberto fica destacado) — só em tela grande */
+@media (min-width: 861px) {
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-grupo-titulo,
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-seta,
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-sub,
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item-texto,
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-tema > span:not(.sx-ic),
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-usuario,
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-usuario-acoes,
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-fixar { display: none; }
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-brand img { height: 26px; max-width: 46px; object-position: left center; }
+body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; padding-left: 0; padding-right: 0; }
+}
+.sx-item, .sx-subitem, .sx-grupo-titulo, .sx-usuario { white-space: nowrap; }
+
 /* ---------- conteúdo (sistemas encaixados) ---------- */
-.sx-conteudo { flex: 1; min-width: 0; height: 100vh; position: relative; }
+.sx-conteudo { flex: 1; min-width: 0; height: 100vh; position: relative; margin-left: var(--sx-menu-fechado); transition: margin-left 0.2s ease; }
+.sx-fixo .sx-conteudo { margin-left: var(--sx-menu-aberto); }
 .sx-frame { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
 .sx-frame.hidden { display: none; }
 .sx-carregando { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 14px; }
@@ -75,9 +106,10 @@ body { margin: 0; overflow: hidden; }
   .sx-topbar { display: flex; align-items: center; gap: 10px; height: 52px; flex: none; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--sidebar-bg); }
   .sx-topbar-logo { height: 26px; }
   .sx-topbar-titulo { font-size: 13px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sx-sidebar { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-105%); transition: transform 0.25s ease; z-index: 70; }
+  .sx-sidebar, .sx-sidebar:hover, .sx-fixo .sx-sidebar { width: var(--sx-menu-aberto); transform: translateX(-105%); transition: transform 0.25s ease; z-index: 70; }
+  .sx-fixar { display: none; }
   .sx-menu-aberto .sx-sidebar { transform: none; }
   .sx-menu-aberto .sx-fundo-menu { display: block; position: fixed; inset: 0; background: var(--overlay-bg); z-index: 60; }
-  .sx-conteudo { height: calc(100vh - 52px); }
+  .sx-conteudo, .sx-fixo .sx-conteudo { height: calc(100vh - 52px); margin-left: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .sx-sidebar { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sx-sidebar, .sx-conteudo { transition: none; } }

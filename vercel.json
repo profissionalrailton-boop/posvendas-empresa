@@ -2,12 +2,15 @@
   "redirects": [
     { "source": "/administrativo", "destination": "/administrativo/", "permanent": false },
     { "source": "/financeiro", "destination": "/financeiro/", "permanent": false },
+    { "source": "/ranking", "destination": "/ranking/", "permanent": false },
     { "source": "/posvendas", "destination": "/posvendas/", "permanent": false }
   ],
   "rewrites": [
     { "source": "/administrativo/", "destination": "https://administrativo-empresa.vercel.app/" },
     { "source": "/administrativo/:path*", "destination": "https://administrativo-empresa.vercel.app/:path*" },
     { "source": "/financeiro/", "destination": "https://financeiro-empresa-sigma.vercel.app/" },
-    { "source": "/financeiro/:path*", "destination": "https://financeiro-empresa-sigma.vercel.app/:path*" }
+    { "source": "/financeiro/:path*", "destination": "https://financeiro-empresa-sigma.vercel.app/:path*" },
+    { "source": "/ranking/", "destination": "https://ranking-campanha.vercel.app/" },
+    { "source": "/ranking/:path*", "destination": "https://ranking-campanha.vercel.app/:path*" }
   ]
 }

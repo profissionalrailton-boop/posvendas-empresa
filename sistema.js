@@ -8,11 +8,18 @@ const ic = (path) => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
 const ICONES = {
   administrativo: ic('<rect x="2.5" y="6" width="15" height="10.5" rx="2"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6M2.5 10.5h15"/>'),
   posvendas: ic('<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5z"/><path d="M6.5 8.5h7M6.5 11h4.5"/>'),
+  ranking: ic('<path d="M6.5 3h7v3.5a3.5 3.5 0 0 1-7 0V3z"/><path d="M6.5 4.5H4a2 2 0 0 0 2.6 2.9M13.5 4.5H16a2 2 0 0 1-2.6 2.9M10 10v3.5M7 17h6M8 13.5h4V17H8z"/>'),
   financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
 };
 
 // Menu: grupos e abas. "exige" = permissão necessária (ver descobrirPermissoes).
 const GRUPOS = [
+  {
+    // página única (sem subitens), pública: aparece para todo mundo que tem algum acesso.
+    // semProtocolo: o ranking não conversa com o menu; "pronto" = página carregada.
+    app: "ranking", titulo: "Ranking da premiação", url: "/ranking/", exige: "qualquer", unico: true, semProtocolo: true,
+    itens: [{ aba: "ranking", label: "Ranking da premiação" }],
+  },
   {
     app: "administrativo", titulo: "Administrativo", url: "/administrativo/", exige: "adm",
     itens: [
@@ -214,6 +221,7 @@ function itensPermitidos(grupo) {
   if (grupo.exige === "adm" && !perms.adm) return [];
   if (grupo.exige === "pos" && !perms.pos) return [];
   if (grupo.exige === "fin" && !perms.fin) return [];
+  if (grupo.exige === "qualquer" && !(perms.adm || perms.pos || perms.fin)) return [];
   return grupo.itens.filter((it) => {
     if (it.exige === "comissao" && !perms.comissao) return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;
@@ -233,6 +241,15 @@ function montarMenu() {
   GRUPOS.forEach((g) => {
     const itens = itensPermitidos(g);
     if (!itens.length) return;
+    if (g.unico) {
+      nav.appendChild(el("div", { class: "sx-bloco" }, [
+        el("button", { type: "button", class: "sx-item sx-unico", "data-app": g.app, "data-aba": itens[0].aba, title: g.titulo, onclick: () => abrir(g.app, itens[0].aba) }, [
+          el("span", { class: "sx-ic", html: ICONES[g.app] }),
+          el("span", { class: "sx-item-texto" }, g.titulo),
+        ]),
+      ]));
+      return;
+    }
     const aberto = !recolhidos.has(g.app);
     const lista = el("div", { class: "sx-sub", id: `sx-sub-${g.app}` }, itens.map((it) =>
       el("button", { type: "button", class: "sx-subitem", "data-app": g.app, "data-aba": it.aba, onclick: () => abrir(g.app, it.aba) }, [
@@ -257,12 +274,12 @@ function montarMenu() {
   });
 }
 function marcarAtivo() {
-  document.querySelectorAll(".sx-subitem").forEach((b) => b.classList.toggle("ativo", !!atual && b.dataset.app === atual.app && b.dataset.aba === atual.aba));
+  document.querySelectorAll(".sx-subitem, .sx-unico").forEach((b) => b.classList.toggle("ativo", !!atual && b.dataset.app === atual.app && b.dataset.aba === atual.aba));
   document.querySelectorAll(".sx-grupo").forEach((b) => b.classList.toggle("contem-ativo", !!atual && b.getAttribute("aria-controls") === `sx-sub-${atual.app}`));
   if (atual) {
     const g = GRUPOS.find((x) => x.app === atual.app);
     const it = g.itens.find((x) => x.aba === atual.aba);
-    document.getElementById("sx-topbar-titulo").textContent = `${g.titulo} · ${it ? it.label : ""}`;
+    document.getElementById("sx-topbar-titulo").textContent = g.unico ? g.titulo : `${g.titulo} · ${it ? it.label : ""}`;
     document.title = `Infinity | ${it ? it.label : g.titulo}`;
   }
 }
@@ -275,6 +292,12 @@ function garantirFrame(app) {
   const iframe = el("iframe", { class: "sx-frame hidden", src: g.url, title: g.titulo });
   document.getElementById("sx-conteudo").appendChild(iframe);
   frames[app] = { el: iframe, pronto: false, pendente: null };
+  if (g.semProtocolo) {
+    iframe.addEventListener("load", () => {
+      frames[app].pronto = true;
+      if (atual && atual.app === app) document.getElementById("sx-carregando").classList.add("hidden");
+    });
+  }
   return frames[app];
 }
 function abrir(app, aba) {
@@ -282,7 +305,8 @@ function abrir(app, aba) {
   const f = garantirFrame(app);
   Object.entries(frames).forEach(([nome, x]) => x.el.classList.toggle("hidden", nome !== app));
   document.getElementById("sx-carregando").classList.toggle("hidden", f.pronto);
-  if (f.pronto) enviar(f, { tipo: "abrir-aba", aba }); else f.pendente = aba;
+  const semProtocolo = GRUPOS.find((x) => x.app === app).semProtocolo;
+  if (!semProtocolo) { if (f.pronto) enviar(f, { tipo: "abrir-aba", aba }); else f.pendente = aba; }
   atual = { app, aba };
   salvarPrefs({ ultimo: atual });
   marcarAtivo();
@@ -318,7 +342,9 @@ async function iniciar() {
   document.getElementById("sx-sem-acesso").classList.add("hidden");
   perms = await descobrirPermissoes();
   montarMenu();
-  const primeiro = GRUPOS.map((g) => ({ g, itens: itensPermitidos(g) })).find((x) => x.itens.length);
+  // página inicial: o primeiro sistema liberado (o ranking só abre quando clicado)
+  const liberados = GRUPOS.map((g) => ({ g, itens: itensPermitidos(g) })).filter((x) => x.itens.length);
+  const primeiro = liberados.find((x) => !x.g.unico) || liberados[0];
   if (!primeiro) {
     document.getElementById("sx-carregando").classList.add("hidden");
     document.getElementById("sx-sem-acesso").classList.remove("hidden");
@@ -330,6 +356,22 @@ async function iniciar() {
   if (ultimo && permitido(ultimo.app, ultimo.aba)) abrir(ultimo.app, ultimo.aba);
   else abrir(primeiro.g.app, primeiro.itens[0].aba);
 }
+
+// ---------- fixar o menu aberto ----------
+// Recolhido, o menu mostra só os ícones e abre ao passar o mouse; fixado, fica sempre aberto.
+function aplicarFixo(fixo) {
+  document.body.classList.toggle("sx-fixo", fixo);
+  const btn = document.getElementById("sx-fixar");
+  btn.setAttribute("aria-pressed", String(fixo));
+  btn.title = fixo ? "Soltar o menu (abre só ao passar o mouse)" : "Fixar o menu aberto";
+  btn.setAttribute("aria-label", btn.title);
+}
+aplicarFixo(!!lerPrefs().fixo);
+document.getElementById("sx-fixar").addEventListener("click", () => {
+  const fixo = !document.body.classList.contains("sx-fixo");
+  aplicarFixo(fixo);
+  salvarPrefs({ fixo });
+});
 
 // ---------- menu no celular ----------
 function fecharMenuCelular() { document.body.classList.remove("sx-menu-aberto"); }
