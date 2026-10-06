@@ -1,10 +1,13 @@
 {
   "redirects": [
     { "source": "/administrativo", "destination": "/administrativo/", "permanent": false },
+    { "source": "/financeiro", "destination": "/financeiro/", "permanent": false },
     { "source": "/posvendas", "destination": "/posvendas/", "permanent": false }
   ],
   "rewrites": [
     { "source": "/administrativo/", "destination": "https://administrativo-empresa.vercel.app/" },
-    { "source": "/administrativo/:path*", "destination": "https://administrativo-empresa.vercel.app/:path*" }
+    { "source": "/administrativo/:path*", "destination": "https://administrativo-empresa.vercel.app/:path*" },
+    { "source": "/financeiro/", "destination": "https://financeiro-empresa.vercel.app/" },
+    { "source": "/financeiro/:path*", "destination": "https://financeiro-empresa.vercel.app/:path*" }
   ]
 }

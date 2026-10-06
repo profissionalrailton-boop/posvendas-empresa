@@ -8,6 +8,7 @@ const ic = (path) => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
 const ICONES = {
   administrativo: ic('<rect x="2.5" y="6" width="15" height="10.5" rx="2"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6M2.5 10.5h15"/>'),
   posvendas: ic('<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5z"/><path d="M6.5 8.5h7M6.5 11h4.5"/>'),
+  financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
 };
 
 // Menu: grupos e abas. "exige" = permissão necessária (ver descobrirPermissoes).
@@ -36,6 +37,16 @@ const GRUPOS = [
       { aba: "adimplencia", label: "Adimplência" },
       { aba: "lembretes", label: "Lembretes", soPosVendas: true },
       { aba: "grupos", label: "Grupos e vencimentos", soPosVendas: true },
+    ],
+  },
+  {
+    // só quem está em allowed_users (hoje: Railton e Maria Aline)
+    app: "financeiro", titulo: "Financeiro", url: "/financeiro/", exige: "fin",
+    itens: [
+      { aba: "contas", label: "Contas" },
+      { aba: "dashboard", label: "Dashboard" },
+      { aba: "payroll", label: "Folha de pagamento" },
+      { aba: "cards", label: "Cartões de crédito" },
     ],
   },
 ];
@@ -190,17 +201,19 @@ async function temLinha(tabela) {
   return !error && Array.isArray(data) && data.length > 0;
 }
 async function descobrirPermissoes() {
-  const [adm, comissao, posCompleto, vendedor] = await Promise.all([
+  const [adm, comissao, posCompleto, vendedor, fin] = await Promise.all([
     temLinha("admin_allowed_users"),
     temLinha("comissao_acesso"),
     temLinha("posvendas_allowed_users"),
     temLinha("posvendas_vendedor_acesso"),
+    temLinha("allowed_users"), // lista de acesso do financeiro
   ]);
-  return { adm, comissao, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null };
+  return { adm, comissao, fin, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null };
 }
 function itensPermitidos(grupo) {
   if (grupo.exige === "adm" && !perms.adm) return [];
   if (grupo.exige === "pos" && !perms.pos) return [];
+  if (grupo.exige === "fin" && !perms.fin) return [];
   return grupo.itens.filter((it) => {
     if (it.exige === "comissao" && !perms.comissao) return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;
