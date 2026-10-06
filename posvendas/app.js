@@ -199,14 +199,21 @@ function calcSituacao(venda) {
 //  - a 1ª, paga na adesão;
 //  - as antecipadas (meses antecipados do cadastro);
 //  - tudo até a última parcela marcada no mapa de comissão (comissão da N caiu = cliente pagou até a N).
+//    Se a venda é de parcela antecipada, essas também são antecipações (muitas vendas vêm com
+//    "parcela antecipada" marcada mas sem os meses preenchidos — só a comissão diz até onde foi).
 function calcPagasAdm(v) {
   const m = new Map();
   m.set(1, { pago_em: v.data_venda, origem: "adesao" });
   const meses = v.parcela_antecipada ? Number(v.meses_antecipados) || 0 : 0;
   for (let n = 2; n <= 1 + meses; n++) m.set(n, { pago_em: v.data_venda, origem: "antecipada" });
   const com = state.comissaoAte.get(v.id);
-  if (com) for (let n = 2; n <= com.ate_parcela; n++) if (!m.has(n)) m.set(n, { pago_em: com.recebido_em, origem: "administrativo" });
+  const origemComissao = v.parcela_antecipada ? "antecipada" : "administrativo";
+  if (com) for (let n = 2; n <= com.ate_parcela; n++) if (!m.has(n)) m.set(n, { pago_em: com.recebido_em, origem: origemComissao });
   return m;
+}
+// vencimento que uma parcela já paga no administrativo cobriu (todas menos a adesão)
+function vencCoberto(v, cob, n, adm) {
+  return adm && adm.origem !== "adesao" && cob ? vencimentoParcela(v, cob, n) : null;
 }
 function ultimaPagaAdm(v) { return Math.max(...state.pagasAdm.get(v.id).keys()); }
 function pagamentoDe(v, n) { return state.pagamentos.get(v.id)?.get(n) || state.pagasAdm.get(v.id)?.get(n) || null; }
@@ -410,6 +417,12 @@ async function descobrirModo() {
   if (Array.isArray(acesso) && acesso.length) return { modo: "completo" };
   const { data: vend } = await sb.from("posvendas_vendedor_acesso").select("vendedor").limit(1);
   if (Array.isArray(vend) && vend.length) return { modo: "vendedor", vendedor: vend[0].vendedor };
+  // "painel": diretoria (lista do financeiro) só lê os números para o painel geral do sistema
+  // unificado — não aparece no menu; o banco só libera leitura (sql/010)
+  if (EMBUTIDO) {
+    const { data: fin } = await sb.from("allowed_users").select("email").limit(1);
+    if (Array.isArray(fin) && fin.length) return { modo: "painel" };
+  }
   return { modo: null };
 }
 function aplicarModo() {
@@ -471,6 +484,7 @@ async function loadAll() {
     populateFilterOptions();
     renderActiveTab();
     if (state.fichaId) renderFicha();
+    marcarDadosProntos();
     avisarSistema({ tipo: "pronto" });
   } catch (err) {
     showToast("Erro ao carregar os dados: " + err.message);
@@ -763,8 +777,8 @@ function parcelaCelula(v, s, n, hoje) {
     // já chega paga do administrativo: não precisa de baixa, só da oferta de lance
     const txt = { adesao: "Adesão", antecipada: "Antecipada", administrativo: "Paga" }[adm.origem];
     const marca = [txt, el("span", { class: "pv-ic ok" }, "✓")];
-    // antecipada: mostra embaixo o vencimento que essa parcela teria (o mês que ela cobriu)
-    const vencOriginal = adm.origem === "antecipada" && cob ? vencimentoParcela(v, cob, n) : null;
+    // mostra embaixo o vencimento que essa parcela cobriu (antecipada ou paga no administrativo)
+    const vencOriginal = vencCoberto(v, cob, n, adm);
     if (vencOriginal) {
       return el("span", { class: "pv-cell pago adm pv-cell-sub", title: `${ORIGEM_LABEL[adm.origem]} — cobriu o vencimento de ${formatDateBR(vencOriginal)}` }, [
         el("span", { class: "pv-cell-linha" }, marca),
@@ -956,7 +970,7 @@ function renderConfirmacoes() {
       const pago = pagos.get(n);
       const adm = state.pagasAdm.get(v.id)?.get(n);
       if (!pago && adm) {
-        const vencOriginal = adm.origem === "antecipada" && s.cob ? vencimentoParcela(v, s.cob, n) : null;
+        const vencOriginal = vencCoberto(v, s.cob, n, adm);
         const box = el("input", { type: "checkbox", class: "com-check pv-check-adm", disabled: "disabled", title: ORIGEM_LABEL[adm.origem] + (vencOriginal ? ` — cobriu o vencimento de ${formatDateBR(vencOriginal)}` : ""), "aria-label": `Parcela ${n} de ${v.cliente}` });
         box.checked = true;
         tr.appendChild(el("td", { class: "com-p" }, [box]));
@@ -1706,6 +1720,11 @@ if (EMBUTIDO) {
     }
     if (m.tipo === "tema") setTheme(m.tema, false);
     if (m.tipo === "abrir-ficha" && m.vendaId) openFicha(m.vendaId);
+    if (m.tipo === "resumo") {
+      dadosProntos
+        .then(() => avisarSistema({ tipo: "resumo-resposta", id: m.id, dados: resumoPosVendas() }))
+        .catch((err) => avisarSistema({ tipo: "resumo-resposta", id: m.id, erro: String(err && err.message || err) }));
+    }
     if (m.tipo === "concluir-lembrete") {
       const l = state.lembretes.find((x) => x.id === m.id);
       if (l && !l.concluido_em) concluirLembrete(l);
@@ -1713,4 +1732,41 @@ if (EMBUTIDO) {
   });
   // avisa o menu quando a aba muda por dentro (para destacar o item certo)
   document.querySelectorAll(".tab-btn").forEach((b) => b.addEventListener("click", () => avisarSistema({ tipo: "aba-mudou", aba: b.dataset.tab })));
+}
+
+// ---------- RESUMO PARA O PAINEL GERAL ----------
+// Números do pós-vendas para o painel da diretoria no sistema unificado, com as mesmas regras
+// das abas Adimplência e Confirmações (mês atual de pagamento).
+let marcarDadosProntos;
+const dadosProntos = new Promise((ok) => { marcarDadosProntos = ok; });
+function resumoPosVendas() {
+  const hoje = today();
+  const mesAtual = mesKey(hoje);
+  const acompanhados = state.vendas.filter((v) => acompanhado(sit(v)));
+  const inad = acompanhados.filter((v) => inadimplente(sit(v)));
+  // confirmações do mês: baixas com data deste mês
+  const pagaramNoMes = state.vendas.filter((v) =>
+    [...(state.pagamentos.get(v.id) || new Map()).values()].some((p) => p.pago_em.slice(0, 7) === mesAtual));
+  let parcelasNoMes = 0;
+  state.pagamentos.forEach((m) => m.forEach((p) => { if (p.pago_em.slice(0, 7) === mesAtual) parcelasNoMes++; }));
+  // parcelas que vencem nos próximos 7 dias e ainda não têm baixa
+  let vencem7 = 0;
+  acompanhados.forEach((v) => (sit(v).parcelas || []).forEach((p) => {
+    const d = diffDays(p.venc, hoje);
+    if (!p.pagamento && d >= 0 && d <= 7) vencem7++;
+  }));
+  return {
+    acompanhados: acompanhados.length,
+    inadimplentes: inad.length,
+    pctAdimplencia: pct(acompanhados.length - inad.length, acompanhados.length),
+    creditoTotal: somaCredito(acompanhados),
+    creditoAtraso: somaCredito(inad),
+    emAtraso: acompanhados.filter((v) => sit(v).status === "atraso").length,
+    canceladas: acompanhados.filter((v) => sit(v).status === "cancelada").length,
+    contempladas: state.vendas.filter((v) => sit(v).cota === "contemplada").length,
+    semVencimento: state.vendas.filter((v) => sit(v).status === "sem_cobranca").length,
+    confirmados: { clientes: pagaramNoMes.length, parcelas: parcelasNoMes, credito: somaCredito(pagaramNoMes) },
+    vencem7,
+    lembretesHoje: state.lembretes.filter((l) => !l.concluido_em && parseDate(l.data) <= hoje).length,
+  };
 }

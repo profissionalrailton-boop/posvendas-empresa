@@ -10,11 +10,17 @@ const ICONES = {
   posvendas: ic('<path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5z"/><path d="M6.5 8.5h7M6.5 11h4.5"/>'),
   radar: ic('<circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4"/><path d="M10 10l4.5-4.5"/><circle cx="10" cy="10" r="0.8" fill="currentColor"/>'),
   ranking: ic('<path d="M6.5 3h7v3.5a3.5 3.5 0 0 1-7 0V3z"/><path d="M6.5 4.5H4a2 2 0 0 0 2.6 2.9M13.5 4.5H16a2 2 0 0 1-2.6 2.9M10 10v3.5M7 17h6M8 13.5h4V17H8z"/>'),
+  painel: ic('<rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="4" rx="1.5"/><rect x="11" y="8.5" width="6.5" height="9" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/>'),
   financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
 };
 
 // Menu: grupos e abas. "exige" = permissão necessária (ver descobrirPermissoes).
 const GRUPOS = [
+  {
+    // Painel geral da diretoria (página desta tela, sem iframe — ver painel.js). Só quem tem o financeiro.
+    app: "painel", titulo: "Painel geral", exige: "fin", unico: true, nativo: true,
+    itens: [{ aba: "painel", label: "Painel geral" }],
+  },
   {
     // página única (sem subitens), pública: aparece para todo mundo que tem algum acesso.
     // semProtocolo: o ranking não conversa com o menu; "pronto" = página carregada.
@@ -209,6 +215,8 @@ sb.auth.onAuthStateChange((_event, session) => {
     Object.keys(frames).forEach((app) => { frames[app].el.remove(); delete frames[app]; });
     document.getElementById("sx-nav").innerHTML = "";
     document.getElementById("sx-alertas").innerHTML = "";
+    document.getElementById("sx-painel").innerHTML = "";
+    document.getElementById("sx-painel").classList.add("hidden");
     mainApp.classList.add("hidden");
     authScreen.classList.remove("hidden");
     setAuthMode("login");
@@ -324,6 +332,18 @@ function garantirFrame(app, aba) {
 function abrir(app, aba) {
   if (!permitido(app, aba)) return;
   const g = GRUPOS.find((x) => x.app === app);
+  const painel = document.getElementById("sx-painel");
+  if (g.nativo) {
+    Object.values(frames).forEach((x) => x.el.classList.add("hidden"));
+    document.getElementById("sx-carregando").classList.add("hidden");
+    painel.classList.remove("hidden");
+    if (!painel.childElementCount) carregarPainel();
+    atual = { app, aba };
+    marcarAtivo();
+    fecharMenuCelular();
+    return;
+  }
+  painel.classList.add("hidden");
   const f = garantirFrame(app, aba);
   if (g.semProtocolo) {
     // sem conversa com o menu: troca de página pelo endereço (se o item tiver um caminho próprio)
@@ -368,19 +388,29 @@ async function iniciar() {
   document.getElementById("sx-sem-acesso").classList.add("hidden");
   perms = await descobrirPermissoes();
   montarMenu();
-  // página inicial: o primeiro sistema liberado (o ranking só abre quando clicado)
   const liberados = GRUPOS.map((g) => ({ g, itens: itensPermitidos(g) })).filter((x) => x.itens.length);
-  const primeiro = liberados.find((x) => !x.g.unico) || liberados[0];
-  if (!primeiro) {
+  if (!liberados.length) {
     document.getElementById("sx-carregando").classList.add("hidden");
     document.getElementById("sx-sem-acesso").classList.remove("hidden");
     return;
   }
   // o pós-vendas fica carregado em segundo plano para os lembretes tocarem em qualquer aba
   if (perms.pos === "completo") garantirFrame("posvendas");
-  const ultimo = lerPrefs().ultimo;
-  if (ultimo && permitido(ultimo.app, ultimo.aba)) abrir(ultimo.app, ultimo.aba);
-  else abrir(primeiro.g.app, primeiro.itens[0].aba);
+  const [app, aba] = paginaInicial(liberados);
+  abrir(app, aba);
+}
+// Página principal de cada login (sempre a mesma ao entrar):
+// diretoria (financeiro) → Painel geral; vendedor → Radar; pós-vendas → Fila de hoje; administrativo → Clientes.
+function paginaInicial(liberados) {
+  const opcoes = [];
+  if (perms.fin) opcoes.push(["painel", "painel"]);
+  if (perms.pos === "vendedor") opcoes.push(["radar", "inicio"]);
+  if (perms.pos === "completo" && !perms.adm) opcoes.push(["posvendas", "hoje"]);
+  if (perms.adm) opcoes.push(["administrativo", "clientes"]);
+  const escolhida = opcoes.find(([app, aba]) => permitido(app, aba));
+  if (escolhida) return escolhida;
+  const primeiro = liberados.find((x) => !x.g.unico) || liberados[0];
+  return [primeiro.g.app, primeiro.itens[0].aba];
 }
 
 // ---------- fixar o menu aberto ----------
