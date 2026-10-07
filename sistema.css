@@ -223,3 +223,13 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .tema-halloween .mt-com-premio { border-color: rgba(249, 115, 22, 0.55); box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.15), 0 0 28px rgba(249, 115, 22, 0.12); }
 @media (prefers-reduced-motion: reduce) { .tema-halloween::before, .tema-halloween::after { animation: none; } }
 @media (max-width: 860px) { .tema-halloween::before, .tema-halloween::after { display: none; } }
+
+/* ---------- Desfile de Halloween (halloween.js) ---------- */
+.hw-palco { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+.hw-bicho { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; }
+.hw-emoji { line-height: 1; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45)); }
+.hw-fantasma { filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.35)); }
+.hw-aranha-wrap { top: 0; width: 0; }
+.hw-fio { position: absolute; left: 0; top: 0; width: 1px; height: 0; background: linear-gradient(rgba(200, 200, 220, 0.15), rgba(200, 200, 220, 0.7)); }
+.hw-aranha { position: absolute; left: 0; top: 0; color: #1c1622; filter: drop-shadow(0 0 3px rgba(249, 115, 22, 0.5)); }
+:root:not([data-theme="light"]) .hw-aranha { color: #e9e3f5; filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6)); }
