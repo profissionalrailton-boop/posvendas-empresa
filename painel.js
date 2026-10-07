@@ -97,7 +97,7 @@ async function carregarPainel() {
   const desenharKpis = () => {
     kpis.innerHTML = "";
     kpis.appendChild(k.vendas
-      ? card("Crédito vendido no mês", brl2.format(k.vendas.credito), `${num.format(k.vendas.qtd)} vendas · ${k.vendas.variacaoTexto}`, { destaque: true })
+      ? card("Crédito vendido no mês", brl2.format(k.vendas.credito), `${num.format(k.vendas.qtd)} venda${k.vendas.qtd === 1 ? "" : "s"} · ${k.vendas.variacaoTexto}`, { destaque: true })
       : card("Crédito vendido no mês", "…"));
     kpis.appendChild(k.pos
       ? card("Adimplência", pctFmt(k.pos.pctAdimplencia), `${num.format(k.pos.inadimplentes)} inadimplentes de ${num.format(k.pos.acompanhados)}`, { status: k.pos.pctAdimplencia >= 90 ? "bom" : k.pos.pctAdimplencia >= 75 ? "atencao" : "critico" })

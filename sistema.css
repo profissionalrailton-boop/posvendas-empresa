@@ -191,3 +191,35 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .mt-cel-pct { color: var(--text-muted); }
 .mt-tabela .px-progresso { margin-top: 6px; height: 6px; }
 .mt-cel-meta { margin-top: 4px; font-size: 11.5px; color: var(--text-muted); }
+
+/* ---------- Prêmio da meta da empresa ---------- */
+:root { --premio-cor: #fb923c; --premio-borda: rgba(249, 115, 22, 0.4); --premio-fundo: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(124, 58, 237, 0.16)); }
+:root[data-theme="light"] { --premio-cor: #c2410c; --premio-borda: rgba(194, 65, 12, 0.35); --premio-fundo: linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(124, 58, 237, 0.1)); }
+.mt-premio { margin-top: 14px; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; border: 1px dashed var(--premio-borda); background: var(--premio-fundo); }
+.mt-premio-icone { font-size: 30px; line-height: 1; flex: none; }
+.mt-premio-rotulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--premio-cor); }
+.mt-premio-titulo { font-size: 16px; font-weight: 800; color: var(--text); margin-top: 2px; }
+.mt-premio-texto { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
+.mt-premio.garantido { border-style: solid; border-color: rgba(52, 211, 153, 0.5); background: linear-gradient(135deg, rgba(52, 211, 153, 0.16), rgba(249, 115, 22, 0.14)); }
+.mt-premio.garantido .mt-premio-rotulo { color: var(--success); }
+
+/* ---------- Tema de Halloween (outubro) nos painéis ---------- */
+.sx-painel.tema-halloween {
+  background:
+    radial-gradient(900px 420px at 100% 0, rgba(249, 115, 22, 0.13), transparent 65%),
+    radial-gradient(800px 480px at 0 100%, rgba(124, 58, 237, 0.15), transparent 65%);
+}
+.tema-halloween::before, .tema-halloween::after { position: absolute; pointer-events: none; z-index: 0; opacity: 0.55; animation: hw-voo 7s ease-in-out infinite; }
+.tema-halloween::before { content: "🦇"; top: 14px; left: 42%; font-size: 22px; }
+.tema-halloween::after { content: "🦇"; top: 46px; left: 58%; font-size: 15px; animation-delay: -3.5s; }
+@keyframes hw-voo { 0%, 100% { transform: translate(0, 0) rotate(-6deg); } 50% { transform: translate(18px, -8px) rotate(6deg); } }
+.tema-halloween > * { position: relative; z-index: 1; }
+.tema-halloween .px-topo h1::after { content: " 🎃"; }
+.tema-halloween .px-topo .px-secao-sub::before { content: "Mês do Halloween 👻 · "; color: var(--premio-cor); font-weight: 600; }
+.tema-halloween .px-secao-cab h2::before { content: "🦇 "; font-size: 0.85em; }
+.tema-halloween .px-card { border-color: rgba(249, 115, 22, 0.2); }
+.tema-halloween .px-card.px-destaque { background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(124, 58, 237, 0.16)), var(--surface); border-color: rgba(249, 115, 22, 0.45); }
+.tema-halloween .px-progresso-barra:not(.completo), .tema-halloween .px-barra { background: linear-gradient(90deg, #ea580c, #fb923c); }
+.tema-halloween .mt-com-premio { border-color: rgba(249, 115, 22, 0.55); box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.15), 0 0 28px rgba(249, 115, 22, 0.12); }
+@media (prefers-reduced-motion: reduce) { .tema-halloween::before, .tema-halloween::after { animation: none; } }
+@media (max-width: 860px) { .tema-halloween::before, .tema-halloween::after { display: none; } }

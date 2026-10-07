@@ -3,6 +3,39 @@
 //   diretoria → tudo · supervisor → empresa + a equipe dele e os vendedores dela · vendedor → empresa + equipe + ele
 // Realizado = crédito vendido no mês; Parcelinha pelo campo parcelinha (regra da campanha).
 
+// Prêmio do mês para quando a EMPRESA (Infinity) bater as duas metas (Parcelinha e Adesão).
+// Chave = "AAAA-MM". Para um prêmio novo, é só acrescentar o mês aqui.
+const PREMIOS_EMPRESA = {
+  "2026-10": { icone: "🎃", titulo: "Festa de Halloween", texto: "Se a Infinity bater a meta de Parcelinha e a de Adesão em outubro, a Festa de Halloween está garantida!" },
+};
+// Tema visual dos painéis por mês (liga e desliga sozinho pela data de hoje)
+const TEMAS_DO_MES = { "2026-10": "halloween" };
+function chaveMes(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
+(function aplicarTemaDoMes() {
+  const tema = TEMAS_DO_MES[chaveMes(new Date())];
+  if (tema) document.querySelectorAll(".sx-painel").forEach((p) => p.classList.add(`tema-${tema}`));
+})();
+
+// faixa do prêmio no quadro da empresa: quanto falta para as duas metas ou "garantido"
+function faixaPremio(premio, d) {
+  const fp = Number(d.feito_p) || 0, fa = Number(d.feito_a) || 0;
+  const mp = Number(d.meta_parcelinha) || 0, ma = Number(d.meta_adesao) || 0;
+  const temMeta = mp > 0 || ma > 0;
+  const batida = temMeta && fp >= mp && fa >= ma;
+  const faltas = [mp > fp ? `${brl2.format(mp - fp)} em Parcelinha` : null, ma > fa ? `${brl2.format(ma - fa)} em Adesão` : null].filter(Boolean);
+  return el("div", { class: "mt-premio" + (batida ? " garantido" : "") }, [
+    el("div", { class: "mt-premio-icone", "aria-hidden": "true" }, batida ? "🎉" : premio.icone),
+    el("div", {}, [
+      el("div", { class: "mt-premio-rotulo" }, batida ? "Prêmio garantido!" : "Prêmio da meta da empresa"),
+      el("div", { class: "mt-premio-titulo" }, premio.titulo),
+      el("div", { class: "mt-premio-texto" }, batida
+        ? `A Infinity bateu as duas metas — a ${premio.titulo} está garantida! 🥳`
+        : !temMeta ? premio.texto
+          : `${premio.texto} Faltam ${faltas.join(" e ")}.`),
+    ]),
+  ]);
+}
+
 async function buscarMetas(data = new Date()) {
   const mes = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-01`;
   const { data: r, error } = await sb.rpc("painel_metas", { p_mes: mes });
@@ -30,13 +63,14 @@ function linhaMeta(rotulo, feito, meta) {
 
 // quadro de uma meta coletiva (empresa ou equipe) com Parcelinha e Adesão
 function cardColetiva(titulo, d, opts = {}) {
-  const c = el("div", { class: "px-card mt-card" + (opts.destaque ? " px-destaque" : "") }, [
+  const c = el("div", { class: "px-card mt-card" + (opts.destaque ? " px-destaque" : "") + (opts.premio ? " mt-com-premio" : "") }, [
     el("div", { class: "px-titulo" }, titulo),
     el("div", { class: "px-sub" }, d ? `${num.format(d.qtd || 0)} venda${d.qtd === 1 ? "" : "s"} · ${brl2.format((Number(d.feito_p) || 0) + (Number(d.feito_a) || 0))} no total` : "—"),
   ]);
   if (d) {
     c.appendChild(linhaMeta("Parcelinha", d.feito_p, d.meta_parcelinha));
     c.appendChild(linhaMeta("Adesão", d.feito_a, d.meta_adesao));
+    if (opts.premio) c.appendChild(faixaPremio(opts.premio, d));
   }
   return c;
 }
@@ -45,7 +79,8 @@ function cardColetiva(titulo, d, opts = {}) {
 function blocoColetivas(r, { soEquipe = false } = {}) {
   const equipes = [...(r.equipes || [])].sort((a, b) => (a.alvo === r.equipe ? -1 : b.alvo === r.equipe ? 1 : a.alvo.localeCompare(b.alvo)));
   const cardsEquipes = equipes.map((e) => cardColetiva(`Equipe ${e.alvo}`, e, { destaque: e.alvo === r.equipe && r.papel !== "diretoria" }));
-  const cardEmpresa = soEquipe ? null : cardColetiva("Infinity · empresa", r.empresa, { destaque: r.papel === "diretoria" });
+  const premio = PREMIOS_EMPRESA[String(r.mes || "").slice(0, 7)];
+  const cardEmpresa = soEquipe ? null : cardColetiva("Infinity · empresa", r.empresa, { destaque: r.papel === "diretoria", premio });
   // diretoria: empresa primeiro; vendedor/supervisor: a própria equipe primeiro
   return el("div", { class: "px-grid px-duplo" }, r.papel === "diretoria" ? [cardEmpresa, ...cardsEquipes] : [...cardsEquipes, cardEmpresa]);
 }
