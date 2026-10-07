@@ -78,7 +78,8 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .sx-item, .sx-subitem, .sx-grupo-titulo, .sx-usuario { white-space: nowrap; }
 
 /* ---------- conteúdo (sistemas encaixados) ---------- */
-.sx-conteudo { flex: 1; min-width: 0; height: 100vh; position: relative; margin-left: var(--sx-menu-fechado); transition: margin-left 0.2s ease; }
+/* é um <main>: anula a regra "main" dos sistemas (largura máxima, centralização, espaçamento) */
+.sx-conteudo { flex: 1; min-width: 0; height: 100vh; position: relative; margin: 0 0 0 var(--sx-menu-fechado); padding: 0; max-width: none; transition: margin-left 0.2s ease; }
 .sx-fixo .sx-conteudo { margin-left: var(--sx-menu-aberto); }
 .sx-frame { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
 .sx-frame.hidden { display: none; }
@@ -153,3 +154,17 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
   .px-valor { font-size: 22px; white-space: normal; overflow-wrap: anywhere; }
   .px-duplo { grid-template-columns: 1fr; }
 }
+
+/* ---------- Minha área (vendedor) ---------- */
+.px-progresso { margin-top: 12px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.px-progresso-barra { height: 100%; border-radius: 0 4px 4px 0; background: var(--primary); transition: width 0.4s ease; }
+.px-progresso-barra.completo { background: var(--success); }
+.px-pct { margin-top: 6px; }
+.ma-venda { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.ma-data { color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 40px; }
+.ma-cliente { font-weight: 600; }
+.ma-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); }
+.ma-tag-p { background: rgba(139, 92, 246, 0.16); color: var(--primary-light); }
+.px-itens li.ma-pend { align-items: center; flex-wrap: wrap; }
+.ma-faltam { color: var(--warning); font-size: 12.5px; text-align: right; }
+@media (prefers-reduced-motion: reduce) { .px-progresso-barra { transition: none; } }
