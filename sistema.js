@@ -11,6 +11,7 @@ const ICONES = {
   radar: ic('<circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4"/><path d="M10 10l4.5-4.5"/><circle cx="10" cy="10" r="0.8" fill="currentColor"/>'),
   ranking: ic('<path d="M6.5 3h7v3.5a3.5 3.5 0 0 1-7 0V3z"/><path d="M6.5 4.5H4a2 2 0 0 0 2.6 2.9M13.5 4.5H16a2 2 0 0 1-2.6 2.9M10 10v3.5M7 17h6M8 13.5h4V17H8z"/>'),
   minhaarea: ic('<circle cx="10" cy="6.5" r="3.2"/><path d="M3.5 17.5c.6-3.4 3.3-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/>'),
+  minhaequipe: ic('<circle cx="7" cy="7" r="2.6"/><circle cx="13.5" cy="7.5" r="2.2"/><path d="M2.5 16.5c.4-2.8 2.2-4.5 4.5-4.5s4.1 1.7 4.5 4.5M11.8 12.3c.5-.2 1.1-.3 1.7-.3 2 0 3.5 1.4 3.9 4"/>'),
   painel: ic('<rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="4" rx="1.5"/><rect x="11" y="8.5" width="6.5" height="9" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/>'),
   financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
 };
@@ -22,6 +23,12 @@ const GRUPOS = [
     app: "painel", titulo: "Painel geral", exige: "fin", unico: true, nativo: true,
     container: "sx-painel", carregar: () => carregarPainel(),
     itens: [{ aba: "painel", label: "Painel geral" }],
+  },
+  {
+    // Minha equipe (supervisor): metas da equipe, da empresa e de cada vendedor da equipe — ver metas.js
+    app: "minhaequipe", titulo: "Minha equipe", exige: "supervisor", unico: true, nativo: true,
+    container: "sx-minha-equipe", carregar: () => carregarMinhaEquipe(),
+    itens: [{ aba: "minhaequipe", label: "Minha equipe" }],
   },
   {
     // Minha área do vendedor (página desta tela — ver minha-area.js): meta individual, vendas e campanha
@@ -238,21 +245,24 @@ async function temLinha(tabela) {
   return !error && Array.isArray(data) && data.length > 0;
 }
 async function descobrirPermissoes() {
-  const [adm, comissao, posCompleto, vendedor, fin] = await Promise.all([
+  const [adm, comissao, posCompleto, vendedor, fin, sup] = await Promise.all([
     temLinha("admin_allowed_users"),
     temLinha("comissao_acesso"),
     temLinha("posvendas_allowed_users"),
     temLinha("posvendas_vendedor_acesso"),
     temLinha("allowed_users"), // lista de acesso do financeiro
+    temLinha("supervisores"),
   ]);
-  return { adm, comissao, fin, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null };
+  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null };
 }
 function itensPermitidos(grupo) {
   if (grupo.exige === "adm" && !perms.adm) return [];
   if (grupo.exige === "pos" && !perms.pos) return [];
   if (grupo.exige === "fin" && !perms.fin) return [];
-  if (grupo.exige === "vendedor" && perms.pos !== "vendedor") return [];
-  if (grupo.exige === "qualquer" && !(perms.adm || perms.pos || perms.fin)) return [];
+  // supervisor também pode estar na lista de vendedores (pós-vendas), mas não vê a Minha área de vendedor
+  if (grupo.exige === "vendedor" && (perms.pos !== "vendedor" || perms.sup)) return [];
+  if (grupo.exige === "supervisor" && !perms.sup) return [];
+  if (grupo.exige === "qualquer" && !(perms.adm || perms.pos || perms.fin || perms.sup)) return [];
   return grupo.itens.filter((it) => {
     if (it.exige === "comissao" && !perms.comissao) return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;
@@ -409,10 +419,11 @@ async function iniciar() {
   abrir(app, aba);
 }
 // Página principal de cada login (sempre a mesma ao entrar):
-// diretoria (financeiro) → Painel geral; vendedor → Minha área; pós-vendas → Fila de hoje; administrativo → Clientes.
+// diretoria (financeiro) → Painel geral; supervisor → Minha equipe; vendedor → Minha área; pós-vendas → Fila de hoje; administrativo → Clientes.
 function paginaInicial(liberados) {
   const opcoes = [];
   if (perms.fin) opcoes.push(["painel", "painel"]);
+  if (perms.sup) opcoes.push(["minhaequipe", "minhaequipe"]);
   if (perms.pos === "vendedor") opcoes.push(["minhaarea", "minhaarea"]);
   if (perms.pos === "completo" && !perms.adm) opcoes.push(["posvendas", "hoje"]);
   if (perms.adm) opcoes.push(["administrativo", "clientes"]);

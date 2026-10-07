@@ -58,7 +58,10 @@ async function carregarMinhaArea() {
   ]));
   const kpis = el("div", { class: "px-grid px-kpis" }, [el("div", { class: "px-carregando" }, "Carregando…")]);
   raiz.appendChild(kpis);
+  raiz.appendChild(secao("ma-metas", "Metas da equipe e da empresa", "Crédito vendido no mês por todo o time"));
   raiz.appendChild(secao("ma-vendas", "Minhas vendas do mês", "Pela data da venda"));
+  buscarMetas(hoje).then((r) => preencher("ma-metas", blocoColetivas(r)))
+    .catch((e) => falha("ma-metas", "Não foi possível carregar as metas da equipe: " + (e.message || e)));
   raiz.appendChild(secao("ma-pendencias", "Documentos que faltam enviar", `Vendas dos últimos ${MA_MESES_PENDENCIA} meses`));
   raiz.appendChild(secao("ma-campanha", "Campanha Rumo à Fortalcity", "Meta: R$ 3 mi em Parcelinha e R$ 1 mi em Adesão"));
 
