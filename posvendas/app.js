@@ -631,7 +631,7 @@ function renderHoje() {
   const baixaBtn = (v, p) => el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => darBaixa(v, p.numero, isoDate(today())) }, `Baixa ${p.numero}ª hoje`);
 
   fillList("hoje-proximos", proximos, "Nada vencendo nos próximos dias.", ({ v, p, d }) =>
-    clienteRow(v, `${p.numero}ª parcela · vence ${d === 0 ? "hoje" : d === 1 ? "amanhã" : "em " + d + " dias"} (${formatDateBR(p.venc)}) · ${fmtMoney(Number(sit(v).cob.valor_parcela))}`,
+    clienteRow(v, `${p.numero}ª parcela · Vence ${d === 0 ? "hoje" : d === 1 ? "amanhã" : "em " + d + " dias"} (${formatDateBR(p.venc)}) · ${fmtMoney(Number(sit(v).cob.valor_parcela))}`,
       [baixaBtn(v, p)]));
   fillList("hoje-lembretes", lembretesHoje, "Nenhum lembrete para hoje.", (l) => lembreteRow(l));
   fillList("hoje-contatos", state.contatosVendedores, "Nenhum contato registrado pelos vendedores nos últimos 7 dias.", (a) => {
@@ -796,7 +796,7 @@ function parcelaCelula(v, s, n, hoje) {
     if (vencOriginal) {
       return el("span", { class: "pv-cell pago adm pv-cell-sub", title: `${ORIGEM_LABEL[adm.origem]} — cobriu o vencimento de ${formatDateBR(vencOriginal)}` }, [
         el("span", { class: "pv-cell-linha" }, marca),
-        el("span", { class: "pv-cell-venc" }, `venc. ${formatDateCurta(vencOriginal)}`),
+        el("span", { class: "pv-cell-venc" }, `Venc. ${formatDateCurta(vencOriginal)}`),
       ]);
     }
     return el("span", { class: "pv-cell pago adm", title: ORIGEM_LABEL[adm.origem] }, marca);
@@ -816,7 +816,7 @@ function parcelaCelula(v, s, n, hoje) {
     title = `Venceu em ${formatDateBR(venc)} · ${diffDays(hoje, venc)} dias de atraso`;
   } else {
     const d = diffDays(venc, hoje);
-    cls = d === 0 ? "hoje" : "aberto"; conteudo = d === 0 ? "Vence hoje" : `vence ${formatDateBR(venc).slice(0, 5)}`;
+    cls = d === 0 ? "hoje" : "aberto"; conteudo = d === 0 ? "Vence hoje" : `Vence ${formatDateBR(venc).slice(0, 5)}`;
     title = `Vence em ${formatDateBR(venc)}`;
   }
   if (cls === "na") return el("span", { class: "pv-cell na", title }, conteudo);
@@ -847,7 +847,7 @@ function openBaixa(v, n) {
   const pago = state.pagamentos.get(v.id)?.get(n);
   const s = sit(v);
   document.getElementById("baixa-title").textContent = `${pago ? "Baixa da" : "Dar baixa na"} ${n}ª parcela`;
-  document.getElementById("baixa-sub").textContent = `${v.cliente} · vence ${formatDateBR(vencimentoParcela(v, s.cob, n))}` +
+  document.getElementById("baixa-sub").textContent = `${v.cliente} · Vence ${formatDateBR(vencimentoParcela(v, s.cob, n))}` +
     (s.cob.valor_parcela ? ` · ${fmtMoney(Number(s.cob.valor_parcela))}` : "");
   baixaForm.pago_em.value = pago ? pago.pago_em : isoDate(today());
   document.getElementById("baixa-desfazer").classList.toggle("hidden", !pago);
@@ -1005,7 +1005,7 @@ function renderConfirmacoes() {
         const atrasada = venc && venc < hoje;
         tr.appendChild(el("td", { class: "com-p" }, [el("span", {
           class: "pv-conf-vazio" + (atrasada ? " late" : ""),
-          title: venc ? `${n}ª parcela — ${atrasada ? "venceu" : "vence"} ${formatDateBR(venc)}${atrasada ? " (em atraso)" : ""}` : `${n}ª parcela`,
+          title: venc ? `${n}ª parcela — ${atrasada ? "Venceu" : "Vence"} ${formatDateBR(venc)}${atrasada ? " (em atraso)" : ""}` : `${n}ª parcela`,
         })]));
         continue;
       }
