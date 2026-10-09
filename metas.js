@@ -148,6 +148,7 @@ async function carregarMinhaEquipe() {
     if (r.equipe) titulo.textContent = `Equipe ${r.equipe}`;
     preencher("me-coletivas", blocoColetivas(r));
     preencher("me-vendedores", tabelaVendedores(r.vendedores || [], { mostrarEquipe: false }));
+    verificarConquistas(r);
     await campanhaDaEquipe(r);
   } catch (e) {
     falha("me-coletivas", "Não foi possível carregar as metas: " + (e.message || e));

@@ -116,7 +116,7 @@ async function carregarPainel() {
     pedirResumo("posvendas").then((r) => { k.pos = r; desenharKpis(); painelPos(r); }).catch(() => { k.pos = false; desenharKpis(); falha("px-pos", "Sem acesso aos dados do pós-vendas para este login."); }),
     pedirResumo("financeiro").then((r) => { k.fin = r; desenharKpis(); painelFin(r); }).catch(() => { k.fin = false; desenharKpis(); falha("px-fin", "Não foi possível carregar o financeiro."); }),
     painelCampanha().catch((e) => falha("px-campanha", "Não foi possível carregar o ranking: " + e.message)),
-    buscarMetas(hoje).then((r) => preencher("px-metas", [blocoColetivas(r), tabelaVendedores(r.vendedores || [])]))
+    buscarMetas(hoje).then((r) => { preencher("px-metas", [blocoColetivas(r), tabelaVendedores(r.vendedores || [])]); verificarConquistas(r); })
       .catch((e) => falha("px-metas", "Não foi possível carregar as metas: " + (e.message || e))),
   ]);
   painelCarregando = false;

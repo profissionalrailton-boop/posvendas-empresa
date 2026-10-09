@@ -233,3 +233,20 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .hw-fio { position: absolute; left: 0; top: 0; width: 1px; height: 0; background: linear-gradient(rgba(200, 200, 220, 0.15), rgba(200, 200, 220, 0.7)); }
 .hw-aranha { position: absolute; left: 0; top: 0; color: #1c1622; filter: drop-shadow(0 0 3px rgba(249, 115, 22, 0.5)); }
 :root:not([data-theme="light"]) .hw-aranha { color: #e9e3f5; filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6)); }
+
+/* ---------- Comemoração de meta batida (comemoracao.js) ---------- */
+.cq-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(4, 5, 12, 0.55); backdrop-filter: blur(2px); animation: cq-entra 0.3s ease; }
+.cq-overlay.saindo { opacity: 0; transition: opacity 0.3s ease; }
+.cq-confete { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cq-cartao { position: relative; max-width: 420px; width: 100%; text-align: center; padding: 26px 24px 22px; border-radius: 18px; background: var(--modal-bg, #12131d); border: 1px solid rgba(251, 191, 36, 0.45); box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.15), 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 60px rgba(251, 191, 36, 0.18); animation: cq-pula 0.6s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.cq-trofeu { font-size: 56px; line-height: 1; animation: cq-trofeu 1.4s ease-in-out infinite; }
+.cq-rotulo { margin-top: 10px; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(90deg, #fbbf24, #f97316, #f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cq-lista { list-style: none; margin: 14px 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.cq-lista li { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.cq-lista strong { color: var(--text); font-size: 14.5px; }
+.cq-lista span { color: var(--text-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.cq-resto { margin: -6px 0 14px; color: var(--text-muted); font-size: 12.5px; }
+@keyframes cq-entra { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cq-pula { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes cq-trofeu { 0%, 100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(8deg) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .cq-overlay, .cq-cartao, .cq-trofeu { animation: none; } }
