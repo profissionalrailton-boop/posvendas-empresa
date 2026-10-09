@@ -15,6 +15,10 @@ const AGING = [
   { label: "Mais de 60 dias", min: 61, max: Infinity },
 ];
 
+const ORDEM_CLIENTES_KEY = "posvendas-clientes-ordem";
+function lerOrdemClientes() {
+  try { return localStorage.getItem(ORDEM_CLIENTES_KEY) === "assembleia" ? "assembleia" : "vencimento"; } catch (e) { return "vencimento"; }
+}
 let state = {
   session: null,
   authMode: "login",
@@ -41,7 +45,7 @@ let state = {
   situacoes: new Map(),   // venda_id -> resultado de calcSituacao
   fichaId: null,
   filters: {
-    clientes: { search: "", adm: "", vendedor: "", situacao: "", controle: "" },
+    clientes: { search: "", adm: "", vendedor: "", situacao: "", controle: "", ordem: lerOrdemClientes() },
     confirmacoes: { search: "", adm: "", vendedor: "", comissao: "", tipo: "" },
     adimplencia: { adm: "", vendedor: "" },
   },
@@ -652,7 +656,9 @@ function fillList(id, items, emptyMsg, render) {
 }
 
 // ---------- CLIENTES ----------
-["cli-search", "cli-adm", "cli-vendedor", "cli-situacao", "cli-controle"].forEach((id) => {
+// ordem escolhida fica lembrada neste navegador (só conveniência)
+document.getElementById("cli-ordem").value = state.filters.clientes.ordem;
+["cli-search", "cli-adm", "cli-vendedor", "cli-situacao", "cli-controle", "cli-ordem"].forEach((id) => {
   document.getElementById(id).addEventListener(id === "cli-search" ? "input" : "change", () => {
     state.filters.clientes = {
       search: document.getElementById("cli-search").value,
@@ -660,12 +666,14 @@ function fillList(id, items, emptyMsg, render) {
       vendedor: document.getElementById("cli-vendedor").value,
       situacao: document.getElementById("cli-situacao").value,
       controle: document.getElementById("cli-controle").value,
+      ordem: document.getElementById("cli-ordem").value,
     };
+    if (id === "cli-ordem") { try { localStorage.setItem(ORDEM_CLIENTES_KEY, state.filters.clientes.ordem); } catch (e) { /* sem armazenamento */ } }
     renderClientes();
   });
 });
 function renderClientes() {
-  const { search, adm, vendedor, situacao, controle } = state.filters.clientes;
+  const { search, adm, vendedor, situacao, controle, ordem } = state.filters.clientes;
   const q = search.trim().toLowerCase();
   const doMes = state.vendas.filter(daProducao);
   const list = doMes.filter((v) => {
@@ -677,11 +685,17 @@ function renderClientes() {
     if (q && !`${v.cliente} ${v.numero_contrato || ""} ${v.grupo || ""} ${v.cota || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  // ordem: dia de vencimento (VENC do grupo); mesmo dia, por nome; sem dia de vencimento no final;
-  // cotas canceladas sempre por último
+  // ordem escolhida no "Ordenar por":
+  //   vencimento → dia de vencimento (VENC do grupo); sem dia de vencimento no final
+  //   assembleia → data da primeira assembleia, da mais antiga para a mais nova; sem data no final
+  // empate: por nome. Cotas canceladas sempre por último.
   const diaDe = (v) => state.grupos.get(grupoKey(v.administradora, v.grupo)) ?? 99;
+  const assembleiaDe = (v) => v.data_assembleia || "9999-12-31";
   const cancelada = (v) => (sit(v).status === "cancelada" ? 1 : 0);
-  list.sort((a, b) => cancelada(a) - cancelada(b) || diaDe(a) - diaDe(b) || a.cliente.localeCompare(b.cliente, "pt-BR"));
+  const porOrdem = ordem === "assembleia"
+    ? (a, b) => assembleiaDe(a).localeCompare(assembleiaDe(b))
+    : (a, b) => diaDe(a) - diaDe(b);
+  list.sort((a, b) => cancelada(a) - cancelada(b) || porOrdem(a, b) || a.cliente.localeCompare(b.cliente, "pt-BR"));
   document.getElementById("clientes-count").textContent = list.length === doMes.length
     ? `${doMes.length} cliente${doMes.length === 1 ? "" : "s"} na produção`
     : `${list.length} de ${doMes.length} clientes na produção`;
