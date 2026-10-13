@@ -208,8 +208,12 @@ function painelFin(r) {
 
 // ---------- campanha ----------
 async function painelCampanha() {
-  const { data, error } = await sb.from("campanha_ranking").select("vendedor, total_parcelinha, total_normal, ultima_venda_em");
+  const [{ data, error }, sup] = await Promise.all([
+    sb.from("campanha_ranking").select("vendedor, total_parcelinha, total_normal, ultima_venda_em"),
+    buscarSupervisao().catch(() => []),
+  ]);
   if (error) throw error;
+  verificarConquistasSupervisao(sup);
   const lista = (data || []).map((r) => ({
     nome: r.vendedor,
     p: Number(r.total_parcelinha) || 0,
@@ -231,5 +235,6 @@ async function painelCampanha() {
       el("div", { class: "px-titulo" }, "Mais perto da viagem (média das duas metas)"),
       barras(progresso.map((x) => ({ nome: x.nome, valor: x.prog * 100, extra: `Parcelinha ${brl2.format(x.p)} · Adesão ${brl2.format(x.n)}` })), (v) => pctFmt(v)),
     ]),
+    sup.length ? el("div", { class: "px-grid px-duplo" }, sup.map(cardFortal)) : null,
   ]);
 }

@@ -32,22 +32,39 @@ function conquistasDe(r) {
   return lista;
 }
 
+// metas da Fortal dos supervisores (supervisao_campanha)
+function conquistasSupervisao(lista) {
+  const out = [];
+  (lista || []).forEach((sv) => {
+    [["p", "Parcelinha", sv.feito_p, sv.meta_parcelinha], ["a", "Adesão", sv.feito_a, sv.meta_adesao]].forEach(([k, rotulo, feito, meta]) => {
+      const f = Number(feito) || 0, m = Number(meta) || 0;
+      if (m > 0 && f >= m) out.push({ chave: `campanha|supervisao|${sv.equipe}|${k}`, tipo: "fortal", nome: `Equipe ${sv.equipe}`, eu: !!sv.sou_eu, rotulo, feito: f, meta: m });
+    });
+  });
+  return out;
+}
+function verificarConquistasSupervisao(lista) { return comemorarNovas(conquistasSupervisao(lista)); }
+
 // confere e comemora o que ainda não foi comemorado; devolve quantas eram novas
 function verificarConquistas(r) {
   if (!r) return 0;
+  return comemorarNovas(conquistasDe(r));
+}
+function comemorarNovas(conquistas) {
   const vistas = lerComemoradas();
-  const novas = conquistasDe(r).filter((c) => !vistas.has(c.chave) && !comemoradasDaSessao.has(c.chave));
+  const novas = conquistas.filter((c) => !vistas.has(c.chave) && !comemoradasDaSessao.has(c.chave));
   if (!novas.length) return 0;
   novas.forEach((c) => { vistas.add(c.chave); comemoradasDaSessao.add(c.chave); });
   salvarComemoradas(vistas);
   // empresa e equipe primeiro, depois a própria meta, depois os vendedores
-  const peso = { empresa: 0, equipe: 1, eu: 2, vendedor: 3 };
+  const peso = { fortal: 0, empresa: 1, equipe: 2, eu: 3, vendedor: 4 };
   novas.sort((a, b) => peso[a.tipo] - peso[b.tipo]);
   comemorar(novas);
   return novas.length;
 }
 
 function textoConquista(c) {
+  if (c.tipo === "fortal") return { titulo: c.eu ? `Sua equipe bateu a meta de ${c.rotulo} da Fortal!` : `${c.nome} bateu a meta de ${c.rotulo} da Fortal (supervisão)!`, sub: `${brl2.format(c.feito)} de ${brl2.format(c.meta)} na campanha` };
   if (c.tipo === "eu") return { titulo: `Você bateu sua meta de ${c.rotulo}!`, sub: `${brl2.format(c.feito)} de ${brl2.format(c.meta)}` };
   if (c.tipo === "empresa") return { titulo: `A Infinity bateu a meta de ${c.rotulo}!`, sub: `${brl2.format(c.feito)} de ${brl2.format(c.meta)}` };
   if (c.tipo === "equipe") return { titulo: `${c.nome} bateu a meta de ${c.rotulo}!`, sub: `${brl2.format(c.feito)} de ${brl2.format(c.meta)}` };
@@ -170,6 +187,7 @@ setInterval(async () => {
   if (!g || !g.nativo) return; // só com Painel geral / Minha área / Minha equipe na tela
   try {
     const r = await buscarMetas(new Date());
-    if (verificarConquistas(r)) g.carregar(); // bateu agora: atualiza os números na tela também
+    const sup = await buscarSupervisao().catch(() => []);
+    if (verificarConquistas(r) + verificarConquistasSupervisao(sup)) g.carregar(); // bateu agora: atualiza os números na tela também
   } catch (e) { /* tenta de novo na próxima volta */ }
 }, RECONFERIR_METAS_MS);

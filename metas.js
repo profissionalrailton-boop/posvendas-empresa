@@ -126,6 +126,37 @@ function tabelaVendedores(lista, { mostrarEquipe = true } = {}) {
   ]);
 }
 
+// ---------- Meta da campanha (Fortal) dos supervisores ----------
+// supervisao_campanha (sql/014): soma da equipe de 01/09 a 31/12, contando cada venda para a equipe
+// em que o vendedor estava na data da venda. Diretoria vê todos; o supervisor vê o seu.
+async function buscarSupervisao() {
+  const { data, error } = await sb.rpc("supervisao_campanha");
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+function cardFortal(sv) {
+  const fp = Number(sv.feito_p) || 0, fa = Number(sv.feito_a) || 0;
+  const mp = Number(sv.meta_parcelinha) || 0, ma = Number(sv.meta_adesao) || 0;
+  const batida = fp >= mp && fa >= ma;
+  const faltas = [mp > fp ? `${brl2.format(mp - fp)} em Parcelinha` : null, ma > fa ? `${brl2.format(ma - fa)} em Adesão` : null].filter(Boolean);
+  return el("div", { class: "px-card mt-card mt-com-premio" + (sv.sou_eu ? " px-destaque" : "") }, [
+    el("div", { class: "px-titulo" }, sv.sou_eu ? `Minha meta da Fortal · Equipe ${sv.equipe}` : `Meta da Fortal · supervisão ${sv.equipe}`),
+    el("div", { class: "px-sub" }, `${sv.sou_eu ? "Soma da equipe" : sv.nome} · ${num.format(sv.qtd || 0)} vendas na campanha (01/09 a 31/12)`),
+    linhaMeta("Parcelinha", fp, mp),
+    linhaMeta("Adesão", fa, ma),
+    el("div", { class: "mt-premio" + (batida ? " garantido" : "") }, [
+      el("div", { class: "mt-premio-icone", "aria-hidden": "true" }, batida ? "🎉" : "✈️"),
+      el("div", {}, [
+        el("div", { class: "mt-premio-rotulo" }, batida ? "Viagem garantida!" : "Prêmio da supervisão"),
+        el("div", { class: "mt-premio-titulo" }, "Partiu Fortal"),
+        el("div", { class: "mt-premio-texto" }, batida
+          ? `A Equipe ${sv.equipe} bateu as duas metas — ${sv.sou_eu ? "sua" : "a"} viagem está garantida! 🥳`
+          : `Com a equipe somando as duas metas até 31/12, ${sv.sou_eu ? "você vai" : sv.nome + " vai"} para a Fortal. Faltam ${faltas.join(" e ")}.`),
+      ]),
+    ]),
+  ]);
+}
+
 // ---------- Minha equipe (supervisor) ----------
 let minhaEquipeCarregando = false;
 async function carregarMinhaEquipe() {
@@ -149,7 +180,9 @@ async function carregarMinhaEquipe() {
     preencher("me-coletivas", blocoColetivas(r));
     preencher("me-vendedores", tabelaVendedores(r.vendedores || [], { mostrarEquipe: false }));
     verificarConquistas(r);
-    await campanhaDaEquipe(r);
+    const sup = await buscarSupervisao().catch(() => []);
+    verificarConquistasSupervisao(sup);
+    await campanhaDaEquipe(r, sup);
   } catch (e) {
     falha("me-coletivas", "Não foi possível carregar as metas: " + (e.message || e));
     falha("me-vendedores", "—");
@@ -160,7 +193,7 @@ async function carregarMinhaEquipe() {
 }
 
 // campanha: só os vendedores da equipe (a supervisão pode ver os nomes da própria equipe)
-async function campanhaDaEquipe(r) {
+async function campanhaDaEquipe(r, sup = []) {
   const nomes = new Set((r.vendedores || []).map((v) => v.nome));
   const { data, error } = await sb.from("campanha_ranking").select("vendedor, total_parcelinha, total_normal");
   if (error) throw error;
@@ -170,9 +203,9 @@ async function campanhaDaEquipe(r) {
     .sort((a, b) => b.prog - a.prog);
   const garantidos = lista.filter((x) => x.p >= PAINEL_META_PARCELINHA && x.n >= PAINEL_META_NORMAL);
   preencher("me-campanha", [
+    // a meta da Fortal da supervisão usa a soma oficial da equipe (com quem mudou de equipe no meio)
+    sup.length ? el("div", { class: "px-grid px-duplo" }, sup.map(cardFortal)) : null,
     el("div", { class: "px-grid" }, [
-      card("Parcelinha da equipe", brl2.format(lista.reduce((s, x) => s + x.p, 0)), "desde o início da campanha"),
-      card("Adesão da equipe", brl2.format(lista.reduce((s, x) => s + x.n, 0)), "desde o início da campanha"),
       card("Viagens garantidas na equipe", num.format(garantidos.length), garantidos.length ? garantidos.map((g) => g.nome).join(", ") : "ninguém bateu as duas metas ainda", { status: garantidos.length ? "bom" : null }),
     ]),
     lista.length ? el("div", { class: "px-card px-lista" }, [
