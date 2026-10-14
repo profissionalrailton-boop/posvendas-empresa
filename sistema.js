@@ -11,6 +11,7 @@ const ICONES = {
   radar: ic('<circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4"/><path d="M10 10l4.5-4.5"/><circle cx="10" cy="10" r="0.8" fill="currentColor"/>'),
   ranking: ic('<path d="M6.5 3h7v3.5a3.5 3.5 0 0 1-7 0V3z"/><path d="M6.5 4.5H4a2 2 0 0 0 2.6 2.9M13.5 4.5H16a2 2 0 0 1-2.6 2.9M10 10v3.5M7 17h6M8 13.5h4V17H8z"/>'),
   minhaarea: ic('<circle cx="10" cy="6.5" r="3.2"/><path d="M3.5 17.5c.6-3.4 3.3-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/>'),
+  apresentacao: ic('<rect x="2.5" y="3.5" width="15" height="10" rx="1.5"/><path d="M10 13.5v3M6.5 17h7M8.5 6.8v3.9L12 8.75z"/>'),
   minhaequipe: ic('<circle cx="7" cy="7" r="2.6"/><circle cx="13.5" cy="7.5" r="2.2"/><path d="M2.5 16.5c.4-2.8 2.2-4.5 4.5-4.5s4.1 1.7 4.5 4.5M11.8 12.3c.5-.2 1.1-.3 1.7-.3 2 0 3.5 1.4 3.9 4"/>'),
   painel: ic('<rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="4" rx="1.5"/><rect x="11" y="8.5" width="6.5" height="9" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/>'),
   financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
@@ -18,6 +19,13 @@ const ICONES = {
 
 // Menu: grupos e abas. "exige" = permissão necessária (ver descobrirPermissoes).
 const GRUPOS = [
+  {
+    // Apresentação para o cliente (página desta tela — ver apresentacao.js). Aberta pelo Radar com os
+    // dados reais da proposta; por enquanto só para os e-mails de APRESENTACAO_EMAILS.
+    app: "apresentacao", titulo: "Apresentação", exige: "apresentacao", unico: true, nativo: true, semMetas: true,
+    container: "sx-apresentacao", carregar: () => carregarApresentacao(),
+    itens: [{ aba: "apresentacao", label: "Apresentação" }],
+  },
   {
     // Painel geral da diretoria (página desta tela, sem iframe — ver painel.js). Só quem tem o financeiro.
     app: "painel", titulo: "Painel geral", exige: "fin", unico: true, nativo: true,
@@ -244,7 +252,11 @@ async function temLinha(tabela) {
   const { data, error } = await sb.from(tabela).select("email").limit(1);
   return !error && Array.isArray(data) && data.length > 0;
 }
+// Apresentação para o cliente (em teste): só estes e-mails
+const APRESENTACAO_EMAILS = ["profissionalrailton@gmail.com"];
 async function descobrirPermissoes() {
+  const { data: sessao } = await sb.auth.getSession();
+  const email = ((sessao && sessao.session && sessao.session.user.email) || "").toLowerCase();
   const [adm, comissao, posCompleto, vendedor, fin, sup] = await Promise.all([
     temLinha("admin_allowed_users"),
     temLinha("comissao_acesso"),
@@ -253,12 +265,13 @@ async function descobrirPermissoes() {
     temLinha("allowed_users"), // lista de acesso do financeiro
     temLinha("supervisores"),
   ]);
-  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null };
+  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null, apresentacao: APRESENTACAO_EMAILS.includes(email) };
 }
 function itensPermitidos(grupo) {
   if (grupo.exige === "adm" && !perms.adm) return [];
   if (grupo.exige === "pos" && !perms.pos) return [];
   if (grupo.exige === "fin" && !perms.fin) return [];
+  if (grupo.exige === "apresentacao" && !perms.apresentacao) return [];
   // supervisor também pode estar na lista de vendedores (pós-vendas), mas não vê a Minha área de vendedor
   if (grupo.exige === "vendedor" && (perms.pos !== "vendedor" || perms.sup)) return [];
   if (grupo.exige === "supervisor" && !perms.sup) return [];
@@ -342,6 +355,7 @@ function garantirFrame(app, aba) {
   if (g.semProtocolo) {
     iframe.addEventListener("load", () => {
       frames[app].pronto = true;
+      if (app === "radar") avisarRadarPermissoes();
       if (atual && atual.app === app) document.getElementById("sx-carregando").classList.add("hidden");
     });
   }
@@ -415,6 +429,12 @@ async function iniciar() {
   if (perms.pos === "completo") garantirFrame("posvendas");
   // o administrativo também, para os lembretes da checagem
   if (perms.adm) garantirFrame("administrativo");
+  // veio do Radar aberto fora do sistema: #apresentacao=<dados> no endereço
+  if (perms.apresentacao && location.hash.startsWith("#apresentacao=")) {
+    const dados = lerDadosDoEndereco(location.hash.slice("#apresentacao=".length));
+    history.replaceState(null, "", location.pathname + location.search);
+    if (dados) { receberApresentacao(dados); return; }
+  }
   const [app, aba] = paginaInicial(liberados);
   abrir(app, aba);
 }
@@ -511,4 +531,27 @@ function mostrarAvisoLembrete(m, app = "posvendas") {
       new Notification(`Lembrete ${m.texto}`, { body: m.titulo + (m.cliente ? ` — ${m.cliente}` : ""), icon: "logo.png", tag: `${app}-${m.id}` });
     }
   } catch (e) { /* notificação do sistema é opcional */ }
+}
+
+// ---------- conversa com o Radar (outra origem: *.lovable.app) ----------
+// O Radar só mostra o botão "Apresentação" quando a tela principal avisa que este login pode usar;
+// ao clicar, ele manda os dados reais da proposta para cá.
+const RADAR_ORIGEM = new URL(GRUPOS.find((g) => g.app === "radar").url).origin;
+function avisarRadarPermissoes() {
+  const f = frames.radar;
+  if (!f || !perms) return;
+  try { f.el.contentWindow.postMessage({ tipo: "infinity-permissoes", apresentacao: !!perms.apresentacao }, RADAR_ORIGEM); } catch (e) { /* Radar ainda carregando */ }
+}
+window.addEventListener("message", (e) => {
+  if (e.origin !== RADAR_ORIGEM || !frames.radar || e.source !== frames.radar.el.contentWindow) return;
+  const m = e.data || {};
+  if (m.tipo === "infinity-pedir-permissoes") avisarRadarPermissoes();
+  if (m.tipo === "infinity-apresentacao" && perms && perms.apresentacao && m.dados) receberApresentacao(m.dados);
+});
+function lerDadosDoEndereco(txt) {
+  try {
+    const b64 = decodeURIComponent(txt).replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (e) { return null; }
 }

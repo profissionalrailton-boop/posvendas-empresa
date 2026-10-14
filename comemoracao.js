@@ -184,7 +184,7 @@ function tocarFanfarra() {
 setInterval(async () => {
   if (document.hidden || typeof atual === "undefined" || !atual) return;
   const g = GRUPOS.find((x) => x.app === atual.app);
-  if (!g || !g.nativo) return; // só com Painel geral / Minha área / Minha equipe na tela
+  if (!g || !g.nativo || g.semMetas) return; // só com Painel geral / Minha área / Minha equipe na tela
   try {
     const r = await buscarMetas(new Date());
     const sup = await buscarSupervisao().catch(() => []);
