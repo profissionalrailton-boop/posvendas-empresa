@@ -334,10 +334,12 @@ function telaResumo() {
 // ---------- modo investimento (só tabela Parcelinha) ----------
 // Cliente que compra o consórcio para VENDER a carta quando for contemplado. Quem compra a carta
 // assume as parcelas restantes, então o custo do cliente é só o que ele pagou até a contemplação.
-//   investido(N) = 1ª parcela + (N − 1) × demais parcelas
+//   Parcelinha: da 1ª à 12ª paga o valor da "1ª parcela" do Radar; da 13ª em diante, as "demais parcelas"
+//   investido(N) = min(N, 12) × 1ª parcela + max(0, N − 12) × demais parcelas
 //   venda por lance   = % de venda × crédito disponível (carta − lance embutido)
 //   venda por sorteio = % de venda × carta cheia (sem lance)
 //   lucro = venda − investido
+const AP_INV_MESES_INICIAIS = 12; // parcelas com o valor inicial da Parcelinha
 const AP_INV_PADRAO = { pctVenda: 35, mesExemplo: 10, cenarios: [3, 10, 24, 48] };
 const AP_CENARIOS_NOMES = ["Otimista", "Realista", "Moderado", "Pessimista"];
 ap.inv = { ativo: false, ...AP_INV_PADRAO, cenarios: [...AP_INV_PADRAO.cenarios] };
@@ -355,7 +357,10 @@ function apInvestimento(mes) {
   const demais = apN(d.demais_parcelas) ?? apN(d.primeira_parcela) ?? 0;
   const primeira = apN(d.primeira_parcela) ?? demais;
   const n = Math.max(1, Math.round(mes));
-  const investido = primeira + (n - 1) * demais;
+  const iniciais = Math.min(n, AP_INV_MESES_INICIAIS);
+  const depois = Math.max(0, n - AP_INV_MESES_INICIAIS);
+  const investidoAte = (k) => Math.min(k, AP_INV_MESES_INICIAIS) * primeira + Math.max(0, k - AP_INV_MESES_INICIAIS) * demais;
+  const investido = investidoAte(n);
   const pct = (Number(ap.inv.pctVenda) || 0) / 100;
   const vendaLance = c.credito ? pct * (c.credito - c.lance) : null;
   const vendaSorteio = c.credito ? pct * c.credito : null;
@@ -365,9 +370,16 @@ function apInvestimento(mes) {
   const rent = (venda) => (venda && investido > 0 ? venda / investido - 1 : null);
   const aoMes = (venda) => (venda && investido > 0 && n > 0 ? Math.pow(venda / investido, 1 / n) - 1 : null);
   // até qual parcela ainda dá lucro (por lance)
-  const equilibrio = vendaLance && demais > 0 ? Math.floor((vendaLance - primeira) / demais) + 1 : null;
+  let equilibrio = null;
+  if (vendaLance && primeira > 0 && demais > 0) {
+    // última parcela em que o investido ainda fica abaixo da venda
+    equilibrio = vendaLance <= AP_INV_MESES_INICIAIS * primeira
+      ? Math.floor(vendaLance / primeira)
+      : AP_INV_MESES_INICIAIS + Math.floor((vendaLance - AP_INV_MESES_INICIAIS * primeira) / demais);
+    if (equilibrio < 1 || investidoAte(equilibrio) >= vendaLance) equilibrio = Math.max(0, equilibrio - 1) || null;
+  }
   return {
-    mes: n, demais, primeira, investido, vendaLance, vendaSorteio, lucroLance, lucroSorteio,
+    mes: n, demais, primeira, iniciais, depois, investido, vendaLance, vendaSorteio, lucroLance, lucroSorteio,
     rentLance: rent(vendaLance), rentSorteio: rent(vendaSorteio), mesLance: aoMes(vendaLance), mesSorteio: aoMes(vendaSorteio), equilibrio,
   };
 }
@@ -407,9 +419,9 @@ function telaInvExemplo() {
     el("h2", { class: "ap-titulo-l" }, `Contemplado na ${r.mes}ª parcela`),
     el("div", { class: "ap-inv-investido", "data-p": "0" }, [
       el("span", {}, "Você terá investido"), nInv,
-      el("span", { class: "ap-inv-sub" }, r.primeira !== r.demais
-        ? `1ª parcela de ${apBrl.format(r.primeira)} + ${r.mes - 1} × ${apBrl.format(r.demais)}`
-        : `${r.mes} parcelas de ${apBrl.format(r.demais)}`),
+      el("span", { class: "ap-inv-sub" }, r.depois > 0 && r.primeira !== r.demais
+        ? `${r.iniciais} × ${apBrl.format(r.primeira)} + ${r.depois} × ${apBrl.format(r.demais)}`
+        : `${r.mes} parcela${r.mes === 1 ? "" : "s"} de ${apBrl.format(r.primeira)}`),
     ]),
     el("div", { class: "ap-inv-cols" }, [
       coluna("🔨 Contemplado por lance", "ap-inv-lance", r.vendaLance, r.lucroLance, r.rentLance, r.mesLance, 1,
@@ -440,7 +452,7 @@ function telaInvCenarios() {
       el("div", { class: "ap-cen-sorteio" }, `Por sorteio: lucro de ${apBrl0.format(l.lucroSorteio)}`),
     ]))),
     eq ? el("p", { class: "ap-lead", "data-p": String(linhas.length + 1) }, ["Por lance, ainda há lucro se a contemplação vier até a ", el("strong", {}, `${apNum.format(eq)}ª parcela`), "."]) : null,
-    el("p", { class: "ap-aviso" }, `Simulação com venda a ${ap.inv.pctVenda}% do crédito e parcelas fixas. O valor de venda depende do mercado e a transferência depende da aprovação da administradora. Não é garantia de contemplação nem de lucro.`),
+    el("p", { class: "ap-aviso" }, `Simulação com venda a ${ap.inv.pctVenda}% do crédito; parcelas da 1ª à 12ª e demais parcelas conforme a proposta. O valor de venda depende do mercado e a transferência depende da aprovação da administradora. Não é garantia de contemplação nem de lucro.`),
   ]);
 }
 
@@ -451,7 +463,8 @@ function telaInvResumo() {
     ["Administradora", apMarca().completo],
     ap.dados.grupo ? ["Grupo", ap.dados.grupo] : null,
     ["Carta de crédito", apBrl.format(c.credito)],
-    ["Parcela", apBrl.format(r.demais)],
+    r.primeira !== r.demais ? ["1ª à 12ª parcela", apBrl.format(r.primeira)] : ["Parcela", apBrl.format(r.primeira)],
+    r.primeira !== r.demais ? ["A partir da 13ª", apBrl.format(r.demais)] : null,
     [`Investido até a ${r.mes}ª parcela`, apBrl.format(r.investido)],
     ["Lucro se contemplado por lance", apBrl.format(r.lucroLance)],
     ["Lucro se contemplado por sorteio", apBrl.format(r.lucroSorteio)],
@@ -471,7 +484,7 @@ function textoResumoInvestimento() {
   return [
     `*Investimento em consórcio — ${apMarca().completo}*${ap.cliente ? ` — ${ap.cliente.trim()}` : ""}`,
     ap.dados.grupo ? `Grupo: ${ap.dados.grupo}` : null,
-    `Carta: ${apBrl.format(c.credito)} · Parcela: ${apBrl.format(r.demais)}`,
+    `Carta: ${apBrl.format(c.credito)} · 1ª à 12ª: ${apBrl.format(r.primeira)}` + (r.primeira !== r.demais ? ` · a partir da 13ª: ${apBrl.format(r.demais)}` : ""),
     `Contemplado na ${r.mes}ª parcela: investido ${apBrl.format(r.investido)}`,
     `Venda por lance: ${apBrl.format(r.vendaLance)} → lucro ${apBrl.format(r.lucroLance)}`,
     `Venda por sorteio: ${apBrl.format(r.vendaSorteio)} → lucro ${apBrl.format(r.lucroSorteio)}`,
