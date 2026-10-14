@@ -116,7 +116,9 @@ function telaAbertura() {
   return el("div", { class: "ap-tela ap-abertura" }, [
     el("div", { class: "ap-aceno", "aria-hidden": "true" }, "👋"),
     el("h1", { class: "ap-titulo-xl" }, apPrimeiroNome() ? `Olá, ${apPrimeiroNome()}!` : "Olá!"),
-    el("p", { class: "ap-lead" }, [`Vamos ver juntos o caminho até `, el("strong", {}, o.rotulo), ` ${o.icone}`]),
+    modoInvestimento()
+      ? el("p", { class: "ap-lead" }, ["Vamos ver como o consórcio pode ", el("strong", {}, "fazer o seu dinheiro render"), " 💰"])
+      : el("p", { class: "ap-lead" }, [`Vamos ver juntos o caminho até `, el("strong", {}, o.rotulo), ` ${o.icone}`]),
     el("p", { class: "ap-lead ap-suave", "data-p": "1" }, `${apMarca().comA} e a Infinity ao seu lado.`),
   ]);
 }
@@ -329,6 +331,182 @@ function telaResumo() {
   ]);
 }
 
+// ---------- modo investimento (só tabela Parcelinha) ----------
+// Cliente que compra o consórcio para VENDER a carta quando for contemplado. Quem compra a carta
+// assume as parcelas restantes, então o custo do cliente é só o que ele pagou até a contemplação.
+//   investido(N) = 1ª parcela + (N − 1) × demais parcelas
+//   venda por lance   = % de venda × crédito disponível (carta − lance embutido)
+//   venda por sorteio = % de venda × carta cheia (sem lance)
+//   lucro = venda − investido
+const AP_INV_PADRAO = { pctVenda: 35, mesExemplo: 10, cenarios: [3, 10, 24, 48] };
+const AP_CENARIOS_NOMES = ["Otimista", "Realista", "Moderado", "Pessimista"];
+ap.inv = { ativo: false, ...AP_INV_PADRAO, cenarios: [...AP_INV_PADRAO.cenarios] };
+
+function ehParcelinha() {
+  const d = ap.dados || {};
+  const t = `${d.tabela || ""} ${d.plano || ""}`.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return t.includes("parcelinha");
+}
+function modoInvestimento() { return ap.inv.ativo && ehParcelinha(); }
+
+function apInvestimento(mes) {
+  const d = ap.dados || {};
+  const c = apCalculos();
+  const demais = apN(d.demais_parcelas) ?? apN(d.primeira_parcela) ?? 0;
+  const primeira = apN(d.primeira_parcela) ?? demais;
+  const n = Math.max(1, Math.round(mes));
+  const investido = primeira + (n - 1) * demais;
+  const pct = (Number(ap.inv.pctVenda) || 0) / 100;
+  const vendaLance = c.credito ? pct * (c.credito - c.lance) : null;
+  const vendaSorteio = c.credito ? pct * c.credito : null;
+  const lucroLance = vendaLance !== null ? vendaLance - investido : null;
+  const lucroSorteio = vendaSorteio !== null ? vendaSorteio - investido : null;
+  // rentabilidade total e equivalente ao mês (juros compostos no período)
+  const rent = (venda) => (venda && investido > 0 ? venda / investido - 1 : null);
+  const aoMes = (venda) => (venda && investido > 0 && n > 0 ? Math.pow(venda / investido, 1 / n) - 1 : null);
+  // até qual parcela ainda dá lucro (por lance)
+  const equilibrio = vendaLance && demais > 0 ? Math.floor((vendaLance - primeira) / demais) + 1 : null;
+  return {
+    mes: n, demais, primeira, investido, vendaLance, vendaSorteio, lucroLance, lucroSorteio,
+    rentLance: rent(vendaLance), rentSorteio: rent(vendaSorteio), mesLance: aoMes(vendaLance), mesSorteio: aoMes(vendaSorteio), equilibrio,
+  };
+}
+const apPct = (v) => (v === null || !Number.isFinite(v) ? "—" : `${(v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`);
+
+function telaInvComo() {
+  const etapas = [
+    { ic: "🛒", t: "Você entra no grupo", s: "Paga parcelas baixas da Parcelinha" },
+    { ic: "🏆", t: "É contemplado", s: "Por sorteio ou pelo lance embutido" },
+    { ic: "🤝", t: "Vende a carta", s: `O mercado paga cerca de ${ap.inv.pctVenda}% do crédito` },
+    { ic: "💰", t: "Embolsa o lucro", s: "Quem compra assume as parcelas restantes" },
+  ];
+  return el("div", { class: "ap-tela ap-tempo" }, [
+    el("h2", { class: "ap-titulo-l" }, "O consórcio como investimento"),
+    el("p", { class: "ap-lead ap-suave" }, "Você não precisa usar a carta: pode vendê-la assim que for contemplado."),
+    el("div", { class: "ap-tempo-linha" }, [
+      el("div", { class: "ap-tempo-trilho", "data-p": "1" }),
+      ...etapas.map((m, k) => el("div", { class: "ap-marco", "data-p": String(k + 1), style: `--k:${k}` }, [
+        el("div", { class: "ap-marco-ic", "aria-hidden": "true" }, m.ic), el("strong", {}, m.t), el("span", {}, m.s),
+      ])),
+    ]),
+  ]);
+}
+
+function telaInvExemplo() {
+  const c = apCalculos();
+  const r = apInvestimento(ap.inv.mesExemplo);
+  const nInv = el("strong", { class: "ap-inv-num" }, "R$ 0");
+  const coluna = (titulo, cls, venda, lucro, rent, aoMes, p, nota) => el("div", { class: `ap-inv-col ${cls}`, "data-p": String(p) }, [
+    el("div", { class: "ap-inv-col-tit" }, titulo),
+    el("div", { class: "ap-inv-linha" }, [el("span", {}, "Vende a carta por"), el("strong", {}, apBrl.format(venda))]),
+    el("div", { class: "ap-inv-linha ap-inv-lucro" }, [el("span", {}, "Lucro"), el("strong", {}, apBrl.format(lucro))]),
+    el("div", { class: "ap-inv-rent" }, `${apPct(rent)} sobre o investido · ≈ ${apPct(aoMes)} ao mês`),
+    el("div", { class: "ap-inv-nota" }, nota),
+  ]);
+  const tela = el("div", { class: "ap-tela ap-inv" }, [
+    el("h2", { class: "ap-titulo-l" }, `Contemplado na ${r.mes}ª parcela`),
+    el("div", { class: "ap-inv-investido", "data-p": "0" }, [
+      el("span", {}, "Você terá investido"), nInv,
+      el("span", { class: "ap-inv-sub" }, r.primeira !== r.demais
+        ? `1ª parcela de ${apBrl.format(r.primeira)} + ${r.mes - 1} × ${apBrl.format(r.demais)}`
+        : `${r.mes} parcelas de ${apBrl.format(r.demais)}`),
+    ]),
+    el("div", { class: "ap-inv-cols" }, [
+      coluna("🔨 Contemplado por lance", "ap-inv-lance", r.vendaLance, r.lucroLance, r.rentLance, r.mesLance, 1,
+        `${ap.inv.pctVenda}% de ${apBrl.format(c.credito - c.lance)} (carta com lance embutido de ${c.pct}%)`),
+      coluna("🎱 Contemplado por sorteio", "ap-inv-sorteio", r.vendaSorteio, r.lucroSorteio, r.rentSorteio, r.mesSorteio, 2,
+        `${ap.inv.pctVenda}% de ${apBrl.format(c.credito)} (carta cheia, sem lance)`),
+    ]),
+  ]);
+  tela._animar = (passo) => { if (passo === 0 && !tela._p0) { tela._p0 = 1; contar(nInv, r.investido, (v) => apBrl.format(v)); } };
+  return tela;
+}
+
+function telaInvCenarios() {
+  const linhas = ap.inv.cenarios.map((mes, k) => ({ nome: AP_CENARIOS_NOMES[k] || `Cenário ${k + 1}`, ...apInvestimento(mes) }));
+  const maxLucro = Math.max(...linhas.map((l) => Math.max(0, l.lucroLance || 0)), 1);
+  const eq = linhas[0] ? linhas[0].equilibrio : null;
+  return el("div", { class: "ap-tela ap-inv" }, [
+    el("h2", { class: "ap-titulo-l" }, "Do otimista ao pessimista"),
+    el("p", { class: "ap-lead ap-suave" }, "Quanto você ganha conforme o mês em que for contemplado (por lance)."),
+    el("div", { class: "ap-cen-grid" }, linhas.map((l, k) => el("div", { class: `ap-cen ap-cen-${k}`, "data-p": String(k + 1) }, [
+      el("div", { class: "ap-cen-nome" }, l.nome),
+      el("div", { class: "ap-cen-mes" }, `Contemplado na ${l.mes}ª parcela`),
+      el("div", { class: "ap-cen-linha" }, [el("span", {}, "Investido"), el("strong", {}, apBrl0.format(l.investido))]),
+      el("div", { class: "ap-cen-linha" }, [el("span", {}, "Venda da carta"), el("strong", {}, apBrl0.format(l.vendaLance))]),
+      el("div", { class: "ap-cen-lucro" + (l.lucroLance < 0 ? " negativo" : "") }, [el("span", {}, l.lucroLance < 0 ? "Prejuízo" : "Lucro"), el("strong", {}, apBrl0.format(l.lucroLance))]),
+      el("div", { class: "ap-cen-barra" }, [el("div", { style: `width:${Math.max(2, (Math.max(0, l.lucroLance) / maxLucro) * 100)}%` })]),
+      el("div", { class: "ap-cen-rent" }, `${apPct(l.rentLance)} no período · ≈ ${apPct(l.mesLance)} ao mês`),
+      el("div", { class: "ap-cen-sorteio" }, `Por sorteio: lucro de ${apBrl0.format(l.lucroSorteio)}`),
+    ]))),
+    eq ? el("p", { class: "ap-lead", "data-p": String(linhas.length + 1) }, ["Por lance, ainda há lucro se a contemplação vier até a ", el("strong", {}, `${apNum.format(eq)}ª parcela`), "."]) : null,
+    el("p", { class: "ap-aviso" }, `Simulação com venda a ${ap.inv.pctVenda}% do crédito e parcelas fixas. O valor de venda depende do mercado e a transferência depende da aprovação da administradora. Não é garantia de contemplação nem de lucro.`),
+  ]);
+}
+
+function telaInvResumo() {
+  const c = apCalculos();
+  const r = apInvestimento(ap.inv.mesExemplo);
+  const linhas = [
+    ["Administradora", apMarca().completo],
+    ap.dados.grupo ? ["Grupo", ap.dados.grupo] : null,
+    ["Carta de crédito", apBrl.format(c.credito)],
+    ["Parcela", apBrl.format(r.demais)],
+    [`Investido até a ${r.mes}ª parcela`, apBrl.format(r.investido)],
+    ["Lucro se contemplado por lance", apBrl.format(r.lucroLance)],
+    ["Lucro se contemplado por sorteio", apBrl.format(r.lucroSorteio)],
+    c.assembleia ? ["Próxima assembleia", apDataBR(c.assembleia)] : null,
+  ].filter(Boolean);
+  return el("div", { class: "ap-tela ap-resumo" }, [
+    el("h2", { class: "ap-titulo-l" }, apPrimeiroNome() ? `${apPrimeiroNome()}, este é o seu investimento` : "O seu investimento"),
+    el("dl", { class: "ap-resumo-lista" }, linhas.map(([rot, v], k) => el("div", { style: `--k:${k}` }, [el("dt", {}, rot), el("dd", {}, v)]))),
+    el("p", { class: "ap-titulo-m", "data-p": "1" }, "Vamos fazer o seu dinheiro trabalhar? 🤝"),
+  ]);
+}
+
+function textoResumoInvestimento() {
+  const c = apCalculos();
+  const r = apInvestimento(ap.inv.mesExemplo);
+  const cen = ap.inv.cenarios.map((mes, k) => { const x = apInvestimento(mes); return `• ${AP_CENARIOS_NOMES[k] || "Cenário"} (${x.mes}ª parcela): lucro ${apBrl0.format(x.lucroLance)}`; });
+  return [
+    `*Investimento em consórcio — ${apMarca().completo}*${ap.cliente ? ` — ${ap.cliente.trim()}` : ""}`,
+    ap.dados.grupo ? `Grupo: ${ap.dados.grupo}` : null,
+    `Carta: ${apBrl.format(c.credito)} · Parcela: ${apBrl.format(r.demais)}`,
+    `Contemplado na ${r.mes}ª parcela: investido ${apBrl.format(r.investido)}`,
+    `Venda por lance: ${apBrl.format(r.vendaLance)} → lucro ${apBrl.format(r.lucroLance)}`,
+    `Venda por sorteio: ${apBrl.format(r.vendaSorteio)} → lucro ${apBrl.format(r.lucroSorteio)}`,
+    "Cenários (por lance):", ...cen,
+    `_Simulação com venda a ${ap.inv.pctVenda}% do crédito; não é garantia de contemplação nem de lucro._`,
+  ].filter(Boolean).join("\n");
+}
+
+// bloco da preparação: chave e parâmetros (só aparece em Parcelinha)
+function prepInvestimento(redesenhar) {
+  if (!ehParcelinha()) return null;
+  const chave = el("input", { type: "checkbox", class: "ap-chave-input", "aria-label": "Modo investimento" });
+  chave.checked = ap.inv.ativo;
+  chave.addEventListener("change", () => { ap.inv.ativo = chave.checked; redesenhar(); });
+  const numero = (valor, onChange, attrs = {}) => {
+    const i = el("input", { type: "number", class: "ap-input ap-input-num", value: String(valor), ...attrs });
+    i.addEventListener("change", () => { const v = Number(i.value); if (Number.isFinite(v) && v > 0) { onChange(v); redesenhar(); } });
+    return i;
+  };
+  const caixa = el("div", { class: "ap-inv-prep" + (ap.inv.ativo ? " ativo" : "") }, [
+    el("label", { class: "ap-chave" }, [chave, el("span", { class: "ap-chave-trilho", "aria-hidden": "true" }), el("span", {}, [el("strong", {}, "💼 Modo investimento"), el("small", {}, "Cliente compra para vender a carta quando for contemplado")])]),
+  ]);
+  if (ap.inv.ativo) {
+    const r = apInvestimento(ap.inv.mesExemplo);
+    caixa.appendChild(el("div", { class: "ap-inv-params" }, [
+      el("label", { class: "ap-campo" }, ["Venda da carta (% do crédito)", numero(ap.inv.pctVenda, (v) => { ap.inv.pctVenda = Math.min(100, v); }, { min: "1", max: "100", step: "0.5" })]),
+      el("label", { class: "ap-campo" }, ["Exemplo: contemplado na parcela", numero(ap.inv.mesExemplo, (v) => { ap.inv.mesExemplo = Math.round(v); }, { min: "1", step: "1" })]),
+      el("div", { class: "ap-campo" }, ["Cenários (parcela da contemplação)", el("div", { class: "ap-inv-cen-inputs" }, ap.inv.cenarios.map((m, k) =>
+        el("label", {}, [el("small", {}, AP_CENARIOS_NOMES[k]), numero(m, (v) => { ap.inv.cenarios[k] = Math.round(v); }, { min: "1", step: "1" })])))]),
+    ]));
+    caixa.appendChild(el("p", { class: "px-sub" }, `Na ${r.mes}ª parcela: investido ${apBrl.format(r.investido)} · lucro por lance ${apBrl.format(r.lucroLance)} · por sorteio ${apBrl.format(r.lucroSorteio)}`));
+  }
+  return caixa;
+}
+
 const AP_TELAS = [
   { id: "abertura", passos: 1, montar: telaAbertura },
   { id: "administradora", passos: 2, montar: telaAdministradora },
@@ -341,8 +519,22 @@ const AP_TELAS = [
   { id: "passos", passos: 4, montar: telaPassos },
   { id: "resumo", passos: 1, montar: telaResumo },
 ];
+// telas da apresentação conforme o modo (normal ou investimento)
+function telasAtivas() {
+  if (!modoInvestimento()) return AP_TELAS;
+  const pega = (id) => AP_TELAS.find((t) => t.id === id);
+  return [
+    pega("abertura"), pega("administradora"), pega("como"), pega("grupo"), pega("formas"),
+    { id: "inv-como", passos: 4, montar: telaInvComo },
+    { id: "inv-exemplo", passos: 2, montar: telaInvExemplo },
+    { id: "inv-cenarios", passos: ap.inv.cenarios.length + 1, montar: telaInvCenarios },
+    pega("passos"),
+    { id: "inv-resumo", passos: 1, montar: telaInvResumo },
+  ];
+}
 
 function textoResumo() {
+  if (modoInvestimento()) return textoResumoInvestimento();
   const d = ap.dados || {};
   const c = apCalculos();
   return [
@@ -391,7 +583,8 @@ function preparacao() {
         el("div", { class: "px-titulo" }, "Antes de começar"),
         el("label", { class: "ap-campo" }, ["Nome do cliente", nome]),
         el("label", { class: "ap-campo" }, ["O que ele quer conquistar", objetivo]),
-        el("button", { type: "button", class: "btn btn-primary ap-iniciar", onclick: iniciarApresentacao }, "▶ Iniciar apresentação"),
+        prepInvestimento(() => carregarApresentacao()),
+        el("button", { type: "button", class: "btn btn-primary ap-iniciar", onclick: iniciarApresentacao }, modoInvestimento() ? "▶ Iniciar apresentação de investimento" : "▶ Iniciar apresentação"),
         el("p", { class: "px-sub" }, "Avance com clique, seta → ou espaço. Volte com a seta ←. Esc sai."),
       ]),
       el("div", { class: "px-card" }, [
@@ -415,11 +608,12 @@ let apPalco = null;
 function iniciarApresentacao() {
   const m = apMarca();
   ap.tela = 0; ap.passo = 0; ap.apresentando = true;
+  ap.telas = telasAtivas();
   apPalco = el("div", { class: "ap-palco", style: `--marca:${m.cor};--marca2:${m.cor2};--marca-escura:${m.escura}`, tabindex: "-1" });
   const conteudo = el("div", { class: "ap-conteudo" });
   const barra = el("div", { class: "ap-barra" }, [
     el("button", { type: "button", class: "ap-btn", "aria-label": "Voltar", onclick: (e) => { e.stopPropagation(); voltar(); } }, "‹"),
-    el("div", { class: "ap-pontos" }, AP_TELAS.map((_, k) => el("span", { class: "ap-ponto", "data-k": String(k) }))),
+    el("div", { class: "ap-pontos" }, ap.telas.map((_, k) => el("span", { class: "ap-ponto", "data-k": String(k) }))),
     el("button", { type: "button", class: "ap-btn", "aria-label": "Avançar", onclick: (e) => { e.stopPropagation(); avancar(); } }, "›"),
     el("button", { type: "button", class: "ap-btn ap-btn-txt", onclick: async (e) => {
       e.stopPropagation();
@@ -461,7 +655,7 @@ function teclas(e) {
   else if (e.key === "Escape") sairApresentacao();
 }
 function mostrarTela(indice, passo) {
-  const def = AP_TELAS[indice];
+  const def = ap.telas[indice];
   const conteudo = apPalco.querySelector(".ap-conteudo");
   const nova = def.montar();
   nova.classList.add("ap-entrando");
@@ -480,10 +674,10 @@ function aplicarPasso(tela, passo) {
   if (typeof tela._animar === "function") tela._animar(passo);
 }
 function avancar() {
-  const def = AP_TELAS[ap.tela];
+  const def = ap.telas[ap.tela];
   const tela = apPalco.querySelector(".ap-tela");
   if (ap.passo < def.passos) { aplicarPasso(tela, ap.passo + 1); return; }
-  if (ap.tela < AP_TELAS.length - 1) mostrarTela(ap.tela + 1, 0);
+  if (ap.tela < ap.telas.length - 1) mostrarTela(ap.tela + 1, 0);
 }
 function voltar() {
   if (ap.passo > 0) {
@@ -492,7 +686,7 @@ function voltar() {
     ap.passo -= 1;
     return;
   }
-  if (ap.tela > 0) mostrarTela(ap.tela - 1, AP_TELAS[ap.tela - 1].passos);
+  if (ap.tela > 0) mostrarTela(ap.tela - 1, ap.telas[ap.tela - 1].passos);
 }
 
 // ---------- entrada dos dados ----------
@@ -503,6 +697,7 @@ function receberApresentacao(dados, { exemplo = false } = {}) {
   ap.exemplo = exemplo;
   ap.cliente = dados.cliente ? apNomeBonito(String(dados.cliente)) : "";
   ap.objetivo = objetivoDoBem(dados.tipo_bem);
+  ap.inv = { ativo: false, ...AP_INV_PADRAO, cenarios: [...AP_INV_PADRAO.cenarios] };
   if (ap.apresentando) sairApresentacao();
   const raiz = document.getElementById("sx-apresentacao");
   if (raiz) raiz.innerHTML = "";
