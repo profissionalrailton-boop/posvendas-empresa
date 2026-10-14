@@ -428,3 +428,12 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 @media (prefers-reduced-motion: reduce) {
   .ap-palco *, .ap-palco *::before, .ap-palco *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* grupo que já contempla muito: destaque */
+.ap-destaque-grupo { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-radius: 18px; text-align: left; color: #fff; background: linear-gradient(135deg, #f97316, #e11d48); box-shadow: 0 14px 34px rgba(225, 29, 72, 0.3); }
+.ap-destaque-grupo strong { display: block; font-size: clamp(18px, 3vmin, 32px); font-weight: 800; letter-spacing: -0.01em; }
+.ap-destaque-grupo span { font-size: clamp(13px, 1.8vmin, 17px); opacity: 0.92; }
+.ap-destaque-ic { font-size: clamp(30px, 5vmin, 48px); line-height: 1; }
+.ap-destaque-grupo.ap-visivel { animation: ap-pulso 1.8s ease-in-out 0.6s 3; }
+@keyframes ap-pulso { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+.ap-lead-forte { font-weight: 800; color: #e11d48; }

@@ -24,10 +24,12 @@ const AP_OBJETIVOS = [
   { id: "negocio", rotulo: "seu negócio", icone: "🏪" },
   { id: "sonho", rotulo: "o seu sonho", icone: "✨" },
 ];
+// Acima disto, o grupo ganha o destaque "já contempla N pessoas por mês"
+const AP_DESTAQUE_CONTEMPLACOES = 10;
 const AP_EXEMPLO = {
   versao: 1, administradora: "Embracon", grupo: "007270", plano: "Mais por Menos 25%", tabela: "Select Estendido", tipo_bem: "Imóvel",
   credito: 200000, prazo: 200, primeira_parcela: 2600, demais_parcelas: 1180, com_seguro: false, entrada_total: 2600, meses_carencia: 0,
-  data_assembleia: null, participantes: 1480, vagas: 12, contemplados: 64, contemplados_lance_fixo: 22, contemplados_lance_livre: 18,
+  data_assembleia: null, participantes: 1540, vagas: 60, contemplados: 4, contemplados_lance_fixo: 5, contemplados_lance_livre: 3,
   media_lance: 41, pos_contemplacao: { credito: 150000, parcela: 1770, prazo: 160 },
 };
 
@@ -83,14 +85,22 @@ function apCalculos() {
   const d = ap.dados || {};
   const credito = apN(d.credito);
   const parcela = apN(d.demais_parcelas) ?? apN(d.primeira_parcela);
-  const participantes = apN(d.participantes);
+  // Embracon: "participantes" é o total de vagas do grupo e "vagas" são as ainda livres → pagantes = total − livres.
+  // Âncora: o Radar já manda as cotas ativas.
+  const totalVagas = apN(d.participantes);
+  const vagasLivres = apN(d.vagas);
+  const participantes = totalVagas === null ? null
+    : d.administradora === "Embracon" && vagasLivres !== null ? Math.max(0, totalVagas - vagasLivres) : totalVagas;
   const saldo = participantes && parcela ? participantes * parcela : null; // parcela bruta (suposição)
+  // contemplados por mês: sorteio + lance fixo + lance livre (mesma soma do Radar)
+  const partesCont = [apN(d.contemplados), apN(d.contemplados_lance_fixo), apN(d.contemplados_lance_livre)];
+  const contemplacoesMes = partesCont.some((x) => x !== null) ? partesCont.reduce((t, x) => t + (x || 0), 0) : null;
   const cartas = saldo && credito ? Math.floor(saldo / credito) : null;
   const pct = apMarca().lancePct;
   const lance = credito ? credito * (pct / 100) : null;
   const liberado = credito ? credito - lance : null;
   const assembleia = apData(d.data_assembleia);
-  return { credito, parcela, participantes, saldo, cartas, pct, lance, liberado, assembleia, dias: apDiasAte(assembleia) };
+  return { credito, parcela, participantes, totalVagas, vagasLivres, saldo, cartas, pct, lance, liberado, assembleia, dias: apDiasAte(assembleia), contemplacoesMes, destaque: contemplacoesMes !== null && contemplacoesMes > AP_DESTAQUE_CONTEMPLACOES };
 }
 
 // ---------- telas ----------
@@ -157,6 +167,15 @@ function telaGrupo() {
     tela.appendChild(el("p", { class: "ap-lead" }, "Os dados de participantes deste grupo não vieram na consulta."));
     return tela;
   }
+  if (c.destaque) {
+    tela.appendChild(el("div", { class: "ap-destaque-grupo", "data-p": "0" }, [
+      el("span", { class: "ap-destaque-ic", "aria-hidden": "true" }, "🔥"),
+      el("div", {}, [
+        el("strong", {}, `Este grupo já contempla ${apNum.format(c.contemplacoesMes)} pessoas por mês!`),
+        el("span", {}, "Entre sorteio e lances — um grupo que está entregando cartas de verdade."),
+      ]),
+    ]));
+  }
   const nPart = el("span", { class: "ap-num" }, "0");
   const nSaldo = el("span", { class: "ap-num ap-num-destaque" }, "R$ 0");
   const nCartas = el("span", { class: "ap-num" }, "0");
@@ -207,7 +226,7 @@ function telaContemplacao() {
       el("p", {}, f.txt),
       f.extra ? el("p", { class: "ap-forma-extra" }, f.extra) : null,
     ]))),
-    apN(d.contemplados) ? el("p", { class: "ap-lead ap-suave", "data-p": "3" }, `Neste grupo, ${apNum.format(apN(d.contemplados))} pessoas já foram contempladas.`)
+    apCalculos().contemplacoesMes ? el("p", { class: "ap-lead" + (apCalculos().destaque ? " ap-lead-forte" : " ap-suave"), "data-p": "3" }, `Este grupo está contemplando ${apNum.format(apCalculos().contemplacoesMes)} pessoas por mês.`)
       : pctCont ? el("p", { class: "ap-lead ap-suave", "data-p": "3" }, `Neste grupo, ${apNum.format(pctCont)}% das cotas já foram contempladas.`) : null,
   ]);
 }
@@ -298,6 +317,7 @@ function telaResumo() {
     apN(d.demais_parcelas) ? ["Demais parcelas", apBrl.format(apN(d.demais_parcelas))] : null,
     apN(d.prazo) ? ["Prazo", `${apNum.format(apN(d.prazo))} meses`] : null,
     c.assembleia ? ["Próxima assembleia", apDataBR(c.assembleia)] : null,
+    c.contemplacoesMes ? ["Contemplados por mês no grupo", apNum.format(c.contemplacoesMes)] : null,
   ].filter(Boolean);
   return el("div", { class: "ap-tela ap-resumo" }, [
     el("h2", { class: "ap-titulo-l" }, apPrimeiroNome() ? `${apPrimeiroNome()}, esta é a sua proposta` : "A sua proposta"),
@@ -376,7 +396,8 @@ function preparacao() {
         el("div", { class: "ap-dados" }, [
           dado("Grupo", d.grupo), dado("Plano", d.plano), dado("Crédito", c.credito ? apBrl.format(c.credito) : null),
           dado("Demais parcelas", c.parcela ? apBrl.format(c.parcela) : null), dado("Prazo", apN(d.prazo) ? `${apN(d.prazo)} meses` : null),
-          dado("Participantes", c.participantes ? apNum.format(c.participantes) : null),
+          dado("Participantes pagando", c.participantes !== null ? apNum.format(c.participantes) + (d.administradora === "Embracon" && c.vagasLivres !== null ? ` (${apNum.format(c.totalVagas)} − ${apNum.format(c.vagasLivres)} livres)` : "") : null),
+          dado("Contemplados por mês", c.contemplacoesMes !== null ? apNum.format(c.contemplacoesMes) + (c.destaque ? " 🔥" : "") : null),
           dado("Saldo estimado/mês", c.saldo ? apBrl0.format(c.saldo) : null), dado("Cartas por assembleia", c.cartas !== null ? `≈ ${apNum.format(c.cartas)}` : null),
           dado("Próxima assembleia", c.assembleia ? apDataBR(c.assembleia) : null), dado(`Lance embutido (${m.nome})`, `${m.lancePct}%`),
         ]),
