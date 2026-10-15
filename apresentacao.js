@@ -58,12 +58,8 @@ function apDiasAte(d) {
   return Math.round((d - hoje) / 86400000);
 }
 function apQtdCartas() { return Math.max(1, Math.round(apN(ap.dados && ap.dados.quantidade_cartas) || 1)); }
-// "Carta de crédito" ou "Crédito total (2 cartas de R$ 150.000,00)"
-function apRotuloCarta() {
-  const n = apQtdCartas();
-  const u = ap.dados && ap.dados.unidade && apN(ap.dados.unidade.credito);
-  return n > 1 ? `Crédito total (${n} cartas${u ? ` de ${apBrl.format(u)}` : ""})` : "Carta de crédito";
-}
+// a quantidade de cartas NUNCA aparece (pedido da diretoria): o cliente vê uma carta só, com o valor somado
+function apRotuloCarta() { return "Carta de crédito"; }
 function apMarca() { return AP_MARCAS[ap.dados && ap.dados.administradora] || AP_MARCAS.Embracon; }
 function apObjetivo() { return AP_OBJETIVOS.find((o) => o.id === ap.objetivo) || AP_OBJETIVOS[AP_OBJETIVOS.length - 1]; }
 function apPrimeiroNome() { return (ap.cliente || "").trim().split(/\s+/)[0] || ""; }
@@ -201,7 +197,7 @@ function telaGrupo() {
   const conta = el("div", { class: "ap-conta" }, [
     el("div", { class: "ap-conta-item", "data-p": "0", "data-conta": "part" }, [nPart, el("span", { class: "ap-conta-rot" }, "participantes pagando")]),
     el("div", { class: "ap-conta-op", "data-p": "1" }, "×"),
-    el("div", { class: "ap-conta-item", "data-p": "1" }, [el("span", { class: "ap-num" }, apBrl.format(c.parcela)), el("span", { class: "ap-conta-rot" }, "parcela pós-contemplação")]),
+    el("div", { class: "ap-conta-item", "data-p": "1" }, [el("span", { class: "ap-num" }, apBrl.format(c.parcela)), el("span", { class: "ap-conta-rot" }, apQtdCartas() > 1 ? "parcela média no grupo" : "parcela pós-contemplação")]),
     el("div", { class: "ap-conta-op", "data-p": "2" }, "="),
     el("div", { class: "ap-conta-item ap-conta-total", "data-p": "2", "data-conta": "saldo" }, [nSaldo, el("span", { class: "ap-conta-rot" }, "entram no grupo por mês (estimativa)")]),
   ]);
@@ -210,7 +206,7 @@ function telaGrupo() {
   tela.appendChild(el("div", { class: "ap-cartas-linha", "data-p": "3", "data-conta": "cartas" }, [
     el("div", { class: "ap-cartas" }, Array.from({ length: cartas }, (_, k) => el("span", { class: "ap-carta", style: `--k:${k}` }))),
     el("p", { class: "ap-lead" }, c.cartas
-      ? ["Isso dá para entregar cerca de ", nCartas, ` cartas de ${apBrl0.format(c.creditoPos)} por assembleia.`]
+      ? ["Isso dá para entregar cerca de ", nCartas, apQtdCartas() > 1 ? " cartas de crédito por assembleia." : ` cartas de ${apBrl0.format(c.creditoPos)} por assembleia.`]
       : ["Esse saldo é dividido entre os contemplados de cada assembleia."]),
   ]));
   if (c.assembleia) {
@@ -617,10 +613,9 @@ function preparacao() {
         el("div", { class: "px-titulo" }, "Dados da proposta"),
         el("div", { class: "ap-dados" }, [
           dado("Grupo", d.grupo), dado("Plano", d.plano),
-          dado("Cartas", apQtdCartas() > 1 ? `${apQtdCartas()} cartas (valores do cliente somados)` : null),
-          dado(apQtdCartas() > 1 ? "Crédito total" : "Crédito", c.credito ? apBrl.format(c.credito) : null),
+          dado("Crédito", c.credito ? apBrl.format(c.credito) : null),
           dado("Demais parcelas", apN(d.demais_parcelas) ? apBrl.format(apN(d.demais_parcelas)) : null),
-          dado(apQtdCartas() > 1 ? "Parcela pós (1 carta, p/ o grupo)" : "Parcela pós-contemplação", c.parcela ? apBrl.format(c.parcela) : null), dado(apQtdCartas() > 1 ? "Crédito pós (1 carta, p/ o grupo)" : "Crédito pós-contemplação", c.creditoPos ? apBrl.format(c.creditoPos) : null), dado("Prazo", apN(d.prazo) ? `${apN(d.prazo)} meses` : null),
+          dado("Parcela pós-contemplação", c.parcela ? apBrl.format(c.parcela) : null), dado("Crédito pós-contemplação", c.creditoPos ? apBrl.format(c.creditoPos) : null), dado("Prazo", apN(d.prazo) ? `${apN(d.prazo)} meses` : null),
           dado("Participantes pagando", c.participantes !== null ? apNum.format(c.participantes) + (d.administradora === "Embracon" && c.vagasLivres !== null ? ` (${apNum.format(c.totalVagas)} − ${apNum.format(c.vagasLivres)} livres)` : "") : null),
           dado("Contemplados por mês", c.contemplacoesMes !== null ? apNum.format(c.contemplacoesMes) + (c.destaque ? " 🔥" : "") : null),
           dado("Saldo estimado/mês", c.saldo ? apBrl0.format(c.saldo) : null), dado("Cartas por assembleia", c.cartas !== null ? `≈ ${apNum.format(c.cartas)}` : null),
