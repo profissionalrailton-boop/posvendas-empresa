@@ -21,7 +21,7 @@ const ICONES = {
 const GRUPOS = [
   {
     // Apresentação para o cliente (página desta tela — ver apresentacao.js). Aberta pelo Radar com os
-    // dados reais da proposta; por enquanto só para os e-mails de APRESENTACAO_EMAILS.
+    // dados reais da proposta; liberada para os vendedores e os e-mails de APRESENTACAO_EMAILS.
     app: "apresentacao", titulo: "Apresentação", exige: "apresentacao", unico: true, nativo: true, semMetas: true,
     container: "sx-apresentacao", carregar: () => carregarApresentacao(),
     itens: [{ aba: "apresentacao", label: "Apresentação" }],
@@ -252,7 +252,7 @@ async function temLinha(tabela) {
   const { data, error } = await sb.from(tabela).select("email").limit(1);
   return !error && Array.isArray(data) && data.length > 0;
 }
-// Apresentação para o cliente (em teste): só estes e-mails
+// Apresentação para o cliente: liberada para os vendedores + estes e-mails
 const APRESENTACAO_EMAILS = ["profissionalrailton@gmail.com"];
 async function descobrirPermissoes() {
   const { data: sessao } = await sb.auth.getSession();
@@ -265,7 +265,7 @@ async function descobrirPermissoes() {
     temLinha("allowed_users"), // lista de acesso do financeiro
     temLinha("supervisores"),
   ]);
-  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null, apresentacao: APRESENTACAO_EMAILS.includes(email) };
+  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null, apresentacao: vendedor || APRESENTACAO_EMAILS.includes(email) };
 }
 function itensPermitidos(grupo) {
   if (grupo.exige === "adm" && !perms.adm) return [];
