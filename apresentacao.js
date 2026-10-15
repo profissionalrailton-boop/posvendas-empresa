@@ -3,13 +3,15 @@
 // Fluxo: Radar (Iniciar contrato → "Apresentação") manda os dados para a tela principal
 // (postMessage, ou #apresentacao=... no endereço) → abre esta página → o vendedor confere,
 // digita o nome do cliente e começa.
-// Acesso: só os e-mails de APRESENTACAO_EMAILS (sistema.js).
+// Acesso: vendedores, supervisores e os e-mails de APRESENTACAO_EMAILS (sistema.js).
 //
 // Contrato dos dados (versão 1) — todos opcionais, exceto administradora:
 // { versao, administradora: "Embracon"|"Âncora", grupo, plano, tabela, tipo_bem, credito, prazo,
 //   primeira_parcela, demais_parcelas, com_seguro, entrada_total, meses_carencia, data_assembleia,
 //   participantes, vagas, contemplados, contemplados_lance_fixo, contemplados_lance_livre,
-//   media_lance, pct_contemplacao, pos_contemplacao: { credito, parcela, prazo } }
+//   media_lance, pct_contemplacao, pos_contemplacao: { credito, parcela, prazo }, quantidade_cartas }
+// quantidade_cartas (padrão 1): o Radar manda os valores de UMA carta; aqui os valores do cliente são
+// multiplicados (crédito, parcelas, entrada, pós-contemplação). As contas do GRUPO usam a carta unitária.
 
 const AP_MARCAS = {
   Embracon: { nome: "Embracon", completo: "Consórcio Embracon", anos: 38, lancePct: 25, comA: "com a Embracon", cor: "#d7182a", cor2: "#ff5a5f", escura: "#191919", slogan: "Porque sonhar não tem limites" },
@@ -55,6 +57,13 @@ function apDiasAte(d) {
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   return Math.round((d - hoje) / 86400000);
 }
+function apQtdCartas() { return Math.max(1, Math.round(apN(ap.dados && ap.dados.quantidade_cartas) || 1)); }
+// "Carta de crédito" ou "Crédito total (2 cartas de R$ 150.000,00)"
+function apRotuloCarta() {
+  const n = apQtdCartas();
+  const u = ap.dados && ap.dados.unidade && apN(ap.dados.unidade.credito);
+  return n > 1 ? `Crédito total (${n} cartas${u ? ` de ${apBrl.format(u)}` : ""})` : "Carta de crédito";
+}
 function apMarca() { return AP_MARCAS[ap.dados && ap.dados.administradora] || AP_MARCAS.Embracon; }
 function apObjetivo() { return AP_OBJETIVOS.find((o) => o.id === ap.objetivo) || AP_OBJETIVOS[AP_OBJETIVOS.length - 1]; }
 function apPrimeiroNome() { return (ap.cliente || "").trim().split(/\s+/)[0] || ""; }
@@ -90,8 +99,12 @@ function apCalculos() {
   const liberado = credito ? credito - lance : null;
   // "O seu grupo": sempre com valores PÓS-contemplação (pedido da diretoria). Sem o valor do Radar,
   // a parcela cai para as demais parcelas e o crédito para o crédito com lance embutido.
-  const parcela = apN(pos.parcela) ?? apN(d.demais_parcelas) ?? apN(d.primeira_parcela);
-  const creditoPos = apN(pos.credito) ?? liberado;
+  // com 2+ cartas os dados já vêm multiplicados; o grupo é explicado com UMA carta
+  const nCartas = apQtdCartas();
+  const parcelaTotal = apN(pos.parcela) ?? apN(d.demais_parcelas) ?? apN(d.primeira_parcela);
+  const creditoPosTotal = apN(pos.credito) ?? liberado;
+  const parcela = parcelaTotal === null ? null : parcelaTotal / nCartas;
+  const creditoPos = creditoPosTotal === null ? null : creditoPosTotal / nCartas;
   // Embracon: "participantes" é o total de vagas do grupo e "vagas" são as ainda livres → pagantes = total − livres.
   // Âncora: o Radar já manda as cotas ativas.
   const totalVagas = apN(d.participantes);
@@ -243,7 +256,7 @@ function telaEstrategia() {
     el("h2", { class: "ap-titulo-l" }, "A estratégia para você"),
     el("p", { class: "ap-lead" }, "Usamos o lance embutido para acelerar a sua contemplação, sem tirar dinheiro do seu bolso."),
     el("div", { class: "ap-barra-carta" }, [
-      el("div", { class: "ap-barra-total" }, [el("span", {}, "Carta de crédito"), el("strong", {}, apBrl.format(c.credito))]),
+      el("div", { class: "ap-barra-total" }, [el("span", {}, apRotuloCarta()), el("strong", {}, apBrl.format(c.credito))]),
       el("div", { class: "ap-barra-partes", "data-p": "1" }, [
         el("div", { class: "ap-parte ap-parte-lance" }, [el("span", {}, `Lance embutido (${c.pct}%)`), el("strong", {}, apBrl.format(c.lance))]),
         el("div", { class: "ap-parte ap-parte-livre" }, [el("span", {}, "Crédito liberado para você"), el("strong", {}, apBrl.format(c.liberado))]),
@@ -316,7 +329,7 @@ function telaResumo() {
   const linhas = [
     ["Administradora", apMarca().completo],
     d.grupo ? ["Grupo", d.grupo] : null,
-    c.credito ? ["Carta de crédito", apBrl.format(c.credito)] : null,
+    c.credito ? [apRotuloCarta(), apBrl.format(c.credito)] : null,
     c.liberado ? [`Crédito com lance embutido (${c.pct}%)`, apBrl.format(c.liberado)] : null,
     apN(d.entrada_total) ?? apN(d.primeira_parcela) ? ["Para começar", apBrl.format(apN(d.entrada_total) ?? apN(d.primeira_parcela))] : null,
     apN(d.demais_parcelas) ? ["Demais parcelas", apBrl.format(apN(d.demais_parcelas))] : null,
@@ -462,7 +475,7 @@ function telaInvResumo() {
   const linhas = [
     ["Administradora", apMarca().completo],
     ap.dados.grupo ? ["Grupo", ap.dados.grupo] : null,
-    ["Carta de crédito", apBrl.format(c.credito)],
+    [apRotuloCarta(), apBrl.format(c.credito)],
     r.primeira !== r.demais ? ["1ª à 12ª parcela", apBrl.format(r.primeira)] : ["Parcela", apBrl.format(r.primeira)],
     r.primeira !== r.demais ? ["A partir da 13ª", apBrl.format(r.demais)] : null,
     [`Investido até a ${r.mes}ª parcela`, apBrl.format(r.investido)],
@@ -553,7 +566,7 @@ function textoResumo() {
   return [
     `*Proposta ${apMarca().completo}*${ap.cliente ? ` — ${ap.cliente.trim()}` : ""}`,
     d.grupo ? `Grupo: ${d.grupo}` : null,
-    c.credito ? `Carta de crédito: ${apBrl.format(c.credito)}` : null,
+    c.credito ? `${apRotuloCarta()}: ${apBrl.format(c.credito)}` : null,
     c.liberado ? `Crédito com lance embutido (${c.pct}%): ${apBrl.format(c.liberado)}` : null,
     apN(d.entrada_total) ?? apN(d.primeira_parcela) ? `Para começar: ${apBrl.format(apN(d.entrada_total) ?? apN(d.primeira_parcela))}` : null,
     apN(d.demais_parcelas) ? `Demais parcelas: ${apBrl.format(apN(d.demais_parcelas))}` : null,
@@ -603,9 +616,11 @@ function preparacao() {
       el("div", { class: "px-card" }, [
         el("div", { class: "px-titulo" }, "Dados da proposta"),
         el("div", { class: "ap-dados" }, [
-          dado("Grupo", d.grupo), dado("Plano", d.plano), dado("Crédito", c.credito ? apBrl.format(c.credito) : null),
+          dado("Grupo", d.grupo), dado("Plano", d.plano),
+          dado("Cartas", apQtdCartas() > 1 ? `${apQtdCartas()} cartas (valores do cliente somados)` : null),
+          dado(apQtdCartas() > 1 ? "Crédito total" : "Crédito", c.credito ? apBrl.format(c.credito) : null),
           dado("Demais parcelas", apN(d.demais_parcelas) ? apBrl.format(apN(d.demais_parcelas)) : null),
-          dado("Parcela pós-contemplação", c.parcela ? apBrl.format(c.parcela) : null), dado("Crédito pós-contemplação", c.creditoPos ? apBrl.format(c.creditoPos) : null), dado("Prazo", apN(d.prazo) ? `${apN(d.prazo)} meses` : null),
+          dado(apQtdCartas() > 1 ? "Parcela pós (1 carta, p/ o grupo)" : "Parcela pós-contemplação", c.parcela ? apBrl.format(c.parcela) : null), dado(apQtdCartas() > 1 ? "Crédito pós (1 carta, p/ o grupo)" : "Crédito pós-contemplação", c.creditoPos ? apBrl.format(c.creditoPos) : null), dado("Prazo", apN(d.prazo) ? `${apN(d.prazo)} meses` : null),
           dado("Participantes pagando", c.participantes !== null ? apNum.format(c.participantes) + (d.administradora === "Embracon" && c.vagasLivres !== null ? ` (${apNum.format(c.totalVagas)} − ${apNum.format(c.vagasLivres)} livres)` : "") : null),
           dado("Contemplados por mês", c.contemplacoesMes !== null ? apNum.format(c.contemplacoesMes) + (c.destaque ? " 🔥" : "") : null),
           dado("Saldo estimado/mês", c.saldo ? apBrl0.format(c.saldo) : null), dado("Cartas por assembleia", c.cartas !== null ? `≈ ${apNum.format(c.cartas)}` : null),
@@ -706,6 +721,17 @@ function voltar() {
 // chamado pela tela principal quando o Radar manda uma proposta (ou pelo exemplo)
 function receberApresentacao(dados, { exemplo = false } = {}) {
   if (!dados || !AP_MARCAS[dados.administradora]) dados = { ...(dados || {}), administradora: "Embracon" };
+  const n = Math.max(1, Math.round(apN(dados.quantidade_cartas) || 1));
+  if (n > 1) {
+    const vezes = (v) => (apN(v) === null ? v : apN(v) * n);
+    const pos = dados.pos_contemplacao || {};
+    dados = {
+      ...dados, quantidade_cartas: n, unidade: { credito: apN(dados.credito) },
+      credito: vezes(dados.credito), primeira_parcela: vezes(dados.primeira_parcela), demais_parcelas: vezes(dados.demais_parcelas),
+      entrada_total: vezes(dados.entrada_total),
+      pos_contemplacao: { ...pos, credito: vezes(pos.credito), parcela: vezes(pos.parcela) },
+    };
+  }
   ap.dados = dados;
   ap.exemplo = exemplo;
   ap.cliente = dados.cliente ? apNomeBonito(String(dados.cliente)) : "";
