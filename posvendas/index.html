@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <link rel="stylesheet" href="styles.css?v=2" />
-<link rel="stylesheet" href="posvendas.css?v=25" />
+<link rel="stylesheet" href="posvendas.css?v=26" />
 </head>
 <body>
 <div id="app">
@@ -321,6 +321,20 @@
   </div>
 </div>
 
+<!-- LISTA DE INADIMPLENTES (cards da Adimplência) -->
+<div class="modal-overlay hidden" id="lista-inad-overlay">
+  <div class="modal-box pv-lista-inad">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="lista-inad-title">Clientes</div>
+        <div class="modal-sub" id="lista-inad-sub"></div>
+      </div>
+      <button class="icon-btn" id="lista-inad-close" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div id="lista-inad-body"></div>
+  </div>
+</div>
+
 <!-- BAIXA DE PARCELA -->
 <div class="modal-overlay hidden" id="baixa-overlay">
   <div class="modal-box" style="max-width: 380px;">
@@ -372,6 +386,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=26"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>

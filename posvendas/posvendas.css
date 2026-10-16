@@ -258,3 +258,12 @@ body.modo-vendedor .so-completo { display: none !important; }
 .embutido .sidebar { display: none !important; }
 .embutido .app-content { margin-left: 0 !important; }
 .embutido #auth-screen .theme-toggle-auth { display: none; }
+
+/* cards clicáveis da Adimplência + janela com a lista de clientes */
+button.pv-aging-item { font: inherit; color: inherit; background: none; border: none; border-right: 1px solid var(--border-soft); width: 100%; }
+.pv-clicavel { cursor: pointer; transition: background 0.15s ease; }
+.pv-aging-item.pv-clicavel:hover { background: rgba(248, 113, 113, 0.08); }
+.pv-aging-item.pv-clicavel:focus-visible, .summary-card.pv-clicavel:focus-visible { outline: 2px solid var(--danger); outline-offset: -2px; }
+.modal-box.pv-lista-inad { max-width: 760px; max-height: 85vh; display: flex; flex-direction: column; }
+#lista-inad-body { overflow: auto; }
+.pv-lista-inad-sub { display: flex; align-items: center; gap: 6px; margin-top: 4px; }

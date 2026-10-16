@@ -1081,12 +1081,20 @@ function renderAdimplencia() {
   const inad = base.filter((v) => sit(v).status === "atraso");
   const faixas = AGING.map((b) => ({ label: b.label, n: inad.filter((v) => sit(v).maxAtraso >= b.min && sit(v).maxAtraso <= b.max).length }));
   faixas.push({ label: "Canceladas", n: base.filter((v) => sit(v).status === "cancelada").length });
-  faixas.forEach(({ label, n }) => {
-    aging.appendChild(el("div", { class: "pv-aging-item" + (n ? " has" : "") }, [
-      el("div", { class: "pv-aging-n" }, n),
-      el("div", { class: "pv-aging-label" }, label),
-    ]));
+  faixas.forEach(({ label, n }, i) => {
+    const cancelada = i === AGING.length;
+    const lista = cancelada ? base.filter((v) => sit(v).status === "cancelada")
+      : inad.filter((v) => sit(v).maxAtraso >= AGING[i].min && sit(v).maxAtraso <= AGING[i].max);
+    const conteudo = [el("div", { class: "pv-aging-n" }, n), el("div", { class: "pv-aging-label" }, label)];
+    aging.appendChild(n
+      ? el("button", { type: "button", class: "pv-aging-item has pv-clicavel", title: "Ver os clientes", onclick: () => abrirListaInad(cancelada ? "Cotas canceladas" : `Em atraso: ${label}`, lista) }, conteudo)
+      : el("div", { class: "pv-aging-item" }, conteudo));
   });
+  // card "Inadimplentes" (atraso + canceladas) também abre a lista
+  const cardInad = document.getElementById("adi-inad").closest(".summary-card");
+  cardInad.classList.toggle("pv-clicavel", geral.inad > 0);
+  cardInad.title = geral.inad > 0 ? "Ver os clientes inadimplentes" : "";
+  cardInad.onclick = geral.inad > 0 ? () => abrirListaInad("Clientes inadimplentes", base.filter((v) => inadimplente(sit(v)))) : null;
 
   const semCobranca = state.vendas.filter((v) => sit(v).status === "sem_cobranca" && (!adm || v.administradora === adm) && (!vendedor || v.vendedor === vendedor)).length;
   renderStatsTable("adi-por-adm", agrupar(base, (v) => v.administradora), "Administradora");
@@ -1099,6 +1107,43 @@ function renderAdimplencia() {
     document.getElementById("adi-por-mes").appendChild(el("div", { class: "pv-footnote" },
       semCobranca > 1 ? `${semCobranca} clientes com grupo sem dia de vencimento ficam fora do cálculo.` : "1 cliente com grupo sem dia de vencimento fica fora do cálculo."));
   }
+}
+// Janela flutuante com os clientes de um card (em atraso / canceladas). Clique no nome abre a ficha.
+const listaOverlay = document.getElementById("lista-inad-overlay");
+document.getElementById("lista-inad-close").addEventListener("click", fecharListaInad);
+listaOverlay.addEventListener("click", (e) => { if (e.target === listaOverlay) fecharListaInad(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !listaOverlay.classList.contains("hidden") && fichaOverlay.classList.contains("hidden")) fecharListaInad(); });
+function fecharListaInad() { listaOverlay.classList.add("hidden"); }
+function abrirListaInad(titulo, vendas) {
+  const ordenadas = [...vendas].sort((a, b) => (sit(b).maxAtraso || 0) - (sit(a).maxAtraso || 0) || a.cliente.localeCompare(b.cliente));
+  document.getElementById("lista-inad-title").textContent = titulo;
+  document.getElementById("lista-inad-sub").textContent =
+    `${ordenadas.length} cliente${ordenadas.length === 1 ? "" : "s"} · ${fmtMoney(somaCredito(ordenadas))} em crédito`;
+  const corpo = document.getElementById("lista-inad-body");
+  corpo.innerHTML = "";
+  const tbody = el("tbody");
+  ordenadas.forEach((v) => {
+    const st = sit(v);
+    const atraso = st.status === "cancelada" ? "Cota cancelada"
+      : `${st.atrasadas.length} parcela${st.atrasadas.length === 1 ? "" : "s"} · ${st.maxAtraso} dia${st.maxAtraso === 1 ? "" : "s"}`;
+    tbody.appendChild(el("tr", {}, [
+      el("td", {}, [
+        el("div", { class: "pv-nome-linha" }, [
+          el("span", { class: `pv-adimp ${st.status}`, "aria-hidden": "true" }),
+          el("button", { type: "button", class: "pv-link pend-client-name", onclick: () => { fecharListaInad(); openFicha(v.id); } }, v.cliente),
+        ]),
+        el("div", { class: "pv-muted pv-lista-inad-sub" }, [adminBadge(v.administradora), ` ${v.vendedor}`]),
+      ]),
+      el("td", { class: "pv-strong pv-nowrap" }, `${v.grupo || "—"}/${v.cota || "—"}`),
+      el("td", { class: "pv-nowrap" }, atraso),
+      el("td", { class: "pv-nowrap" }, fmtMoney(credito(v))),
+    ]));
+  });
+  corpo.appendChild(el("div", { class: "table-scroll" }, [el("table", { class: "pv-table" }, [
+    el("thead", {}, [el("tr", {}, [el("th", {}, "Cliente"), el("th", {}, "Grupo/cota"), el("th", {}, "Atraso"), el("th", {}, "Crédito")])]),
+    tbody,
+  ])]));
+  listaOverlay.classList.remove("hidden");
 }
 function agrupar(vendas, keyFn) {
   const map = new Map();
