@@ -531,6 +531,7 @@ const NOMES_EQUIPE = {
   "infinitysolucoes.posvenda@gmail.com": "Caio Paulino",
   "profissionalrailton@gmail.com": "Railton",
   "maria.aline.multi@gmail.com": "Maria Aline",
+  "infinityadm.multi@gmail.com": "Leidy Moura",
 };
 // "Felipe Cavalcante (vendedor)" para quem é vendedor; nome da equipe interna; e-mail para os demais
 function autorAnotacao(email) {
