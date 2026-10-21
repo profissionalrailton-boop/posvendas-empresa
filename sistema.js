@@ -253,7 +253,7 @@ async function temLinha(tabela) {
   return !error && Array.isArray(data) && data.length > 0;
 }
 // Apresentação para o cliente: liberada para vendedores, supervisores + estes e-mails
-const APRESENTACAO_EMAILS = ["profissionalrailton@gmail.com"];
+const APRESENTACAO_EMAILS = ["profissionalrailton@gmail.com", "maria.aline.multi@gmail.com"];
 async function descobrirPermissoes() {
   const { data: sessao } = await sb.auth.getSession();
   const email = ((sessao && sessao.session && sessao.session.user.email) || "").toLowerCase();
