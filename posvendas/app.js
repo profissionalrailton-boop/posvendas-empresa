@@ -526,9 +526,17 @@ async function loadVendedoresAcesso() {
     // tabela de vendedores ainda não criada: segue sem os nomes
   }
 }
-// "Felipe Cavalcante (vendedor)" para quem é vendedor; e-mail para os demais
+// Nome da equipe interna no histórico (no lugar do e-mail)
+const NOMES_EQUIPE = {
+  "infinitysolucoes.posvenda@gmail.com": "Caio Paulino",
+  "profissionalrailton@gmail.com": "Railton",
+  "maria.aline.multi@gmail.com": "Maria Aline",
+};
+// "Felipe Cavalcante (vendedor)" para quem é vendedor; nome da equipe interna; e-mail para os demais
 function autorAnotacao(email) {
   if (!email) return "";
+  const interno = NOMES_EQUIPE[email.toLowerCase()];
+  if (interno) return interno;
   const nome = state.vendedoresPorEmail.get(email.toLowerCase());
   if (nome) return el("span", { class: "pv-autor-vendedor" }, `${nome} · vendedor`);
   if (somenteLeitura() && email.toLowerCase() === (userEmail() || "").toLowerCase()) return "você";
