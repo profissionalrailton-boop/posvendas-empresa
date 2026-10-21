@@ -267,3 +267,7 @@ button.pv-aging-item { font: inherit; color: inherit; background: none; border: 
 .modal-box.pv-lista-inad { max-width: 760px; max-height: 85vh; display: flex; flex-direction: column; }
 #lista-inad-body { overflow: auto; }
 .pv-lista-inad-sub { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+
+/* Fila de hoje: marcação da oferta de lance ao lado da baixa */
+.pv-lance-fila { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.pv-lance-fila .com-check { width: 16px; height: 16px; }

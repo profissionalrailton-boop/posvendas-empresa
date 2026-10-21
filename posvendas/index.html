@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script>try{if(localStorage.getItem("infinity-admin-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <link rel="stylesheet" href="styles.css?v=2" />
-<link rel="stylesheet" href="posvendas.css?v=26" />
+<link rel="stylesheet" href="posvendas.css?v=27" />
 </head>
 <body>
 <div id="app">
@@ -148,6 +148,11 @@
             <option value="">Controle: todos</option>
             <option value="feito">Controle feito</option>
             <option value="pendente">Controle não feito</option>
+          </select>
+          <select id="cli-tipo" aria-label="Tipo de venda">
+            <option value="">Adesão e Parcelinha</option>
+            <option value="adesao">Só Adesão</option>
+            <option value="parcelinha">Só Parcelinha</option>
           </select>
           <select id="cli-ordem" aria-label="Ordenar clientes">
             <option value="vencimento">Ordenar por: dia do vencimento</option>
@@ -386,6 +391,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=30"></script>
+<script src="app.js?v=31"></script>
 </body>
 </html>

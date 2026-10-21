@@ -45,7 +45,7 @@ let state = {
   situacoes: new Map(),   // venda_id -> resultado de calcSituacao
   fichaId: null,
   filters: {
-    clientes: { search: "", adm: "", vendedor: "", situacao: "", controle: "", ordem: lerOrdemClientes() },
+    clientes: { search: "", adm: "", vendedor: "", situacao: "", controle: "", tipo: "", ordem: lerOrdemClientes() },
     confirmacoes: { search: "", adm: "", vendedor: "", comissao: "", tipo: "" },
     adimplencia: { adm: "", vendedor: "" },
   },
@@ -638,10 +638,22 @@ function renderHoje() {
   document.getElementById("hoje-sum-adimp").textContent = fmtPct(pct(acompanhados.length - inadimplentes.length, acompanhados.length));
 
   const baixaBtn = (v, p) => el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => darBaixa(v, p.numero, isoDate(today())) }, `Baixa ${p.numero}ª hoje`);
+  // mesma marcação da aba Clientes (posvendas_lances), para a parcela que está vencendo
+  const lanceCheck = (v, p) => {
+    const lance = state.lances.get(v.id)?.get(p.numero);
+    const box = el("input", {
+      type: "checkbox", class: "com-check",
+      disabled: state.lancesOk ? null : "disabled",
+      title: !state.lancesOk ? "Oferta de lance ainda não disponível" : lance ? `Lance ofertado em ${formatDateBR(lance.feito_em)}` : `Marcar oferta de lance da ${p.numero}ª parcela`,
+    });
+    box.checked = !!lance;
+    box.addEventListener("change", () => toggleLance(v, p.numero, box));
+    return el("label", { class: "pv-lance-fila" }, [box, "Lance ofertado"]);
+  };
 
   fillList("hoje-proximos", proximos, "Nada vencendo nos próximos dias.", ({ v, p, d }) =>
     clienteRow(v, `${p.numero}ª parcela · Vence ${d === 0 ? "hoje" : d === 1 ? "amanhã" : "em " + d + " dias"} (${formatDateBR(p.venc)}) · ${fmtMoney(Number(sit(v).cob.valor_parcela))}`,
-      [baixaBtn(v, p)]));
+      [lanceCheck(v, p), baixaBtn(v, p)]));
   fillList("hoje-lembretes", lembretesHoje, "Nenhum lembrete para hoje.", (l) => lembreteRow(l));
   fillList("hoje-contatos", state.contatosVendedores, "Nenhum contato registrado pelos vendedores nos últimos 7 dias.", (a) => {
     const v = vendaById(a.venda_id);
@@ -667,7 +679,7 @@ function fillList(id, items, emptyMsg, render) {
 // ---------- CLIENTES ----------
 // ordem escolhida fica lembrada neste navegador (só conveniência)
 document.getElementById("cli-ordem").value = state.filters.clientes.ordem;
-["cli-search", "cli-adm", "cli-vendedor", "cli-situacao", "cli-controle", "cli-ordem"].forEach((id) => {
+["cli-search", "cli-adm", "cli-vendedor", "cli-situacao", "cli-controle", "cli-tipo", "cli-ordem"].forEach((id) => {
   document.getElementById(id).addEventListener(id === "cli-search" ? "input" : "change", () => {
     state.filters.clientes = {
       search: document.getElementById("cli-search").value,
@@ -675,6 +687,7 @@ document.getElementById("cli-ordem").value = state.filters.clientes.ordem;
       vendedor: document.getElementById("cli-vendedor").value,
       situacao: document.getElementById("cli-situacao").value,
       controle: document.getElementById("cli-controle").value,
+      tipo: document.getElementById("cli-tipo").value,
       ordem: document.getElementById("cli-ordem").value,
     };
     if (id === "cli-ordem") { try { localStorage.setItem(ORDEM_CLIENTES_KEY, state.filters.clientes.ordem); } catch (e) { /* sem armazenamento */ } }
@@ -682,7 +695,7 @@ document.getElementById("cli-ordem").value = state.filters.clientes.ordem;
   });
 });
 function renderClientes() {
-  const { search, adm, vendedor, situacao, controle, ordem } = state.filters.clientes;
+  const { search, adm, vendedor, situacao, controle, tipo, ordem } = state.filters.clientes;
   const q = search.trim().toLowerCase();
   const doMes = state.vendas.filter(daProducao);
   const list = doMes.filter((v) => {
@@ -691,6 +704,9 @@ function renderClientes() {
     if (situacao === "contemplada" ? sit(v).cota !== "contemplada" : situacao && sit(v).status !== situacao) return false;
     if (controle === "feito" && !state.controle.has(v.id)) return false;
     if (controle === "pendente" && state.controle.has(v.id)) return false;
+    // tipo da venda: Parcelinha (flag ou tabela) x Adesão (todas as outras)
+    if (tipo === "parcelinha" && !ehParcelinha(v)) return false;
+    if (tipo === "adesao" && ehParcelinha(v)) return false;
     if (q && !`${v.cliente} ${v.numero_contrato || ""} ${v.grupo || ""} ${v.cota || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
