@@ -905,7 +905,7 @@ function pagasNoMes(v) {
   return [...(state.pagamentos.get(v.id) || new Map()).values()].filter((p) => p.pago_em.slice(0, 7) === mes);
 }
 // Comissão do pós-vendas: só algumas parcelas pagas entram.
-//   Parcelinha → até a 8ª parcela · Âncora → até a 3ª parcela · demais → não entram
+//   Parcelinha → até a 8ª parcela · Âncora → 1ª e 2ª parcelas · demais → não entram
 // Parcelinha segue o mesmo critério do mapa de comissão do administrativo (flag ou tabela "parcelinha").
 function ehParcelinha(v) {
   const t = (v.tabela || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -913,7 +913,7 @@ function ehParcelinha(v) {
 }
 function parcelaComissionada(v, numero) {
   if (ehParcelinha(v)) return numero <= 8;
-  if (v.administradora === "Âncora") return numero <= 3;
+  if (v.administradora === "Âncora") return numero <= 2;
   return false;
 }
 // parcelas pagas no mês que entram no filtro de comissão escolhido ("" = todas)
