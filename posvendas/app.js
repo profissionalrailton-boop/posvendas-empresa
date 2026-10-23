@@ -639,7 +639,7 @@ function renderHoje() {
 
   const baixaBtn = (v, p) => el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => darBaixa(v, p.numero, isoDate(today())) }, `Baixa ${p.numero}ª hoje`);
   // mesma marcação da aba Clientes (posvendas_lances), para a parcela que está vencendo
-  const lanceCheck = (v, p) => {
+  const lanceCheck = (v, p, depois) => {
     const lance = state.lances.get(v.id)?.get(p.numero);
     const box = el("input", {
       type: "checkbox", class: "com-check",
@@ -647,13 +647,32 @@ function renderHoje() {
       title: !state.lancesOk ? "Oferta de lance ainda não disponível" : lance ? `Lance ofertado em ${formatDateBR(lance.feito_em)}` : `Marcar oferta de lance da ${p.numero}ª parcela`,
     });
     box.checked = !!lance;
-    box.addEventListener("change", () => toggleLance(v, p.numero, box));
+    box.addEventListener("change", async () => { await toggleLance(v, p.numero, box); if (depois) depois(); });
     return el("label", { class: "pv-lance-fila" }, [box, "Lance ofertado"]);
   };
 
   fillList("hoje-proximos", proximos, "Nada vencendo nos próximos dias.", ({ v, p, d }) =>
     clienteRow(v, `${p.numero}ª parcela · Vence ${d === 0 ? "hoje" : d === 1 ? "amanhã" : "em " + d + " dias"} (${formatDateBR(p.venc)}) · ${fmtMoney(Number(sit(v).cob.valor_parcela))}`,
       [lanceCheck(v, p), baixaBtn(v, p)]));
+  // Ofertas de lance: clientes em dia com a parcela que vence NESTE MÊS já paga e o lance dessa
+  // parcela ainda não ofertado. Marcou "Lance ofertado" → sai do quadro.
+  const mesAtual = isoDate(hoje).slice(0, 7);
+  const paraLance = [];
+  ativos.forEach((v) => {
+    const st = sit(v);
+    if (st.status !== "em_dia" || st.cota === "contemplada") return;
+    const doMes = st.parcelas.filter((p) => isoDate(p.venc).slice(0, 7) === mesAtual);
+    if (!doMes.length || doMes.some((p) => !p.pagamento)) return;
+    const p = doMes[doMes.length - 1];
+    if (state.lances.get(v.id)?.has(p.numero)) return;
+    paraLance.push({ v, p });
+  });
+  paraLance.sort((a, b) => a.p.venc - b.p.venc || a.v.cliente.localeCompare(b.v.cliente));
+  document.getElementById("hoje-lances-total").textContent = paraLance.length
+    ? `${paraLance.length} cliente${paraLance.length === 1 ? "" : "s"} para ofertar` : "Tudo ofertado";
+  fillList("hoje-lances", paraLance, "Nenhum cliente aguardando oferta de lance neste mês.", ({ v, p }) =>
+    clienteRow(v, `Grupo ${v.grupo || "—"}/${v.cota || "—"} · ${p.numero}ª parcela paga${p.pagamento.pago_em ? " em " + formatDateBR(p.pagamento.pago_em) : ""}`,
+      [lanceCheck(v, p, renderHoje)]));
   fillList("hoje-lembretes", lembretesHoje, "Nenhum lembrete para hoje.", (l) => lembreteRow(l));
   fillList("hoje-contatos", state.contatosVendedores, "Nenhum contato registrado pelos vendedores nos últimos 7 dias.", (a) => {
     const v = vendaById(a.venda_id);
