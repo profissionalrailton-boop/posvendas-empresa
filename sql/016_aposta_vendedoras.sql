@@ -56,3 +56,8 @@ $function$;
 grant execute on function public.aposta_atual() to authenticated;
 
 notify pgrst, 'reload schema';
+
+-- (aplicado em 04/11) bolsa da luta
+alter table public.apostas add column if not exists premio_detalhe text;
+update public.apostas set premio = 'R$ 1.000 para a vencedora',
+  premio_detalhe = 'Quem perder paga R$ 500 para a outra e a Infinity paga mais R$ 500 para a vencedora' where id = 1;

@@ -4,7 +4,8 @@
 // Para um novo duelo: desativar a linha atual em "apostas" e inserir outra (nomes iguais aos do cadastro).
 const APOSTA_FOTO = "aposta.jpg?v=1";
 // recorte do rosto de cada uma no pôster (pixels do aposta.jpg, 1189×1323): centro x, y e tamanho do recorte
-const APOSTA_ROSTOS = { a: { x: 525, y: 300, lado: 300 }, b: { x: 800, y: 290, lado: 300 } };
+// a = Taty (de cabelo liso e óculos, à direita no pôster) · b = Yarine (cabelo cacheado, à esquerda)
+const APOSTA_ROSTOS = { a: { x: 800, y: 290, lado: 300 }, b: { x: 525, y: 300, lado: 300 } };
 let apostaTimer = null;
 
 const ltBrl0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -118,7 +119,7 @@ async function carregarAposta() {
       el("div", {}, [
         el("div", { class: "lt-chamada" }, "APOSTA ENTRE VENDEDORAS"),
         el("h1", { class: "lt-titulo" }, ap.titulo.toUpperCase()),
-        el("div", { class: "lt-sub" }, `Só vale venda de Adesão · ${ltData(ap.inicio)} a ${ltData(ap.fim)}${ap.premio ? ` · Prêmio: ${ap.premio}` : ""}`),
+        el("div", { class: "lt-sub" }, `Só vale venda de Adesão · ${ltData(ap.inicio)} a ${ltData(ap.fim)}`),
       ]),
       el("div", { class: "lt-relogio" + (encerrada ? " fim" : "") }, encerrada
         ? [el("strong", {}, "FIM"), el("span", {}, "luta encerrada")]
@@ -138,6 +139,14 @@ async function carregarAposta() {
         ]),
         el("div", { class: "lt-status" }, status),
         el("div", { class: "lt-soma" }, `Produção somada das duas: ${ltBrl0.format(soma)}`),
+        ap.premio ? el("div", { class: "lt-bolsa" }, [
+          el("div", { class: "lt-bolsa-ic", "aria-hidden": "true" }, "💰"),
+          el("div", {}, [
+            el("div", { class: "lt-bolsa-rot" }, encerrada ? "BOLSA DA LUTA" : "VALENDO"),
+            el("div", { class: "lt-bolsa-valor" }, ap.premio),
+            ap.premio_detalhe ? el("div", { class: "lt-bolsa-det" }, ap.premio_detalhe) : null,
+          ]),
+        ]) : null,
       ]),
     ]),
     el("h2", { class: "lt-secao" }, "ROUNDS DA SEMANA"),
