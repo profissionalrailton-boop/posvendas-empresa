@@ -17,7 +17,7 @@ const TEMAS_DO_MES = { "2026-10": "halloween", "2026-11": "viagem" };
 function chaveMes(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
 (function aplicarTemaDoMes() {
   const tema = TEMAS_DO_MES[chaveMes(new Date())];
-  if (tema) document.querySelectorAll(".sx-painel:not(.ap-raiz)").forEach((p) => p.classList.add(`tema-${tema}`));
+  if (tema) document.querySelectorAll(".sx-painel:not(.ap-raiz):not(.lt-raiz)").forEach((p) => p.classList.add(`tema-${tema}`));
 })();
 
 // faixa do prêmio no quadro da empresa: quanto falta para as duas metas ou "garantido"

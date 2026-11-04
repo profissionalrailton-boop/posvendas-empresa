@@ -12,6 +12,7 @@ const ICONES = {
   ranking: ic('<path d="M6.5 3h7v3.5a3.5 3.5 0 0 1-7 0V3z"/><path d="M6.5 4.5H4a2 2 0 0 0 2.6 2.9M13.5 4.5H16a2 2 0 0 1-2.6 2.9M10 10v3.5M7 17h6M8 13.5h4V17H8z"/>'),
   minhaarea: ic('<circle cx="10" cy="6.5" r="3.2"/><path d="M3.5 17.5c.6-3.4 3.3-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/>'),
   apresentacao: ic('<rect x="2.5" y="3.5" width="15" height="10" rx="1.5"/><path d="M10 13.5v3M6.5 17h7M8.5 6.8v3.9L12 8.75z"/>'),
+  aposta: ic('<path d="M6 8.5V6a2 2 0 0 1 2-2h4.5a2.5 2.5 0 0 1 2.5 2.5V11a4 4 0 0 1-4 4H9a3 3 0 0 1-3-3V8.5z"/><path d="M6 8.5h5.5M9 4v4.5M8 15v2.5h5V15"/>'),
   minhaequipe: ic('<circle cx="7" cy="7" r="2.6"/><circle cx="13.5" cy="7.5" r="2.2"/><path d="M2.5 16.5c.4-2.8 2.2-4.5 4.5-4.5s4.1 1.7 4.5 4.5M11.8 12.3c.5-.2 1.1-.3 1.7-.3 2 0 3.5 1.4 3.9 4"/>'),
   painel: ic('<rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="4" rx="1.5"/><rect x="11" y="8.5" width="6.5" height="9" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/>'),
   financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
@@ -63,6 +64,12 @@ const GRUPOS = [
     app: "apresentacao", titulo: "Apresentação", exige: "apresentacao", unico: true, nativo: true, semMetas: true,
     container: "sx-apresentacao", carregar: () => carregarApresentacao(),
     itens: [{ aba: "apresentacao", label: "Apresentação" }],
+  },
+  {
+    // Aposta entre vendedoras (página desta tela — ver aposta.js): duelo de produção de Adesão, tema de luta.
+    app: "aposta", titulo: "Aposta", exige: "qualquer", unico: true, nativo: true, semMetas: true,
+    container: "sx-aposta", carregar: () => carregarAposta(),
+    itens: [{ aba: "aposta", label: "Aposta" }],
   },
   {
     app: "administrativo", titulo: "Administrativo", url: "/administrativo/", exige: "adm",
