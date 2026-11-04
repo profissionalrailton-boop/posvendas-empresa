@@ -8,8 +8,9 @@
 // Com "regra": { total, minAdesao } → a soma Parcelinha + Adesão precisa chegar ao total, com Adesão de pelo menos minAdesao.
 const PREMIOS_EMPRESA = {
   "2026-10": { icone: "🎃", titulo: "Festa de Halloween", texto: "Se a Infinity bater a meta de Parcelinha e a de Adesão em outubro, a Festa de Halloween está garantida!" },
-  "2026-11": { icone: "✈️", titulo: "Viagem da equipe", regra: { total: 6000000, minAdesao: 4000000 },
-               texto: "Se a Infinity vender R$ 6 milhões em novembro (com pelo menos R$ 4 milhões em Adesão), a viagem da equipe está garantida!" },
+  "2026-11": { icone: "🏖️", titulo: "Casa de praia em Canoa Quebrada", regra: { total: 6000000, minAdesao: 4000000 },
+               texto: "Se a Infinity vender R$ 6 milhões em novembro (com pelo menos R$ 4 milhões em Adesão), a equipe ganha uma casa de praia em Canoa Quebrada com passeio de quadriciclo!",
+               textoGarantido: "A Infinity bateu a meta — Canoa Quebrada com passeio de quadriciclo está garantida! 🥳" },
 };
 // Tema visual dos painéis por mês (liga e desliga sozinho pela data de hoje)
 const TEMAS_DO_MES = { "2026-10": "halloween", "2026-11": "viagem" };
@@ -54,7 +55,7 @@ function faixaPremioTotal(premio, d) {
       el("div", { class: "mt-premio-rotulo" }, batida ? "Prêmio garantido!" : "Prêmio da meta da empresa"),
       el("div", { class: "mt-premio-titulo" }, premio.titulo),
       el("div", { class: "mt-premio-texto" }, batida
-        ? `A Infinity bateu a meta — a ${premio.titulo.toLowerCase()} está garantida! 🥳`
+        ? (premio.textoGarantido || `A Infinity bateu a meta — o prêmio está garantido! 🥳`)
         : `${premio.texto} Faltam ${faltas.join(" e ")}.`),
       el("div", { class: "mt-premio-meta" }, [
         el("div", { class: "mt-linha-topo" }, [

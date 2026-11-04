@@ -243,7 +243,7 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 @keyframes vg-nuvem { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(22px); } }
 .tema-viagem > * { position: relative; z-index: 1; }
 .tema-viagem .px-topo h1::after { content: " ✈️"; }
-.tema-viagem .px-topo .px-secao-sub::before { content: "Rumo à viagem da equipe 🏝️ · "; color: var(--premio-cor); font-weight: 600; }
+.tema-viagem .px-topo .px-secao-sub::before { content: "Rumo a Canoa Quebrada 🏖️ · "; color: var(--premio-cor); font-weight: 600; }
 .tema-viagem .px-secao-cab h2::before { content: "🧳 "; font-size: 0.85em; }
 .tema-viagem .px-card { border-color: rgba(56, 189, 248, 0.2); }
 .tema-viagem .px-card.px-destaque { background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(45, 212, 191, 0.14)), var(--surface); border-color: rgba(56, 189, 248, 0.45); }

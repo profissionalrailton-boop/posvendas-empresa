@@ -16,7 +16,7 @@
   palco.setAttribute("aria-hidden", "true");
   conteudo.appendChild(palco);
 
-  const FRASES = ["Rumo à viagem! 🏝️", "Faltam poucos contratos! 🧳", "Bora bater os 6 milhões! 🚀", "Próxima parada: viagem! 🌴"];
+  const FRASES = ["Rumo a Canoa Quebrada! 🏖️", "Bora bater os 6 milhões! 🚀", "Quadriciclo nas dunas te espera! 🏜️", "Próxima parada: Canoa Quebrada! 🌴", "Casa de praia garantida? Depende de você! 🏠"];
 
   function painelComTemaVisivel() {
     return [...document.querySelectorAll(".sx-painel.tema-viagem")].some((p) => !p.classList.contains("hidden"));
