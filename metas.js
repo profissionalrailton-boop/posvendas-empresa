@@ -3,13 +3,16 @@
 //   diretoria → tudo · supervisor → empresa + a equipe dele e os vendedores dela · vendedor → empresa + equipe + ele
 // Realizado = crédito vendido no mês; Parcelinha pelo campo parcelinha (regra da campanha).
 
-// Prêmio do mês para quando a EMPRESA (Infinity) bater as duas metas (Parcelinha e Adesão).
-// Chave = "AAAA-MM". Para um prêmio novo, é só acrescentar o mês aqui.
+// Prêmio do mês para a EMPRESA (Infinity). Chave = "AAAA-MM". Para um prêmio novo, é só acrescentar o mês aqui.
+// Sem "regra": vale bater as duas metas do mês (Parcelinha e Adesão).
+// Com "regra": { total, minAdesao } → a soma Parcelinha + Adesão precisa chegar ao total, com Adesão de pelo menos minAdesao.
 const PREMIOS_EMPRESA = {
   "2026-10": { icone: "🎃", titulo: "Festa de Halloween", texto: "Se a Infinity bater a meta de Parcelinha e a de Adesão em outubro, a Festa de Halloween está garantida!" },
+  "2026-11": { icone: "✈️", titulo: "Viagem da equipe", regra: { total: 6000000, minAdesao: 4000000 },
+               texto: "Se a Infinity vender R$ 6 milhões em novembro (com pelo menos R$ 4 milhões em Adesão), a viagem da equipe está garantida!" },
 };
 // Tema visual dos painéis por mês (liga e desliga sozinho pela data de hoje)
-const TEMAS_DO_MES = { "2026-10": "halloween" };
+const TEMAS_DO_MES = { "2026-10": "halloween", "2026-11": "viagem" };
 function chaveMes(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
 (function aplicarTemaDoMes() {
   const tema = TEMAS_DO_MES[chaveMes(new Date())];
@@ -18,6 +21,7 @@ function chaveMes(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 
 // faixa do prêmio no quadro da empresa: quanto falta para as duas metas ou "garantido"
 function faixaPremio(premio, d) {
+  if (premio.regra) return faixaPremioTotal(premio, d);
   const fp = Number(d.feito_p) || 0, fa = Number(d.feito_a) || 0;
   const mp = Number(d.meta_parcelinha) || 0, ma = Number(d.meta_adesao) || 0;
   const temMeta = mp > 0 || ma > 0;
@@ -32,6 +36,40 @@ function faixaPremio(premio, d) {
         ? `A Infinity bateu as duas metas — a ${premio.titulo} está garantida! 🥳`
         : !temMeta ? premio.texto
           : `${premio.texto} Faltam ${faltas.join(" e ")}.`),
+    ]),
+  ]);
+}
+
+// prêmio com regra própria: total vendido no mês (Parcelinha + Adesão) com um mínimo de Adesão
+function faixaPremioTotal(premio, d) {
+  const { total, minAdesao = 0 } = premio.regra;
+  const fp = Number(d.feito_p) || 0, fa = Number(d.feito_a) || 0;
+  const feito = fp + fa;
+  const batida = feito >= total && fa >= minAdesao;
+  const faltas = [feito < total ? `${brl2.format(total - feito)} no total` : null,
+    fa < minAdesao ? `${brl2.format(minAdesao - fa)} em Adesão` : null].filter(Boolean);
+  return el("div", { class: "mt-premio" + (batida ? " garantido" : "") }, [
+    el("div", { class: "mt-premio-icone", "aria-hidden": "true" }, batida ? "🎉" : premio.icone),
+    el("div", { class: "mt-premio-corpo" }, [
+      el("div", { class: "mt-premio-rotulo" }, batida ? "Prêmio garantido!" : "Prêmio da meta da empresa"),
+      el("div", { class: "mt-premio-titulo" }, premio.titulo),
+      el("div", { class: "mt-premio-texto" }, batida
+        ? `A Infinity bateu a meta — a ${premio.titulo.toLowerCase()} está garantida! 🥳`
+        : `${premio.texto} Faltam ${faltas.join(" e ")}.`),
+      el("div", { class: "mt-premio-meta" }, [
+        el("div", { class: "mt-linha-topo" }, [
+          el("span", { class: "mt-rotulo" }, "Total do mês"),
+          el("span", { class: "mt-num" + (feito >= total ? " batida" : "") }, `${brl2.format(feito)} de ${brl2.format(total)} · ${pctFmt((feito / total) * 100)}`),
+        ]),
+        progresso(feito, total),
+      ]),
+      minAdesao ? el("div", { class: "mt-premio-meta" }, [
+        el("div", { class: "mt-linha-topo" }, [
+          el("span", { class: "mt-rotulo" }, "Adesão mínima"),
+          el("span", { class: "mt-num" + (fa >= minAdesao ? " batida" : "") }, `${brl2.format(fa)} de ${brl2.format(minAdesao)}${fa >= minAdesao ? " ✔" : ""}`),
+        ]),
+        progresso(fa, minAdesao),
+      ]) : null,
     ]),
   ]);
 }

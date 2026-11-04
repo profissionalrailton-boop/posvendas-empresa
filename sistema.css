@@ -224,7 +224,37 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 @media (prefers-reduced-motion: reduce) { .tema-halloween::before, .tema-halloween::after { animation: none; } }
 @media (max-width: 860px) { .tema-halloween::before, .tema-halloween::after { display: none; } }
 
-/* ---------- Desfile de Halloween (halloween.js) ---------- */
+.mt-premio-corpo { flex: 1; min-width: 0; }
+.mt-premio-meta { margin-top: 10px; }
+.mt-premio-meta .px-progresso { margin-top: 6px; }
+
+/* ---------- Tema Viagem (novembro: prêmio = viagem da equipe) ---------- */
+.sx-painel.tema-viagem {
+  background:
+    radial-gradient(900px 420px at 100% 0, rgba(56, 189, 248, 0.14), transparent 65%),
+    radial-gradient(800px 480px at 0 100%, rgba(45, 212, 191, 0.13), transparent 65%);
+  --premio-cor: #38bdf8; --premio-borda: rgba(56, 189, 248, 0.45);
+  --premio-fundo: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(45, 212, 191, 0.14));
+}
+:root[data-theme="light"] .sx-painel.tema-viagem { --premio-cor: #0369a1; --premio-borda: rgba(3, 105, 161, 0.35); --premio-fundo: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(45, 212, 191, 0.1)); }
+.tema-viagem::before, .tema-viagem::after { position: absolute; pointer-events: none; z-index: 0; opacity: 0.5; animation: vg-nuvem 9s ease-in-out infinite; }
+.tema-viagem::before { content: "☁️"; top: 12px; left: 40%; font-size: 24px; }
+.tema-viagem::after { content: "☁️"; top: 44px; left: 60%; font-size: 16px; animation-delay: -4.5s; }
+@keyframes vg-nuvem { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(22px); } }
+.tema-viagem > * { position: relative; z-index: 1; }
+.tema-viagem .px-topo h1::after { content: " ✈️"; }
+.tema-viagem .px-topo .px-secao-sub::before { content: "Rumo à viagem da equipe 🏝️ · "; color: var(--premio-cor); font-weight: 600; }
+.tema-viagem .px-secao-cab h2::before { content: "🧳 "; font-size: 0.85em; }
+.tema-viagem .px-card { border-color: rgba(56, 189, 248, 0.2); }
+.tema-viagem .px-card.px-destaque { background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(45, 212, 191, 0.14)), var(--surface); border-color: rgba(56, 189, 248, 0.45); }
+.tema-viagem .px-progresso-barra:not(.completo), .tema-viagem .px-barra { background: linear-gradient(90deg, #0284c7, #2dd4bf); }
+.tema-viagem .mt-com-premio { border-color: rgba(56, 189, 248, 0.55); box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.15), 0 0 28px rgba(56, 189, 248, 0.12); }
+.vg-faixa { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; color: #0c4a6e; background: #e0f2fe; border: 1px solid #7dd3fc; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.vg-aviao-wrap { display: flex; align-items: center; gap: 4px; }
+@media (prefers-reduced-motion: reduce) { .tema-viagem::before, .tema-viagem::after { animation: none; } }
+@media (max-width: 860px) { .tema-viagem::before, .tema-viagem::after { display: none; } }
+
+/* ---------- Desfile de Halloween (halloween.js) e da Viagem (viagem.js) ---------- */
 .hw-palco { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
 .hw-bicho { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; }
 .hw-emoji { line-height: 1; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45)); }
