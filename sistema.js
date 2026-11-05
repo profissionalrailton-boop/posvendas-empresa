@@ -273,7 +273,7 @@ async function descobrirPermissoes() {
     temLinha("allowed_users"), // lista de acesso do financeiro
     temLinha("supervisores"),
   ]);
-  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null, apresentacao: vendedor || sup || APRESENTACAO_EMAILS.includes(email) };
+  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null, apresentacao: vendedor || sup || APRESENTACAO_EMAILS.includes(email), email };
 }
 function itensPermitidos(grupo) {
   if (grupo.exige === "adm" && !perms.adm) return [];
@@ -548,12 +548,14 @@ function mostrarAvisoLembrete(m, app = "posvendas") {
 const NOVIDADES = [
   {
     id: "simulador-financiamento-2026-11",
-    para: (p) => p.pos === "vendedor" || p.sup,
+    // vendedores e supervisores; a diretoria (NOVIDADES_PREVIA) também vê, para conferir
+    para: (p) => p.pos === "vendedor" || p.sup || NOVIDADES_PREVIA.includes(p.email),
     titulo: "Simulador de financiamento no Radar",
     texto: "Agora o Sistema Infinity tem um simulador de financiamento no Radar de Oportunidades. Compare o financiamento com o consórcio (pós-contemplação) e mostre ao cliente quanto ele economiza. Nas propostas e nas cartas, o botão \"Comparar com financiamento\" já abre tudo preenchido.",
     acao: { label: "Abrir simulador", app: "radar", aba: "simulador" },
   },
 ];
+const NOVIDADES_PREVIA = ["profissionalrailton@gmail.com"];
 const NOVIDADES_KEY = "infinity-novidades-vistas";
 function novidadesVistas() { try { return JSON.parse(localStorage.getItem(NOVIDADES_KEY) || "[]"); } catch (e) { return []; } }
 function marcarNovidadeVista(id) { try { localStorage.setItem(NOVIDADES_KEY, JSON.stringify([...new Set([...novidadesVistas(), id])])); } catch (e) { /* só conveniência */ } }
