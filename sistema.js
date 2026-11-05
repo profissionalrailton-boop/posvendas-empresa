@@ -445,6 +445,7 @@ async function iniciar() {
   }
   const [app, aba] = paginaInicial(liberados);
   abrir(app, aba);
+  setTimeout(mostrarNovidades, 1500);
 }
 // Página principal de cada login (sempre a mesma ao entrar):
 // diretoria (financeiro) → Painel geral; supervisor → Minha equipe; vendedor → Minha área; pós-vendas → Fila de hoje; administrativo → Clientes.
@@ -539,6 +540,49 @@ function mostrarAvisoLembrete(m, app = "posvendas") {
       new Notification(`Lembrete ${m.texto}`, { body: m.titulo + (m.cliente ? ` — ${m.cliente}` : ""), icon: "logo.png", tag: `${app}-${m.id}` });
     }
   } catch (e) { /* notificação do sistema é opcional */ }
+}
+
+// ---------- novidades do sistema (aviso com som no canto superior direito) ----------
+// Cada novidade aparece uma vez por pessoa (lembrado neste navegador) para quem "para" aceitar.
+// Para anunciar outra, é só acrescentar um item com um id novo.
+const NOVIDADES = [
+  {
+    id: "simulador-financiamento-2026-11",
+    para: (p) => p.pos === "vendedor" || p.sup,
+    titulo: "Simulador de financiamento no Radar",
+    texto: "Agora o Sistema Infinity tem um simulador de financiamento no Radar de Oportunidades. Compare o financiamento com o consórcio (pós-contemplação) e mostre ao cliente quanto ele economiza. Nas propostas e nas cartas, o botão \"Comparar com financiamento\" já abre tudo preenchido.",
+    acao: { label: "Abrir simulador", app: "radar", aba: "simulador" },
+  },
+];
+const NOVIDADES_KEY = "infinity-novidades-vistas";
+function novidadesVistas() { try { return JSON.parse(localStorage.getItem(NOVIDADES_KEY) || "[]"); } catch (e) { return []; } }
+function marcarNovidadeVista(id) { try { localStorage.setItem(NOVIDADES_KEY, JSON.stringify([...new Set([...novidadesVistas(), id])])); } catch (e) { /* só conveniência */ } }
+function mostrarNovidades() {
+  const vistas = new Set(novidadesVistas());
+  const pendentes = NOVIDADES.filter((n) => !vistas.has(n.id) && n.para(perms) && (!n.acao || permitido(n.acao.app, n.acao.aba)));
+  if (!pendentes.length) return;
+  pendentes.forEach((n) => {
+    const fechar = () => { marcarNovidadeVista(n.id); card.remove(); };
+    const card = el("div", { class: "pv-alerta sx-novidade", role: "status" }, [
+      el("div", { class: "pv-alerta-head" }, [el("span", {}, "✨ Novidade no sistema"), el("button", { type: "button", class: "sx-novidade-x", "aria-label": "Fechar", onclick: fechar }, "✕")]),
+      el("div", { class: "pv-strong" }, n.titulo),
+      el("div", { class: "pv-muted" }, n.texto),
+      el("div", { class: "pv-alerta-acoes" }, [
+        n.acao ? el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { fechar(); abrir(n.acao.app, n.acao.aba); } }, n.acao.label) : null,
+        el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: fechar }, "Entendi"),
+      ]),
+    ]);
+    document.getElementById("sx-alertas").appendChild(card);
+  });
+  // o navegador só libera som depois que a pessoa interage com a página: se ainda estiver travado,
+  // toca no primeiro clique ou tecla
+  destravarAudio();
+  if (audioCtx && audioCtx.state === "running") tocarSom();
+  else {
+    const tocarDepois = () => { document.removeEventListener("pointerdown", tocarDepois, true); document.removeEventListener("keydown", tocarDepois, true); setTimeout(tocarSom, 50); };
+    document.addEventListener("pointerdown", tocarDepois, true);
+    document.addEventListener("keydown", tocarDepois, true);
+  }
 }
 
 // ---------- conversa com o Radar (outra origem: *.lovable.app) ----------
