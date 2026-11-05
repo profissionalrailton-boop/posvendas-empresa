@@ -56,6 +56,7 @@ const GRUPOS = [
       { aba: "ancora", label: "Radar Âncora", caminho: "/radar-ancora" },
       { aba: "cartas", label: "Cartas contempladas", caminho: "/cartas-contempladas" },
       { aba: "propostas", label: "Propostas selecionadas", caminho: "/propostas-selecionadas" },
+      { aba: "simulador", label: "Simulador de financiamento", caminho: "/simulador-financiamento" },
     ],
   },
   {
