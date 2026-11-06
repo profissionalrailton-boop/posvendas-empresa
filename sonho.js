@@ -40,6 +40,19 @@ function sonhoCalculo(r) {
   return { valor, juntado, falta, pct, media, vendasFaltam, porMes, mesesRestantes, conquistado: falta === 0 };
 }
 const sonhoMesAno = (iso) => { const [y, m] = iso.split("-"); return `${MESES_PT[Number(m) - 1].toLowerCase()} de ${y}`; };
+// enquadramento escolhido pelo vendedor: ponto de foco (x, y em %) e zoom
+function enquadrar(img, s) {
+  const x = s && s.foto_x != null ? Number(s.foto_x) : 50;
+  const y = s && s.foto_y != null ? Number(s.foto_y) : 50;
+  const z = s && s.foto_zoom != null ? Number(s.foto_zoom) : 1;
+  img.style.objectPosition = `${x}% ${y}%`;
+  img.style.transformOrigin = `${x}% ${y}%`;
+  img.style.transform = z > 1 ? `scale(${z})` : "";
+  return img;
+}
+function fotoSonho(s, classe, extra = {}) {
+  return s.foto_url ? enquadrar(el("img", { class: classe, src: s.foto_url, alt: s.titulo, ...extra }), s) : el("div", { class: classe + " sn-sem-foto" });
+}
 
 // ---------- Minha área ----------
 async function blocoMeuSonho(alvo) {
@@ -59,7 +72,7 @@ async function blocoMeuSonho(alvo) {
   }
   const s = r.sonho, c = sonhoCalculo(r);
   const banner = el("div", { class: "sn-banner" + (c.conquistado ? " conquistado" : "") }, [
-    s.foto_url ? el("img", { class: "sn-foto", src: s.foto_url, alt: s.titulo }) : el("div", { class: "sn-foto sn-sem-foto" }),
+    fotoSonho(s, "sn-foto"),
     el("div", { class: "sn-veu" }),
     el("div", { class: "sn-conteudo" }, [
       el("div", { class: "sn-topo" }, [
@@ -113,11 +126,50 @@ function abrirFormSonho(atual, aoSalvar) {
   const fundo = el("div", { class: "modal-overlay" });
   const erro = el("div", { class: "auth-error hidden" });
   const foto = el("input", { type: "file", accept: "image/*" });
-  const previa = el("img", { class: "sn-previa" + (atual && atual.foto_url ? "" : " hidden"), src: (atual && atual.foto_url) || "", alt: "" });
+  // editor de enquadramento: arrastar a foto para posicionar + zoom; mostra como fica no banner e no quadrado do painel
+  const enq = { foto_x: atual ? Number(atual.foto_x ?? 50) : 50, foto_y: atual ? Number(atual.foto_y ?? 50) : 50, foto_zoom: atual ? Number(atual.foto_zoom ?? 1) : 1 };
+  const prevBanner = el("img", { class: "sn-enq-img", alt: "", draggable: "false" });
+  const prevQuadro = el("img", { class: "sn-enq-img", alt: "", draggable: "false" });
+  const zoom = el("input", { type: "range", min: "1", max: "3", step: "0.05", value: String(enq.foto_zoom), "aria-label": "Zoom da foto" });
+  const atualizarPrevias = () => { enquadrar(prevBanner, enq); enquadrar(prevQuadro, enq); };
+  const caixaBanner = el("div", { class: "sn-enq-banner", title: "Arraste para enquadrar" }, [prevBanner, el("span", { class: "sn-enq-dica" }, "arraste para enquadrar")]);
+  const editor = el("div", { class: "sn-enq" + (atual && atual.foto_url ? "" : " hidden") }, [
+    caixaBanner,
+    el("div", { class: "sn-enq-linha" }, [
+      el("div", { class: "sn-enq-quadro" }, prevQuadro),
+      el("div", { class: "sn-enq-ctrl" }, [
+        el("label", {}, ["Zoom", zoom]),
+        el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => { enq.foto_x = 50; enq.foto_y = 50; enq.foto_zoom = 1; zoom.value = "1"; atualizarPrevias(); } }, "Centralizar"),
+        el("span", { class: "sn-enq-legenda" }, "Em cima: como fica no banner. Ao lado: no celular e no painel."),
+      ]),
+    ]),
+  ]);
+  const definirFotoPrevia = (src) => { prevBanner.src = src; prevQuadro.src = src; editor.classList.remove("hidden"); atualizarPrevias(); };
+  if (atual && atual.foto_url) definirFotoPrevia(atual.foto_url);
   foto.addEventListener("change", () => {
     const f = foto.files && foto.files[0];
-    if (f) { previa.src = URL.createObjectURL(f); previa.classList.remove("hidden"); }
+    if (f) { enq.foto_x = 50; enq.foto_y = 50; enq.foto_zoom = 1; zoom.value = "1"; definirFotoPrevia(URL.createObjectURL(f)); }
   });
+  zoom.addEventListener("input", () => { enq.foto_zoom = Number(zoom.value); atualizarPrevias(); });
+  // arrastar: mover a foto para a direita = olhar mais para a esquerda (foco diminui)
+  let arraste = null;
+  caixaBanner.addEventListener("pointerdown", (e) => {
+    arraste = { x: e.clientX, y: e.clientY, fx: enq.foto_x, fy: enq.foto_y };
+    try { caixaBanner.setPointerCapture(e.pointerId); } catch (_) { /* segue sem captura */ }
+    e.preventDefault();
+    caixaBanner.classList.add("arrastando");
+  });
+  caixaBanner.addEventListener("pointermove", (e) => {
+    if (!arraste) return;
+    const r = caixaBanner.getBoundingClientRect();
+    const k = 100 / enq.foto_zoom;
+    enq.foto_x = Math.min(100, Math.max(0, arraste.fx - ((e.clientX - arraste.x) / r.width) * k * 1.5));
+    enq.foto_y = Math.min(100, Math.max(0, arraste.fy - ((e.clientY - arraste.y) / r.height) * k));
+    atualizarPrevias();
+  });
+  const soltar = () => { arraste = null; caixaBanner.classList.remove("arrastando"); };
+  caixaBanner.addEventListener("pointerup", soltar);
+  caixaBanner.addEventListener("pointercancel", soltar);
   const fmt = (n) => (n || n === 0 ? Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "");
   const titulo = el("input", { type: "text", required: "required", maxlength: "80", placeholder: "Ex.: Hilux SRV 2027", value: atual ? atual.titulo : "" });
   const valor = el("input", { type: "text", inputmode: "decimal", required: "required", placeholder: "Ex.: 280.000,00", value: atual ? fmt(atual.valor) : "" });
@@ -126,7 +178,7 @@ function abrirFormSonho(atual, aoSalvar) {
   const salvar = el("button", { type: "submit", class: "btn btn-primary btn-block" }, "Salvar meu sonho");
   const fechar = () => fundo.remove();
   const form = el("form", {}, [
-    el("div", { class: "field" }, [el("label", {}, "Foto do sonho"), foto, previa]),
+    el("div", { class: "field" }, [el("label", {}, "Foto do sonho"), foto, editor]),
     el("div", { class: "field" }, [el("label", {}, "O que é"), titulo]),
     el("div", { class: "field" }, [el("label", {}, "Quanto custa (R$)"), valor]),
     el("div", { class: "field" }, [el("label", {}, "Até quando (opcional)"), prazo]),
@@ -163,7 +215,8 @@ function abrirFormSonho(atual, aoSalvar) {
         fotoUrl = sb.storage.from("sonhos").getPublicUrl(caminho).data.publicUrl;
       }
       const linha = { vendedor, titulo: titulo.value.trim(), valor: v, prazo: prazo.value ? prazo.value + "-01" : null,
-        ja_tenho: j, foto_url: fotoUrl, updated_at: new Date().toISOString() };
+        ja_tenho: j, foto_url: fotoUrl, updated_at: new Date().toISOString(),
+        foto_x: Math.round(enq.foto_x * 100) / 100, foto_y: Math.round(enq.foto_y * 100) / 100, foto_zoom: Math.round(enq.foto_zoom * 100) / 100 };
       const { error: eS } = await sb.from("vendedor_sonhos").upsert(linha, { onConflict: "vendedor" });
       if (eS) throw eS;
       fechar();
@@ -196,7 +249,7 @@ async function blocoSonhosEquipe(id) {
   preencher(id, el("div", { class: "sn-grade" }, data.map((r) => {
     const s = r.sonho, c = sonhoCalculo(r);
     return el("div", { class: "sn-mini" + (c.conquistado ? " conquistado" : "") }, [
-      s.foto_url ? el("img", { class: "sn-mini-foto", src: s.foto_url, alt: s.titulo, loading: "lazy" }) : el("div", { class: "sn-mini-foto sn-sem-foto" }),
+      el("div", { class: "sn-mini-moldura" }, fotoSonho(s, "sn-mini-foto", { loading: "lazy" })),
       el("div", { class: "sn-mini-corpo" }, [
         el("div", { class: "sn-mini-nome" }, s.vendedor),
         el("div", { class: "sn-mini-titulo" }, `${s.titulo} · ${brl2.format(c.valor)}`),
