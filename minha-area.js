@@ -42,6 +42,31 @@ function cardMeta(titulo, feito, meta, qtd) {
   return c;
 }
 
+// quanto o vendedor já recebeu nos últimos 12 meses, pela folha de pagamento do financeiro
+// (RPC meus_recebimentos: folha paga = salário + comissão + bônus; folha do mês ainda aberta = vales já recebidos)
+async function cardRecebimentos(kpis) {
+  const { data: r, error } = await sb.rpc("meus_recebimentos");
+  if (error || !r) return;
+  const meses = r.meses || [];
+  const total = Number(r.total) || 0;
+  const pagos = meses.filter((m) => m.pago && Number(m.valor) > 0);
+  const media = pagos.length ? pagos.reduce((s, m) => s + Number(m.valor), 0) / pagos.length : 0;
+  const c = card("Recebido nos últimos 12 meses", brl2.format(total),
+    pagos.length ? `média de ${brl2.format(media)} por mês · ${pagos.length} ${pagos.length === 1 ? "folha" : "folhas"}` : "ainda sem folha registrada",
+    { status: total > 0 ? "bom" : null });
+  if (meses.length) {
+    const maior = Math.max(...meses.map((m) => Number(m.valor) || 0), 1);
+    c.appendChild(el("div", { class: "ma-receb" }, meses.map((m) => {
+      const [y, mm] = m.mes.split("-");
+      return el("div", { class: "ma-receb-mes", title: `${MESES_PT[Number(mm) - 1]} de ${y}: ${brl2.format(Number(m.valor) || 0)}${m.pago ? "" : " (mês em aberto: vales)"}` }, [
+        el("div", { class: "ma-receb-barra" + (m.pago ? "" : " aberto"), style: `height:${Math.max(4, (Number(m.valor) / maior) * 100)}%` }),
+        el("span", {}, MESES_PT[Number(mm) - 1].slice(0, 3).toLowerCase()),
+      ]);
+    })));
+  }
+  kpis.appendChild(c);
+}
+
 let minhaAreaCarregando = false;
 async function carregarMinhaArea() {
   if (minhaAreaCarregando) return;
@@ -102,6 +127,7 @@ async function carregarMinhaArea() {
     kpis.appendChild(card("Documentos pendentes", num.format(pendentes.length),
       pendentes.length ? `venda${pendentes.length === 1 ? "" : "s"} com documento faltando` : "tudo enviado 🎉",
       { status: pendentes.length ? "atencao" : "bom" }));
+    cardRecebimentos(kpis);
 
     // vendas do mês
     preencher("ma-vendas", doMes.length
