@@ -554,6 +554,13 @@ const NOVIDADES = [
     texto: "Agora o Sistema Infinity tem um simulador de financiamento no Radar de Oportunidades. Compare o financiamento com o consórcio (pós-contemplação) e mostre ao cliente quanto ele economiza. Nas propostas e nas cartas, o botão \"Comparar com financiamento\" já abre tudo preenchido.",
     acao: { label: "Abrir simulador", app: "radar", aba: "simulador" },
   },
+  {
+    id: "proxima-conquista-2026-11",
+    para: (p) => (p.pos === "vendedor" && !p.sup) || NOVIDADES_PREVIA.includes(p.email),
+    titulo: "Minha próxima conquista 🏆",
+    texto: "Qual é a sua próxima conquista? Carro, casa, viagem… Coloque a foto dela na sua Minha área e acompanhe cada venda te deixando mais perto, com quanto já juntou e quantas vendas faltam.",
+    acao: { label: "Definir minha conquista", app: "minhaarea", aba: "minhaarea" },
+  },
 ];
 const NOVIDADES_PREVIA = ["profissionalrailton@gmail.com"];
 const NOVIDADES_KEY = "infinity-novidades-vistas";
@@ -561,7 +568,7 @@ function novidadesVistas() { try { return JSON.parse(localStorage.getItem(NOVIDA
 function marcarNovidadeVista(id) { try { localStorage.setItem(NOVIDADES_KEY, JSON.stringify([...new Set([...novidadesVistas(), id])])); } catch (e) { /* só conveniência */ } }
 function mostrarNovidades() {
   const vistas = new Set(novidadesVistas());
-  const pendentes = NOVIDADES.filter((n) => !vistas.has(n.id) && n.para(perms) && (!n.acao || permitido(n.acao.app, n.acao.aba)));
+  const pendentes = NOVIDADES.filter((n) => !vistas.has(n.id) && n.para(perms));
   if (!pendentes.length) return;
   pendentes.forEach((n) => {
     const fechar = () => { marcarNovidadeVista(n.id); card.remove(); };
@@ -570,7 +577,7 @@ function mostrarNovidades() {
       el("div", { class: "pv-strong" }, n.titulo),
       el("div", { class: "pv-muted" }, n.texto),
       el("div", { class: "pv-alerta-acoes" }, [
-        n.acao ? el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { fechar(); abrir(n.acao.app, n.acao.aba); } }, n.acao.label) : null,
+        n.acao && permitido(n.acao.app, n.acao.aba) ? el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { fechar(); abrir(n.acao.app, n.acao.aba); } }, n.acao.label) : null,
         el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: fechar }, "Entendi"),
       ]),
     ]);
