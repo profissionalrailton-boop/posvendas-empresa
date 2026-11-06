@@ -92,6 +92,8 @@ async function carregarPainel() {
   raiz.appendChild(secao("px-pos", "Pós-vendas", "Adimplência e pagamentos"));
   raiz.appendChild(secao("px-fin", "Financeiro", `Contas e faturamento de ${MESES_PT[hoje.getMonth()]}`));
   raiz.appendChild(secao("px-campanha", "Campanha Rumo à Fortalcity", "Meta: R$ 3 mi em Parcelinha e R$ 1 mi em Adesão"));
+  raiz.appendChild(secao("px-sonhos", "Sonhos do time", "O que cada vendedor quer conquistar · progresso pela comissão desde o cadastro"));
+  blocoSonhosEquipe("px-sonhos").catch(() => falha("px-sonhos", "Não foi possível carregar os sonhos do time."));
 
   const k = { vendas: null, pos: null, fin: null };
   const desenharKpis = () => {

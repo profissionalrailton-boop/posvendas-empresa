@@ -616,3 +616,40 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .sx-novidade-x:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
 @keyframes sx-novidade-entra { from { opacity: 0; transform: translateX(24px) scale(0.97); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .sx-novidade { animation: none; } }
+
+/* ---------- Meu sonho (sonho.js) ---------- */
+.sn-box { margin-bottom: 18px; }
+.sn-convite { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 16px 18px; border-radius: var(--radius); border: 1px dashed rgba(251, 191, 36, 0.5); background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(167, 139, 250, 0.08)); }
+.sn-convite-ic { font-size: 30px; line-height: 1; }
+.sn-convite-txt { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 3px; }
+.sn-convite-txt span { color: var(--text-muted); font-size: 13px; }
+.sn-banner { position: relative; overflow: hidden; border-radius: 18px; min-height: 260px; display: flex; align-items: flex-end; background: #111; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35); }
+.sn-foto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sn-sem-foto { background: linear-gradient(135deg, #1e293b, #4c1d95); }
+.sn-veu { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.35) 45%, rgba(0, 0, 0, 0.85) 100%); }
+.sn-conteudo { position: relative; width: 100%; padding: 18px 22px 20px; color: #fff; display: flex; flex-direction: column; gap: 6px; }
+.sn-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.sn-rotulo { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #fde68a; }
+.sn-editar { background: rgba(255, 255, 255, 0.14); color: #fff; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer; backdrop-filter: blur(4px); }
+.sn-editar:hover { background: rgba(255, 255, 255, 0.24); }
+.sn-titulo { font-size: clamp(24px, 3.4vw, 36px); font-weight: 900; line-height: 1.05; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); }
+.sn-valor { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.85); }
+.sn-barra { height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); overflow: hidden; margin-top: 6px; }
+.sn-barra-cheia { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f59e0b, #fde047); transition: width 0.8s ease; }
+.sn-banner.conquistado .sn-barra-cheia { background: linear-gradient(90deg, #10b981, #6ee7b7); }
+.sn-numeros { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: rgba(255, 255, 255, 0.85); }
+.sn-numeros strong, .sn-plano strong { color: #fff; }
+.sn-plano { font-size: 13.5px; color: rgba(255, 255, 255, 0.85); }
+.sn-frase { margin-top: 4px; font-size: 13px; font-style: italic; color: #fde68a; }
+.sn-modal { max-width: 440px; max-height: 92vh; overflow-y: auto; }
+.sn-previa { display: block; width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; margin-top: 8px; }
+.sn-previa.hidden { display: none; }
+.sn-apagar { margin-top: 8px; }
+.sn-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.sn-mini { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+.sn-mini-foto { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex: none; }
+.sn-mini-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sn-mini-nome { font-weight: 700; font-size: 14px; }
+.sn-mini-titulo, .sn-mini-sub { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sn-barra-p { height: 7px; margin-top: 2px; background: var(--border); }
+@media (max-width: 560px) { .sn-banner { min-height: 300px; } .sn-conteudo { padding: 14px 16px 16px; } }

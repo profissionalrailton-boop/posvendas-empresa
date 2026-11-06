@@ -56,6 +56,10 @@ async function carregarMinhaArea() {
     el("div", {}, [titulo, el("p", { class: "px-secao-sub" }, `Sua produção em ${nomeMes} · atualizado às ${String(hoje.getHours()).padStart(2, "0")}:${String(hoje.getMinutes()).padStart(2, "0")}`)]),
     el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => carregarMinhaArea() }, "↻ Atualizar"),
   ]));
+  // "Meu sonho" (sonho.js): banner motivacional no topo
+  const sonhoBox = el("div", { class: "sn-box" });
+  raiz.appendChild(sonhoBox);
+  blocoMeuSonho(sonhoBox).catch(() => sonhoBox.remove());
   const kpis = el("div", { class: "px-grid px-kpis" }, [el("div", { class: "px-carregando" }, "Carregando…")]);
   raiz.appendChild(kpis);
   raiz.appendChild(secao("ma-metas", "Metas da equipe e da empresa", "Crédito vendido no mês por todo o time"));
