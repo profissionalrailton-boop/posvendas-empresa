@@ -26,7 +26,8 @@ function sonhoFrase() {
 function sonhoCalculo(r) {
   const s = r.sonho;
   const valor = Number(s.valor) || 0;
-  const juntado = (Number(s.ja_tenho) || 0) + (Number(r.comissao_desde) || 0);
+  // caixinha: o que já tinha no cadastro + o que o vendedor guardou (depósitos − retiradas)
+  const juntado = Math.max(0, (Number(s.ja_tenho) || 0) + (Number(r.guardado) || 0));
   const falta = Math.max(0, valor - juntado);
   const pct = valor > 0 ? Math.min(100, (juntado / valor) * 100) : 0;
   const media = Number(r.comissao_media) || 0;
@@ -64,7 +65,7 @@ async function blocoMeuSonho(alvo) {
       el("div", { class: "sn-convite-ic", "aria-hidden": "true" }, "🌟"),
       el("div", { class: "sn-convite-txt" }, [
         el("strong", {}, "Qual é a sua próxima conquista?"),
-        el("span", {}, "Coloque aqui a foto do que você quer conquistar (carro, casa, viagem…) e acompanhe cada venda te levando até ele."),
+        el("span", {}, "Coloque a foto do que você quer conquistar (carro, casa, viagem…) e vá guardando dinheiro na sua caixinha até chegar lá."),
       ]),
       el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => abrirFormSonho(null, () => blocoMeuSonho(alvo)) }, "Definir minha próxima conquista"),
     ]));
@@ -77,7 +78,10 @@ async function blocoMeuSonho(alvo) {
     el("div", { class: "sn-conteudo" }, [
       el("div", { class: "sn-topo" }, [
         el("span", { class: "sn-rotulo" }, c.conquistado ? "🏆 Conquista alcançada!" : "✨ Minha próxima conquista"),
-        el("button", { type: "button", class: "sn-editar", onclick: () => abrirFormSonho(s, () => blocoMeuSonho(alvo)) }, "Editar"),
+        el("div", { class: "sn-acoes" }, [
+          el("button", { type: "button", class: "sn-guardar", onclick: () => abrirCaixinha(r, () => blocoMeuSonho(alvo)) }, "💰 Guardar"),
+          el("button", { type: "button", class: "sn-editar", onclick: () => abrirFormSonho(s, () => blocoMeuSonho(alvo)) }, "Editar"),
+        ]),
       ]),
       el("div", { class: "sn-titulo" }, s.titulo),
       el("div", { class: "sn-valor" }, brl2.format(c.valor) + (s.prazo ? ` · até ${sonhoMesAno(s.prazo)}` : "")),
@@ -86,12 +90,12 @@ async function blocoMeuSonho(alvo) {
       ]),
       el("div", { class: "sn-numeros" }, [
         el("span", {}, [el("strong", {}, pctFmt(c.pct)), " do caminho"]),
-        el("span", {}, [el("strong", {}, brl2.format(c.juntado)), " juntados"]),
+        el("span", {}, [el("strong", {}, brl2.format(c.juntado)), " guardados"]),
         c.conquistado ? null : el("span", {}, ["faltam ", el("strong", {}, brl2.format(c.falta))]),
       ]),
       c.conquistado ? el("div", { class: "sn-plano" }, "Você chegou lá! 🎉 Que tal definir a próxima conquista?")
         : c.vendasFaltam ? el("div", { class: "sn-plano" }, [
-          `Faltam cerca de `, el("strong", {}, `${c.vendasFaltam} venda${c.vendasFaltam === 1 ? "" : "s"}`),
+          `Equivale a cerca de `, el("strong", {}, `${c.vendasFaltam} venda${c.vendasFaltam === 1 ? "" : "s"}`),
           ` (sua comissão média é ${brl2.format(c.media)} por venda)`,
           c.porMes ? [" · para chegar no prazo: ", el("strong", {}, `${c.porMes} por mês`)] : null,
         ].flat().filter(Boolean)) : null,
@@ -99,6 +103,75 @@ async function blocoMeuSonho(alvo) {
     ]),
   ]);
   alvo.appendChild(banner);
+}
+
+// ---------- caixinha: guardar / retirar ----------
+function abrirCaixinha(r, aoSalvar) {
+  const s = r.sonho, c = sonhoCalculo(r);
+  const fundo = el("div", { class: "modal-overlay" });
+  const erro = el("div", { class: "auth-error hidden" });
+  const valor = el("input", { type: "text", inputmode: "decimal", required: "required", placeholder: "Ex.: 200,00" });
+  let tipo = "guardar";
+  const bGuardar = el("button", { type: "button", class: "sn-tipo ativo" }, "Guardar");
+  const bRetirar = el("button", { type: "button", class: "sn-tipo" }, "Retirar");
+  const salvar = el("button", { type: "submit", class: "btn btn-primary btn-block" }, "Guardar na caixinha");
+  const escolher = (t) => {
+    tipo = t;
+    bGuardar.classList.toggle("ativo", t === "guardar");
+    bRetirar.classList.toggle("ativo", t === "retirar");
+    salvar.textContent = t === "guardar" ? "Guardar na caixinha" : "Retirar da caixinha";
+  };
+  bGuardar.addEventListener("click", () => escolher("guardar"));
+  bRetirar.addEventListener("click", () => escolher("retirar"));
+  const atalhos = el("div", { class: "sn-atalhos" }, [50, 100, 200, 500, 1000].map((v) =>
+    el("button", { type: "button", class: "sn-atalho", onclick: () => { valor.value = v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); } }, brl2.format(v).replace(",00", ""))));
+  const fechar = () => fundo.remove();
+  const ultimos = (r.ultimos || []).length ? el("div", { class: "sn-hist" }, [
+    el("div", { class: "sn-hist-tit" }, "Últimos lançamentos"),
+    ...(r.ultimos || []).map((d) => el("div", { class: "sn-hist-item" }, [
+      el("span", {}, new Date(d.criado_em).toLocaleDateString("pt-BR")),
+      el("strong", { class: Number(d.valor) < 0 ? "neg" : "pos" }, (Number(d.valor) < 0 ? "− " : "+ ") + brl2.format(Math.abs(Number(d.valor)))),
+      el("button", { type: "button", class: "sn-hist-x", title: "Desfazer este lançamento", onclick: async () => {
+        if (!confirm("Desfazer este lançamento?")) return;
+        const { error } = await sb.from("vendedor_sonho_depositos").delete().eq("id", d.id);
+        if (error) { erro.textContent = error.message; erro.classList.remove("hidden"); return; }
+        fechar(); aoSalvar();
+      } }, "✕"),
+    ])),
+  ]) : null;
+  const form = el("form", {}, [
+    el("div", { class: "sn-tipos" }, [bGuardar, bRetirar]),
+    el("div", { class: "field" }, [el("label", {}, "Quanto?"), valor]),
+    atalhos,
+    salvar,
+  ]);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    erro.classList.add("hidden");
+    const v = numeroBR(valor.value);
+    if (!(v > 0)) { erro.textContent = "Informe um valor."; erro.classList.remove("hidden"); return; }
+    if (tipo === "retirar" && v > c.juntado) { erro.textContent = "Você tem " + brl2.format(c.juntado) + " guardados."; erro.classList.remove("hidden"); return; }
+    salvar.disabled = true;
+    const { error } = await sb.from("vendedor_sonho_depositos").insert({ vendedor: s.vendedor, valor: tipo === "guardar" ? v : -v });
+    if (error) { erro.textContent = "Não foi possível salvar: " + error.message; erro.classList.remove("hidden"); salvar.disabled = false; return; }
+    fechar();
+    const novo = c.juntado + (tipo === "guardar" ? v : -v);
+    showToast(tipo === "guardar"
+      ? (novo >= c.valor ? "Você completou a sua conquista! 🏆🎉" : "+ " + brl2.format(v) + " guardados! Faltam " + brl2.format(Math.max(0, c.valor - novo)) + " 🚀")
+      : brl2.format(v) + " retirados da caixinha.");
+    aoSalvar();
+  });
+  fundo.appendChild(el("div", { class: "modal-box sn-modal" }, [
+    el("div", { class: "modal-header" }, [
+      el("div", {}, [el("div", { class: "modal-title" }, "💰 Minha caixinha"),
+        el("div", { class: "modal-sub" }, s.titulo + ": " + brl2.format(c.juntado) + " guardados de " + brl2.format(c.valor))]),
+      el("button", { class: "icon-btn", type: "button", onclick: fechar }, "✕"),
+    ]),
+    erro, form, ultimos,
+  ]));
+  fundo.addEventListener("click", (e) => { if (e.target === fundo) fechar(); });
+  document.body.appendChild(fundo);
+  valor.focus();
 }
 
 // ---------- formulário (criar / editar) ----------
@@ -182,7 +255,7 @@ function abrirFormSonho(atual, aoSalvar) {
     el("div", { class: "field" }, [el("label", {}, "O que é"), titulo]),
     el("div", { class: "field" }, [el("label", {}, "Quanto custa (R$)"), valor]),
     el("div", { class: "field" }, [el("label", {}, "Até quando (opcional)"), prazo]),
-    el("div", { class: "field" }, [el("label", {}, "Quanto você já tem guardado para ele (opcional)"), jaTenho]),
+    el("div", { class: "field" }, [el("label", {}, "Quanto você já tem guardado hoje (opcional)"), jaTenho]),
     salvar,
     atual ? el("button", { type: "button", class: "btn btn-secondary btn-block sn-apagar", onclick: async () => {
       if (!confirm("Remover a sua próxima conquista da Minha área?")) return;
@@ -231,7 +304,7 @@ function abrirFormSonho(atual, aoSalvar) {
   fundo.appendChild(el("div", { class: "modal-box sn-modal" }, [
     el("div", { class: "modal-header" }, [
       el("div", {}, [el("div", { class: "modal-title" }, atual ? "Editar minha próxima conquista" : "Definir minha próxima conquista"),
-        el("div", { class: "modal-sub" }, "O progresso conta a comissão das suas vendas a partir de agora")]),
+        el("div", { class: "modal-sub" }, "Depois é só ir guardando na sua caixinha pelo botão 💰 Guardar")]),
       el("button", { class: "icon-btn", type: "button", onclick: fechar }, "✕"),
     ]),
     erro, form,

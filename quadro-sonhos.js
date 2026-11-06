@@ -35,7 +35,7 @@ async function carregarQuadroSonhos() {
   resumo.innerHTML = "";
   resumo.appendChild(card("Vendedores com conquista definida", `${comSonho.length} de ${comSonho.length + semSonho.length}`,
     semSonho.length ? `${semSonho.length} ainda não definiram` : "todo o time definiu 🎉", { destaque: true }));
-  resumo.appendChild(card("Valor de todos os sonhos", brl2.format(somaSonhos), `${brl2.format(somaJuntado)} já juntados pelo time`));
+  resumo.appendChild(card("Valor de todos os sonhos", brl2.format(somaSonhos), `${brl2.format(somaJuntado)} já guardados pelo time`));
   resumo.appendChild(card("Caminho percorrido", somaSonhos ? pctFmt((somaJuntado / somaSonhos) * 100) : "—", "somando todos os sonhos"));
   resumo.appendChild(card("Conquistas alcançadas", num.format(conquistados), conquistados ? "parabéns ao time! 🏆" : "a primeira está chegando", { status: conquistados ? "bom" : null }));
 
@@ -53,7 +53,7 @@ async function carregarQuadroSonhos() {
         el("div", { class: "qs-linha" }, [el("strong", {}, brl2.format(c.valor)), s.prazo ? el("span", {}, `até ${sonhoMesAno(s.prazo)}`) : el("span", {}, "sem prazo")]),
         el("div", { class: "sn-barra sn-barra-p qs-barra" }, [el("div", { class: "sn-barra-cheia", style: `width:${Math.max(c.juntado > 0 ? 2 : 0, c.pct)}%` })]),
         el("div", { class: "qs-linha qs-sub" }, [
-          el("span", {}, `${pctFmt(c.pct)} · ${brl2.format(c.juntado)} juntados`),
+          el("span", {}, `${pctFmt(c.pct)} · ${brl2.format(c.juntado)} guardados`),
           el("span", {}, c.conquistado ? "chegou lá!" : `faltam ${brl2.format(c.falta)}`),
         ]),
         !c.conquistado && c.vendasFaltam ? el("div", { class: "qs-plano" }, [

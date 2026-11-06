@@ -693,3 +693,21 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .qs-foto-vazia { display: flex; align-items: center; justify-content: center; background: repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.08) 0 12px, transparent 12px 24px); }
 .qs-interroga { font-size: 54px; font-weight: 900; color: var(--text-muted); opacity: 0.5; }
 .qs-nome-vazio { font-weight: 700; font-size: 15px; }
+
+/* caixinha da próxima conquista */
+.sn-acoes { display: flex; gap: 8px; }
+.sn-guardar { background: linear-gradient(90deg, #f59e0b, #fde047); color: #3b2300; border: 0; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.sn-guardar:hover { filter: brightness(1.06); }
+.sn-tipos { display: flex; gap: 6px; margin-bottom: 12px; }
+.sn-tipo { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-weight: 700; cursor: pointer; }
+.sn-tipo.ativo { background: var(--accent-purple, #a78bfa); border-color: transparent; color: #fff; }
+.sn-atalhos { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
+.sn-atalho { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 12px; cursor: pointer; }
+.sn-atalho:hover { border-color: var(--accent-purple, #a78bfa); }
+.sn-hist { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 10px; }
+.sn-hist-tit { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 6px; }
+.sn-hist-item { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 4px 0; }
+.sn-hist-item span { color: var(--text-muted); flex: 1; }
+.sn-hist-item .pos { color: var(--success, #10b981); }
+.sn-hist-item .neg { color: var(--danger, #ef4444); }
+.sn-hist-x { background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 12px; }

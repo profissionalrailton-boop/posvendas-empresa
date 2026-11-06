@@ -270,7 +270,7 @@ async function temLinha(tabela) {
 }
 // Apresentação para o cliente: liberada para vendedores, supervisores + estes e-mails
 // Quadro dos sonhos: só estes e-mails veem a aba
-const QUADRO_SONHOS_EMAILS = ["profissionalrailton@gmail.com"];
+const QUADRO_SONHOS_EMAILS = ["profissionalrailton@gmail.com", "maria.aline.multi@gmail.com"];
 const APRESENTACAO_EMAILS = ["profissionalrailton@gmail.com", "maria.aline.multi@gmail.com"];
 async function descobrirPermissoes() {
   const { data: sessao } = await sb.auth.getSession();
@@ -569,7 +569,7 @@ const NOVIDADES = [
     id: "proxima-conquista-2026-11",
     para: (p) => (p.pos === "vendedor" && !p.sup) || NOVIDADES_PREVIA.includes(p.email),
     titulo: "Minha próxima conquista 🏆",
-    texto: "Qual é a sua próxima conquista? Carro, casa, viagem… Coloque a foto dela na sua Minha área e acompanhe cada venda te deixando mais perto, com quanto já juntou e quantas vendas faltam.",
+    texto: "Qual é a sua próxima conquista? Carro, casa, viagem… Coloque a foto dela na sua Minha área e vá guardando dinheiro na sua caixinha até chegar lá.",
     acao: { label: "Definir minha conquista", app: "minhaarea", aba: "minhaarea" },
   },
 ];

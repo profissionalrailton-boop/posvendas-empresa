@@ -72,3 +72,10 @@ notify pgrst, 'reload schema';
 -- (correção 06/11) o upload com upsert precisa ler o arquivo de volta: sem SELECT dava
 -- "new row violates row-level security policy" ao salvar a foto
 create policy "sonhos: leitura" on storage.objects for select to authenticated using (bucket_id = 'sonhos');
+
+-- (06/11) caixinha: o progresso deixa de contar a comissão das vendas; o vendedor guarda o valor que quiser
+create table if not exists public.vendedor_sonho_depositos (
+  id bigserial primary key, vendedor text not null, valor numeric(14,2) not null check (valor <> 0),
+  criado_em timestamptz not null default now(), criado_por text default (auth.jwt() ->> 'email'));
+-- RLS: vendedor lê/guarda/desfaz só na própria caixinha; diretoria/admin leem. sonho_progresso agora devolve
+-- 'guardado' (soma dos lançamentos) e 'ultimos' (8 últimos), além de 'comissao_media'.
