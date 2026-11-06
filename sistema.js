@@ -12,6 +12,7 @@ const ICONES = {
   ranking: ic('<path d="M6.5 3h7v3.5a3.5 3.5 0 0 1-7 0V3z"/><path d="M6.5 4.5H4a2 2 0 0 0 2.6 2.9M13.5 4.5H16a2 2 0 0 1-2.6 2.9M10 10v3.5M7 17h6M8 13.5h4V17H8z"/>'),
   minhaarea: ic('<circle cx="10" cy="6.5" r="3.2"/><path d="M3.5 17.5c.6-3.4 3.3-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/>'),
   apresentacao: ic('<rect x="2.5" y="3.5" width="15" height="10" rx="1.5"/><path d="M10 13.5v3M6.5 17h7M8.5 6.8v3.9L12 8.75z"/>'),
+  quadrosonhos: ic('<path d="M10 2.8l2.1 4.3 4.7.7-3.4 3.3.8 4.7L10 13.6l-4.2 2.2.8-4.7-3.4-3.3 4.7-.7z"/>'),
   aposta: ic('<path d="M6 8.5V6a2 2 0 0 1 2-2h4.5a2.5 2.5 0 0 1 2.5 2.5V11a4 4 0 0 1-4 4H9a3 3 0 0 1-3-3V8.5z"/><path d="M6 8.5h5.5M9 4v4.5M8 15v2.5h5V15"/>'),
   minhaequipe: ic('<circle cx="7" cy="7" r="2.6"/><circle cx="13.5" cy="7.5" r="2.2"/><path d="M2.5 16.5c.4-2.8 2.2-4.5 4.5-4.5s4.1 1.7 4.5 4.5M11.8 12.3c.5-.2 1.1-.3 1.7-.3 2 0 3.5 1.4 3.9 4"/>'),
   painel: ic('<rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="4" rx="1.5"/><rect x="11" y="8.5" width="6.5" height="9" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/>'),
@@ -65,6 +66,13 @@ const GRUPOS = [
     app: "apresentacao", titulo: "Apresentação", exige: "apresentacao", unico: true, nativo: true, semMetas: true,
     container: "sx-apresentacao", carregar: () => carregarApresentacao(),
     itens: [{ aba: "apresentacao", label: "Apresentação" }],
+  },
+  {
+    // Quadro dos sonhos (página desta tela — ver quadro-sonhos.js): a próxima conquista de cada vendedor.
+    // Só para os e-mails de QUADRO_SONHOS_EMAILS.
+    app: "quadrosonhos", titulo: "Quadro dos sonhos", exige: "quadrosonhos", unico: true, nativo: true, semMetas: true,
+    container: "sx-quadro-sonhos", carregar: () => carregarQuadroSonhos(),
+    itens: [{ aba: "quadrosonhos", label: "Quadro dos sonhos" }],
   },
   {
     // Aposta entre vendedoras (página desta tela — ver aposta.js): duelo de produção de Adesão, tema de luta.
@@ -261,6 +269,8 @@ async function temLinha(tabela) {
   return !error && Array.isArray(data) && data.length > 0;
 }
 // Apresentação para o cliente: liberada para vendedores, supervisores + estes e-mails
+// Quadro dos sonhos: só estes e-mails veem a aba
+const QUADRO_SONHOS_EMAILS = ["profissionalrailton@gmail.com"];
 const APRESENTACAO_EMAILS = ["profissionalrailton@gmail.com", "maria.aline.multi@gmail.com"];
 async function descobrirPermissoes() {
   const { data: sessao } = await sb.auth.getSession();
@@ -273,7 +283,7 @@ async function descobrirPermissoes() {
     temLinha("allowed_users"), // lista de acesso do financeiro
     temLinha("supervisores"),
   ]);
-  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null, apresentacao: vendedor || sup || APRESENTACAO_EMAILS.includes(email), email };
+  return { adm, comissao, fin, sup, pos: posCompleto ? "completo" : vendedor ? "vendedor" : null, apresentacao: vendedor || sup || APRESENTACAO_EMAILS.includes(email), email, quadrosonhos: QUADRO_SONHOS_EMAILS.includes(email) };
 }
 function itensPermitidos(grupo) {
   if (grupo.exige === "adm" && !perms.adm) return [];
@@ -284,6 +294,7 @@ function itensPermitidos(grupo) {
   if (grupo.exige === "vendedor" && (perms.pos !== "vendedor" || perms.sup)) return [];
   if (grupo.exige === "supervisor" && !perms.sup) return [];
   if (grupo.exige === "qualquer" && !(perms.adm || perms.pos || perms.fin || perms.sup)) return [];
+  if (grupo.exige === "quadrosonhos" && !perms.quadrosonhos) return [];
   return grupo.itens.filter((it) => {
     if (it.exige === "comissao" && !perms.comissao) return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;
