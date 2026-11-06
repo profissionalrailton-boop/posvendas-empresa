@@ -36,3 +36,29 @@ begin
 end $$;
 grant execute on function public.meus_recebimentos() to authenticated;
 notify pgrst, 'reload schema';
+
+-- (06/11) Painel geral: salários de todos os vendedores ativos (só diretoria/admin), mesma regra (folhas pagas, sem descontos)
+create or replace function public.recebimentos_equipe()
+returns jsonb language plpgsql stable security definer set search_path to 'public' as $$
+declare ini date := (date_trunc('month', current_date) - interval '11 months')::date;
+begin
+  if not (private.is_allowed_user() or private.is_admin_allowed_user()) then return null; end if;
+  return coalesce((
+    with f as (
+      select v.nome, p.month,
+             coalesce(p.salario, 0)
+               + coalesce((select sum(comissao) from payroll_sales s where s.payroll_entry_id = p.id), 0)
+               + coalesce((select sum(amount) from payroll_adjustments a where a.payroll_entry_id = p.id and a.type = 'bonus'), 0) as bruto
+      from administrativo_vendedores v
+      join employees e on e.vendedor = v.nome or (e.vendedor is null and lower(e.name) = lower(v.nome))
+      join payroll_entries p on p.employee_id = e.id
+      where v.ativo and p.month >= ini
+        and ((p.payment_date is not null and p.payment_date <= current_date) or (p.payment_date is null and p.month < date_trunc('month', current_date)))
+    )
+    select jsonb_agg(x order by x.total desc) from (
+      select nome, sum(bruto) as total, count(*) as folhas,
+             jsonb_agg(jsonb_build_object('mes', month, 'valor', bruto) order by month) as meses
+      from f group by nome) x
+  ), '[]'::jsonb);
+end $$;
+grant execute on function public.recebimentos_equipe() to authenticated;

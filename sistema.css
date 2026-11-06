@@ -711,3 +711,18 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .sn-hist-item .pos { color: var(--success, #10b981); }
 .sn-hist-item .neg { color: var(--danger, #ef4444); }
 .sn-hist-x { background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 12px; }
+
+/* Painel geral: salários dos vendedores (painel.js → blocoRecebimentosEquipe) */
+.rc-tabela-wrap { margin-top: 12px; overflow-x: auto; padding: 0; }
+.rc-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rc-tabela th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.rc-tabela td { padding: 9px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+.rc-tabela tbody tr:last-child td { border-bottom: 0; }
+.rc-tabela tbody tr:hover td { background: rgba(255, 255, 255, 0.025); }
+.rc-num { text-align: right !important; font-variant-numeric: tabular-nums; }
+.rc-nome { font-weight: 600; }
+.rc-total { font-weight: 800; color: var(--text); }
+.rc-cel { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.rc-barra { width: 74px; height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.rc-barra > div { height: 100%; border-radius: 999px; background: var(--success, #10b981); margin-left: auto; }
+.rc-sem { color: var(--text-muted); }

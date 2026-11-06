@@ -70,6 +70,51 @@ function preencher(id, filhos) {
   corpo.innerHTML = "";
   [].concat(filhos).filter(Boolean).forEach((f) => corpo.appendChild(f));
 }
+// salários dos vendedores (RPC recebimentos_equipe — sql/019): só folhas pagas, sem descontar vales
+const RECEB_FORA = ["Railton Angelo"]; // gestão que também tem cadastro de vendedor
+async function blocoRecebimentosEquipe(id) {
+  const { data, error } = await sb.rpc("recebimentos_equipe");
+  if (error || !data) { falha(id, "Não foi possível carregar os salários."); return; }
+  const lista = data.filter((x) => !RECEB_FORA.includes(x.nome));
+  if (!lista.length) { preencher(id, el("div", { class: "px-vazio" }, "Nenhuma folha paga nos últimos 12 meses.")); return; }
+  // colunas = meses que aparecem em alguma folha (do mais antigo ao mais novo)
+  const meses = [...new Set(lista.flatMap((x) => x.meses.map((m) => m.mes)))].sort();
+  const maior = Math.max(1, ...lista.flatMap((x) => x.meses.map((m) => Number(m.valor) || 0)));
+  const totalTime = lista.reduce((s, x) => s + Number(x.total), 0);
+  const ultimoMes = meses[meses.length - 1];
+  const totalUltimo = lista.reduce((s, x) => s + (Number((x.meses.find((m) => m.mes === ultimoMes) || {}).valor) || 0), 0);
+  const nomeMes = (iso) => { const [y, m] = iso.split("-"); return `${MESES_PT[Number(m) - 1].slice(0, 3).toLowerCase()}/${y.slice(2)}`; };
+  const cab = el("tr", {}, [
+    el("th", {}, "Vendedor"),
+    ...meses.map((m) => el("th", { class: "rc-num" }, nomeMes(m))),
+    el("th", { class: "rc-num" }, "Total 12 meses"),
+    el("th", { class: "rc-num" }, "Média/mês"),
+  ]);
+  const linhas = lista.map((x) => {
+    const porMes = new Map(x.meses.map((m) => [m.mes, Number(m.valor) || 0]));
+    return el("tr", {}, [
+      el("td", { class: "rc-nome" }, x.nome),
+      ...meses.map((m) => {
+        const v = porMes.get(m);
+        return el("td", { class: "rc-num" }, v === undefined ? el("span", { class: "rc-sem" }, "—") : el("div", { class: "rc-cel" }, [
+          el("div", { class: "rc-barra" }, el("div", { style: `width:${Math.max(3, (v / maior) * 100)}%` })),
+          el("span", {}, brl2.format(v)),
+        ]));
+      }),
+      el("td", { class: "rc-num rc-total" }, brl2.format(Number(x.total))),
+      el("td", { class: "rc-num" }, brl2.format(Number(x.total) / Math.max(1, x.folhas))),
+    ]);
+  });
+  preencher(id, [
+    el("div", { class: "px-grid px-kpis" }, [
+      card("Pago aos vendedores (12 meses)", brl2.format(totalTime), `${lista.length} vendedores ativos`, { destaque: true }),
+      card(`Folha de ${MESES_PT[Number(ultimoMes.slice(5, 7)) - 1].toLowerCase()}`, brl2.format(totalUltimo), "última folha paga"),
+      card("Maior recebido (12 meses)", brl2.format(Number(lista[0].total)), lista[0].nome),
+    ]),
+    el("div", { class: "px-card rc-tabela-wrap" }, el("table", { class: "rc-tabela" }, [el("thead", {}, cab), el("tbody", {}, linhas)])),
+  ]);
+}
+
 function falha(id, texto) { preencher(id, [el("div", { class: "px-vazio" }, texto)]); }
 
 // ---------- montagem ----------
@@ -94,6 +139,8 @@ async function carregarPainel() {
   raiz.appendChild(secao("px-campanha", "Campanha Rumo à Fortalcity", "Meta: R$ 3 mi em Parcelinha e R$ 1 mi em Adesão"));
   raiz.appendChild(secao("px-sonhos", "Próximas conquistas do time", "O que cada vendedor quer conquistar · progresso pela comissão desde o cadastro"));
   blocoSonhosEquipe("px-sonhos").catch(() => falha("px-sonhos", "Não foi possível carregar as conquistas do time."));
+  raiz.appendChild(secao("px-receb", "Salários dos vendedores", "Recebido nos últimos 12 meses pela folha de pagamento · salário + comissões + bônus, sem descontos"));
+  blocoRecebimentosEquipe("px-receb").catch(() => falha("px-receb", "Não foi possível carregar os salários."));
 
   const k = { vendas: null, pos: null, fin: null };
   const desenharKpis = () => {
