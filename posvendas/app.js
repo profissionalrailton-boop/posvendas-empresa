@@ -1636,12 +1636,17 @@ function buildHistorico(v) {
   const TIPO_LABEL = { contato: "Contato", promessa: "Promessa", observacao: "Observação" };
   const list = el("div", { class: "pv-timeline" });
   fichaState.anotacoes.forEach((a) => {
+    const textoEl = el("div", { class: "pv-anot-texto" }, a.texto);
+    const editarBtn = podeEditarAnotacao(a)
+      ? el("button", { type: "button", class: "pv-link pv-anot-editar", onclick: () => editarAnotacao(a, textoEl, editarBtn) }, "editar")
+      : null;
     list.appendChild(el("div", { class: "pv-timeline-item" }, [
       el("div", { class: "pv-timeline-head" }, [
         el("span", { class: `pv-tipo ${a.tipo}` }, TIPO_LABEL[a.tipo]),
-        el("span", { class: "pv-muted" }, [formatDateTimeBR(a.created_at), a.created_by ? " · " : null, autorAnotacao(a.created_by)]),
+        el("span", { class: "pv-muted" }, [formatDateTimeBR(a.created_at), a.created_by ? " · " : null, autorAnotacao(a.created_by), editarBtn ? " · " : null, editarBtn]),
       ]),
-      el("div", {}, a.texto),
+      textoEl,
+      a.editado_em ? el("div", { class: "pv-muted pv-anot-editado" }, ["editado em ", formatDateTimeBR(a.editado_em), a.editado_por ? " por " : null, a.editado_por ? autorAnotacao(a.editado_por) : null]) : null,
       a.tipo === "promessa" ? el("div", { class: "pv-muted" }, [
         `Vai pagar em ${formatDateBR(a.promessa_data)} · `,
         a.resolvido_em ? "resolvida" : somenteLeitura() ? "em aberto" : el("button", { type: "button", class: "pv-link", onclick: () => resolverPromessa(a) }, "marcar como resolvida"),
@@ -1650,6 +1655,38 @@ function buildHistorico(v) {
   });
   wrap.appendChild(list);
   return wrap;
+}
+
+// pós-vendas edita qualquer anotação; o vendedor só as que ele mesmo escreveu (o banco garante o mesmo — sql/017)
+function podeEditarAnotacao(a) {
+  if (!somenteLeitura()) return true;
+  return !!a.created_by && a.created_by.toLowerCase() === (userEmail() || "").toLowerCase();
+}
+function editarAnotacao(a, textoEl, botao) {
+  if (textoEl.dataset.editando) return;
+  textoEl.dataset.editando = "1";
+  const original = a.texto;
+  const campo = el("textarea", { class: "pv-anot-campo", rows: "3" });
+  campo.value = original;
+  const fechar = (novo) => { delete textoEl.dataset.editando; textoEl.innerHTML = ""; textoEl.textContent = novo; if (botao) botao.disabled = false; };
+  const salvar = el("button", { type: "button", class: "btn btn-primary btn-sm" }, "Salvar");
+  const cancelar = el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => fechar(original) }, "Cancelar");
+  salvar.addEventListener("click", async () => {
+    const novo = campo.value.trim();
+    if (!novo) { showToast("A anotação não pode ficar vazia."); return; }
+    if (novo === original) { fechar(original); return; }
+    salvar.disabled = true;
+    const { data, error } = await sb.from("posvendas_anotacoes").update({ texto: novo }).eq("id", a.id).select().single();
+    if (error || !data) { salvar.disabled = false; showToast("Erro ao salvar: " + (error ? error.message : "sem permissão")); return; }
+    Object.assign(a, data);
+    showToast("Anotação atualizada.");
+    refreshViews();
+  });
+  textoEl.innerHTML = "";
+  textoEl.appendChild(campo);
+  textoEl.appendChild(el("div", { class: "pv-anot-acoes" }, [salvar, cancelar]));
+  if (botao) botao.disabled = true;
+  campo.focus();
 }
 
 function buildLembretesCliente(v) {
