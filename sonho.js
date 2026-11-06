@@ -1,17 +1,17 @@
-// "Meu sonho": banner motivacional no topo da Minha área do vendedor (foto + nome + valor do sonho)
+// "Minha próxima conquista" (antes "Meu sonho"): banner motivacional no topo da Minha área do vendedor (foto + nome + valor)
 // com o progresso pela comissão das vendas desde o cadastro (+ o que ele já tem guardado).
 // Gestão vê os sonhos do time no Painel geral. Dados: tabela vendedor_sonhos e RPCs meu_sonho /
 // sonhos_equipe (sql/018). Fotos no bucket público "sonhos", pasta = id do login.
 
 const SONHO_FRASES = [
   "Cada ligação te deixa mais perto. Bora pra próxima!",
-  "Sonho grande se paga com venda feita. Vamos?",
+  "Conquista grande se paga com venda feita. Vamos?",
   "Quem prospecta hoje, conquista amanhã.",
   "Disciplina é fazer o que precisa, mesmo sem vontade.",
-  "Seu sonho não tem prazo de validade, mas tem plano. Siga o plano!",
+  "Sua conquista não cai do céu, ela tem plano. Siga o plano!",
   "Um não é só o caminho até o próximo sim.",
   "Foco no cliente, o resultado vem junto.",
-  "A diferença entre sonho e meta é a data. Coloque a sua!",
+  "A diferença entre sonho e conquista é a data. Coloque a sua!",
   "Hoje é dia de fechar. Você consegue!",
   "Constância vence talento. Uma venda de cada vez.",
 ];
@@ -63,10 +63,10 @@ async function blocoMeuSonho(alvo) {
     alvo.appendChild(el("div", { class: "sn-convite" }, [
       el("div", { class: "sn-convite-ic", "aria-hidden": "true" }, "🌟"),
       el("div", { class: "sn-convite-txt" }, [
-        el("strong", {}, "Qual é o seu sonho?"),
+        el("strong", {}, "Qual é a sua próxima conquista?"),
         el("span", {}, "Coloque aqui a foto do que você quer conquistar (carro, casa, viagem…) e acompanhe cada venda te levando até ele."),
       ]),
-      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => abrirFormSonho(null, () => blocoMeuSonho(alvo)) }, "Definir meu sonho"),
+      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => abrirFormSonho(null, () => blocoMeuSonho(alvo)) }, "Definir minha próxima conquista"),
     ]));
     return;
   }
@@ -76,7 +76,7 @@ async function blocoMeuSonho(alvo) {
     el("div", { class: "sn-veu" }),
     el("div", { class: "sn-conteudo" }, [
       el("div", { class: "sn-topo" }, [
-        el("span", { class: "sn-rotulo" }, c.conquistado ? "🏆 Sonho conquistado!" : "✨ Meu sonho"),
+        el("span", { class: "sn-rotulo" }, c.conquistado ? "🏆 Conquista alcançada!" : "✨ Minha próxima conquista"),
         el("button", { type: "button", class: "sn-editar", onclick: () => abrirFormSonho(s, () => blocoMeuSonho(alvo)) }, "Editar"),
       ]),
       el("div", { class: "sn-titulo" }, s.titulo),
@@ -89,7 +89,7 @@ async function blocoMeuSonho(alvo) {
         el("span", {}, [el("strong", {}, brl2.format(c.juntado)), " juntados"]),
         c.conquistado ? null : el("span", {}, ["faltam ", el("strong", {}, brl2.format(c.falta))]),
       ]),
-      c.conquistado ? el("div", { class: "sn-plano" }, "Você chegou lá! 🎉 Que tal definir o próximo sonho?")
+      c.conquistado ? el("div", { class: "sn-plano" }, "Você chegou lá! 🎉 Que tal definir a próxima conquista?")
         : c.vendasFaltam ? el("div", { class: "sn-plano" }, [
           `Faltam cerca de `, el("strong", {}, `${c.vendasFaltam} venda${c.vendasFaltam === 1 ? "" : "s"}`),
           ` (sua comissão média é ${brl2.format(c.media)} por venda)`,
@@ -175,27 +175,27 @@ function abrirFormSonho(atual, aoSalvar) {
   const valor = el("input", { type: "text", inputmode: "decimal", required: "required", placeholder: "Ex.: 280.000,00", value: atual ? fmt(atual.valor) : "" });
   const prazo = el("input", { type: "month", value: atual && atual.prazo ? atual.prazo.slice(0, 7) : "" });
   const jaTenho = el("input", { type: "text", inputmode: "decimal", placeholder: "0,00", value: atual && Number(atual.ja_tenho) ? fmt(atual.ja_tenho) : "" });
-  const salvar = el("button", { type: "submit", class: "btn btn-primary btn-block" }, "Salvar meu sonho");
+  const salvar = el("button", { type: "submit", class: "btn btn-primary btn-block" }, "Salvar minha conquista");
   const fechar = () => fundo.remove();
   const form = el("form", {}, [
-    el("div", { class: "field" }, [el("label", {}, "Foto do sonho"), foto, editor]),
+    el("div", { class: "field" }, [el("label", {}, "Foto da conquista"), foto, editor]),
     el("div", { class: "field" }, [el("label", {}, "O que é"), titulo]),
     el("div", { class: "field" }, [el("label", {}, "Quanto custa (R$)"), valor]),
     el("div", { class: "field" }, [el("label", {}, "Até quando (opcional)"), prazo]),
     el("div", { class: "field" }, [el("label", {}, "Quanto você já tem guardado para ele (opcional)"), jaTenho]),
     salvar,
     atual ? el("button", { type: "button", class: "btn btn-secondary btn-block sn-apagar", onclick: async () => {
-      if (!confirm("Remover o seu sonho da Minha área?")) return;
+      if (!confirm("Remover a sua próxima conquista da Minha área?")) return;
       const { error } = await sb.from("vendedor_sonhos").delete().eq("vendedor", atual.vendedor);
       if (error) { erro.textContent = error.message; erro.classList.remove("hidden"); return; }
       fechar(); aoSalvar();
-    } }, "Remover sonho") : null,
+    } }, "Remover conquista") : null,
   ]);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     erro.classList.add("hidden");
     const v = numeroBR(valor.value), j = jaTenho.value.trim() ? numeroBR(jaTenho.value) : 0;
-    if (!(v > 0)) { erro.textContent = "Informe quanto custa o sonho."; erro.classList.remove("hidden"); return; }
+    if (!(v > 0)) { erro.textContent = "Informe quanto custa a conquista."; erro.classList.remove("hidden"); return; }
     if (!(j >= 0)) { erro.textContent = "Valor guardado inválido."; erro.classList.remove("hidden"); return; }
     salvar.disabled = true; salvar.textContent = "Salvando…";
     try {
@@ -220,17 +220,17 @@ function abrirFormSonho(atual, aoSalvar) {
       const { error: eS } = await sb.from("vendedor_sonhos").upsert(linha, { onConflict: "vendedor" });
       if (eS) throw eS;
       fechar();
-      showToast(atual ? "Sonho atualizado." : "Sonho salvo! Agora é rumo a ele 🚀");
+      showToast(atual ? "Conquista atualizada." : "Conquista salva! Agora é rumo a ela 🚀");
       aoSalvar();
     } catch (err) {
       erro.textContent = "Não foi possível salvar: " + (err.message || err);
       erro.classList.remove("hidden");
-      salvar.disabled = false; salvar.textContent = "Salvar meu sonho";
+      salvar.disabled = false; salvar.textContent = "Salvar minha conquista";
     }
   });
   fundo.appendChild(el("div", { class: "modal-box sn-modal" }, [
     el("div", { class: "modal-header" }, [
-      el("div", {}, [el("div", { class: "modal-title" }, atual ? "Editar meu sonho" : "Definir meu sonho"),
+      el("div", {}, [el("div", { class: "modal-title" }, atual ? "Editar minha próxima conquista" : "Definir minha próxima conquista"),
         el("div", { class: "modal-sub" }, "O progresso conta a comissão das suas vendas a partir de agora")]),
       el("button", { class: "icon-btn", type: "button", onclick: fechar }, "✕"),
     ]),
@@ -244,8 +244,8 @@ function abrirFormSonho(atual, aoSalvar) {
 // ---------- Painel geral (gestão) ----------
 async function blocoSonhosEquipe(id) {
   const { data, error } = await sb.rpc("sonhos_equipe");
-  if (error || !data) { falha(id, "Não foi possível carregar os sonhos do time."); return; }
-  if (!data.length) { preencher(id, el("div", { class: "px-vazio" }, "Nenhum vendedor cadastrou o sonho ainda.")); return; }
+  if (error || !data) { falha(id, "Não foi possível carregar as conquistas do time."); return; }
+  if (!data.length) { preencher(id, el("div", { class: "px-vazio" }, "Nenhum vendedor cadastrou a próxima conquista ainda.")); return; }
   preencher(id, el("div", { class: "sn-grade" }, data.map((r) => {
     const s = r.sonho, c = sonhoCalculo(r);
     return el("div", { class: "sn-mini" + (c.conquistado ? " conquistado" : "") }, [
