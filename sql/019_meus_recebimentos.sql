@@ -2,7 +2,7 @@
 -- employees.vendedor liga o funcionário da folha ao nome do vendedor (os nomes da folha são diferentes,
 -- ex.: "IAGO LUIZ" → "Iago Luis"); sem o vínculo, tenta pelo nome igual (ignorando maiúsculas).
 -- Folha paga (payment_date até hoje, ou mês anterior sem data) = salário + comissões + bônus;
--- folha do mês ainda em aberto = só os vales já recebidos.
+-- folha do mês ainda em aberto não entra. Descontos (vales) nunca são considerados.
 
 alter table public.employees add column if not exists vendedor text;
 update public.employees e set vendedor = m.v from (values
@@ -30,8 +30,8 @@ begin
     )
     select jsonb_build_object(
       'desde', ini,
-      'total', coalesce(sum(case when pago then bruto else vales end), 0),
-      'meses', coalesce(jsonb_agg(jsonb_build_object('mes', month, 'pago', pago, 'valor', case when pago then bruto else vales end) order by month), '[]'::jsonb))
+      'total', coalesce(sum(bruto) filter (where pago), 0),
+      'meses', coalesce(jsonb_agg(jsonb_build_object('mes', month, 'pago', pago, 'valor', bruto) order by month) filter (where pago), '[]'::jsonb))
     from f);
 end $$;
 grant execute on function public.meus_recebimentos() to authenticated;

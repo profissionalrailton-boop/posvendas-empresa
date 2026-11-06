@@ -43,7 +43,7 @@ function cardMeta(titulo, feito, meta, qtd) {
 }
 
 // quanto o vendedor já recebeu nos últimos 12 meses, pela folha de pagamento do financeiro
-// (RPC meus_recebimentos: folha paga = salário + comissão + bônus; folha do mês ainda aberta = vales já recebidos)
+// (RPC meus_recebimentos: só folhas pagas = salário + comissão + bônus, sem descontar vales)
 async function cardRecebimentos(kpis) {
   const { data: r, error } = await sb.rpc("meus_recebimentos");
   if (error || !r) return;
