@@ -68,3 +68,7 @@ create policy "sonhos: apaga na propria pasta" on storage.objects for delete to 
   using (bucket_id = 'sonhos' and (storage.foldername(name))[1] = auth.uid()::text);
 
 notify pgrst, 'reload schema';
+
+-- (correção 06/11) o upload com upsert precisa ler o arquivo de volta: sem SELECT dava
+-- "new row violates row-level security policy" ao salvar a foto
+create policy "sonhos: leitura" on storage.objects for select to authenticated using (bucket_id = 'sonhos');
