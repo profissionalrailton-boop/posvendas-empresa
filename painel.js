@@ -343,6 +343,11 @@ async function painelRitmo(hoje) {
   preencher("px-ritmo", [el("div", { class: "px-grid px-kpis" }, cards), aviso, divisao, graficoRitmo(atual, fechados, dia, projecao, meta), tabela]);
 }
 
+// cor fixa por mês do calendário (o mesmo mês mantém a cor; meses vizinhos nunca repetem).
+// O roxo fica reservado para o mês atual e a projeção.
+const CORES_MESES_RITMO = ["#22d3ee", "#f59e0b", "#ec4899", "#10b981", "#f97316", "#3b82f6"];
+const corMesRitmo = (x) => CORES_MESES_RITMO[x.mes % CORES_MESES_RITMO.length];
+
 // curva acumulada do mês atual × meses fechados, com a projeção tracejada até o fim do mês
 function graficoRitmo(atual, fechados, dia, projecao, meta) {
   const NS = "http://www.w3.org/2000/svg";
@@ -372,9 +377,8 @@ function graficoRitmo(atual, fechados, dia, projecao, meta) {
   const rotulos = [];
   const anterior = fechados[fechados.length - 1];
   fechados.forEach((x) => {
-    const ehAnt = x === anterior;
-    add("path", { d: caminho(x, x.dias), class: "rt-linha " + (ehAnt ? "rt-anterior" : "rt-antigo") });
-    rotulos.push({ y: Y(x.total), txt: `${x.curto} ${compactoBRL(x.total).replace("R$ ", "")}`, cls: ehAnt ? "rt-rot-anterior" : "rt-rot-antigo" });
+    add("path", { d: caminho(x, x.dias), class: "rt-linha rt-passado", style: `stroke:${corMesRitmo(x)}` });
+    rotulos.push({ y: Y(x.total), txt: `${x.curto} ${compactoBRL(x.total).replace("R$ ", "")}`, cls: "rt-rot-passado", cor: corMesRitmo(x) });
   });
   if (projecao !== null && dia < atual.dias) {
     add("path", { d: `M${X(dia)},${Y(atual.acum[dia])}L${X(atual.dias)},${Y(projecao)}`, class: "rt-linha rt-projecao" });
@@ -386,7 +390,10 @@ function graficoRitmo(atual, fechados, dia, projecao, meta) {
   // rótulos diretos à direita, afastados para não encostar
   rotulos.sort((a, b) => a.y - b.y);
   for (let i = 1; i < rotulos.length; i++) if (rotulos[i].y - rotulos[i - 1].y < 14) rotulos[i].y = rotulos[i - 1].y + 14;
-  rotulos.forEach((r) => add("text", { x: W - R + 8, y: r.y + 4, class: "rt-rot " + r.cls }, r.txt));
+  rotulos.forEach((r) => {
+    if (r.cor) add("line", { x1: W - R + 6, x2: W - R + 16, y1: r.y, y2: r.y, class: "rt-rot-marca", style: `stroke:${r.cor}` });
+    add("text", { x: W - R + (r.cor ? 21 : 8), y: r.y + 4, class: "rt-rot " + r.cls }, r.txt);
+  });
   // dica ao passar o mouse: uma faixa por dia
   const largura = (W - L - R) / (maxDias - 1);
   for (let d = 1; d <= maxDias; d++) {
@@ -399,8 +406,7 @@ function graficoRitmo(atual, fechados, dia, projecao, meta) {
   const legenda = el("div", { class: "rt-legenda" }, [
     el("span", {}, [el("i", { class: "rt-leg rt-leg-atual" }), `${atual.nome} (até hoje)`]),
     projecao !== null ? el("span", {}, [el("i", { class: "rt-leg rt-leg-proj" }), "projeção"]) : null,
-    anterior ? el("span", {}, [el("i", { class: "rt-leg rt-leg-anterior" }), anterior.nome]) : null,
-    fechados.length > 1 ? el("span", {}, [el("i", { class: "rt-leg rt-leg-antigo" }), "meses anteriores"]) : null,
+    ...fechados.slice().reverse().map((x) => el("span", {}, [el("i", { class: "rt-leg", style: `border-top-color:${corMesRitmo(x)}` }), x.nome])),
   ]);
   return el("div", { class: "px-card rt-grafico" }, [el("div", { class: "px-titulo" }, "Produção acumulada no mês, dia a dia"), legenda, svg]);
 }
