@@ -20,6 +20,7 @@ const rpPendentes = (nome) => rpDados.pendentes.get(nome) || 0;
 
 async function carregarRoubaPremio() {
   const raiz = document.getElementById("sx-rouba-premio");
+  rpAoVivo();
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo a banca…"));
   const [m, p, f, e, v, a] = await Promise.all([
     sb.from("rp_metas").select("*").order("numero"),
@@ -81,6 +82,7 @@ function desenharRoubaPremio(raiz) {
       el("div", { class: "rp-topo-acoes" }, [
         editor ? el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => marcarMetasRoubaPremio() }, "✔ Marcar metas batidas") : null,
         editor && eventos.length ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: desfazerRoubaPremio }, "↩ Desfazer última escolha") : null,
+        el("span", { class: "rp-aovivo" + (rpAoVivoOk ? " on" : ""), title: "A tela atualiza sozinha quando alguém marca meta ou escolhe prêmio" }, rpAoVivoOk ? "● Ao vivo" : "○ Conectando…"),
         el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: carregarRoubaPremio }, "↻ Atualizar"),
       ]),
     ]),
@@ -200,6 +202,7 @@ function marcarMetasRoubaPremio(metaInicial) {
   ]);
   confirmar.addEventListener("click", async () => {
     confirmar.disabled = true;
+    rpAcaoLocal = Date.now();
     const { error } = await sb.rpc("rp_marcar", { p_metas: [...marcadas], p_vendedor: quem.value });
     if (error) { rpErro(erro, "Não foi possível salvar: " + error.message); confirmar.disabled = false; return; }
     fechar();
@@ -212,6 +215,7 @@ function marcarMetasRoubaPremio(metaInicial) {
 
 async function desmarcarMetaRoubaPremio(meta) {
   if (!confirm(`Desmarcar a meta ${meta.numero} (${meta.titulo})?\n\nEla volta a ficar aberta e ${meta.batida_por} perde 1 escolha de prêmio.`)) return;
+  rpAcaoLocal = Date.now();
   const { error } = await sb.rpc("rp_desmarcar", { p_meta: meta.numero });
   if (error) { showToast("Não foi possível desmarcar: " + error.message); return; }
   showToast("Meta desmarcada.");
@@ -250,6 +254,7 @@ function escolherPremioRoubaPremio(nome, porOutro) {
     `${pend} ${pend === 1 ? "prêmio liberado" : "prêmios liberados"} · pegue da banca ou roube de alguém`, [erro, lista, confirmar]);
   confirmar.addEventListener("click", async () => {
     confirmar.disabled = true;
+    rpAcaoLocal = Date.now();
     const { error } = await sb.rpc("rp_escolher", porOutro ? { p_premio: escolhido.id, p_vendedor: nome } : { p_premio: escolhido.id });
     if (error) { rpErro(erro, "Não foi possível escolher: " + error.message); confirmar.disabled = false; return; }
     fechar();
@@ -265,8 +270,40 @@ async function desfazerRoubaPremio() {
   const p = rpDados.premios.find((x) => x.id === ev.premio_id);
   const txt = `Desfazer a última escolha?\n\n${ev.vendedor} ${ev.de_dono ? "roubou" : "pegou"} ${p ? p.nome : "o prêmio"}${ev.de_dono ? " de " + ev.de_dono : " da banca"}.\n\nO prêmio volta para ${ev.de_dono || "a banca"} e ${rpPrimeiro(ev.vendedor)} fica com a escolha pendente de novo (a meta continua batida).`;
   if (!confirm(txt)) return;
+  rpAcaoLocal = Date.now();
   const { error } = await sb.rpc("rp_desfazer");
   if (error) { showToast("Não foi possível desfazer: " + error.message); return; }
   showToast("Escolha desfeita.");
   carregarRoubaPremio();
+}
+
+// ---------- ao vivo (Supabase Realtime nas tabelas rp_* e vendedor_fotos) ----------
+// Qualquer mudança recarrega a aba (se estiver aberta) e uma escolha nova mostra um aviso para todos.
+let rpCanal = null, rpRecarga = null, rpAoVivoOk = false, rpAcaoLocal = 0;
+function rpMudou() {
+  clearTimeout(rpRecarga);
+  rpRecarga = setTimeout(() => {
+    const raiz = document.getElementById("sx-rouba-premio");
+    if (raiz && !raiz.classList.contains("hidden")) carregarRoubaPremio();
+  }, 500);
+}
+function rpAvisarEscolha(ev) {
+  if (Date.now() - rpAcaoLocal < 4000 || !rpDados) return; // quem clicou já recebeu o aviso
+  const p = rpDados.premios.find((x) => x.id === ev.premio_id);
+  const nome = p ? p.nome : "um prêmio";
+  showToast(ev.de_dono ? `🦹 ${rpPrimeiro(ev.vendedor)} roubou ${nome} de ${rpPrimeiro(ev.de_dono)}!` : `🎉 ${rpPrimeiro(ev.vendedor)} pegou ${nome} da banca!`);
+}
+function rpAoVivo() {
+  if (rpCanal) return;
+  const mud = (tabela, evento = "*") => ({ event: evento, schema: "public", table: tabela });
+  rpCanal = sb.channel("rouba-premio")
+    .on("postgres_changes", mud("rp_metas"), rpMudou)
+    .on("postgres_changes", mud("rp_premios"), rpMudou)
+    .on("postgres_changes", mud("vendedor_fotos"), rpMudou)
+    .on("postgres_changes", mud("rp_eventos"), (msg) => { if (msg.eventType === "INSERT") rpAvisarEscolha(msg.new); rpMudou(); })
+    .subscribe((status) => {
+      rpAoVivoOk = status === "SUBSCRIBED";
+      document.querySelectorAll(".rp-aovivo").forEach((x) => { x.classList.toggle("on", rpAoVivoOk); x.textContent = rpAoVivoOk ? "● Ao vivo" : "○ Conectando…"; });
+      if (rpAoVivoOk) rpMudou(); // ao (re)conectar, pega o que mudou enquanto estava fora
+    });
 }

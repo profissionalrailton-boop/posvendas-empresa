@@ -852,3 +852,5 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .field .rp-check, .rp-check { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: normal; }
 .rp-check:has(input:checked) { border-color: var(--primary); background: rgba(139, 92, 246, 0.12); }
 .rp-check input { width: 16px; height: 16px; accent-color: var(--primary); }
+.rp-aovivo { align-self: center; font-size: 12px; font-weight: 800; color: var(--text-muted); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
+.rp-aovivo.on { color: #10b981; border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.1); }
