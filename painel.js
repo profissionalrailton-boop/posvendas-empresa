@@ -133,6 +133,7 @@ async function carregarPainel() {
   const kpis = el("div", { class: "px-grid px-kpis", id: "px-kpis" });
   raiz.appendChild(kpis);
   raiz.appendChild(secao("px-metas", "Metas do mês", "Empresa, equipes e cada vendedor · crédito vendido no mês"));
+  raiz.appendChild(secao("px-ritmo", "Ritmo e projeção do mês", "Comparação com o mesmo período dos meses anteriores e projeção de fechamento no ritmo deles"));
   raiz.appendChild(secao("px-vendas", "Vendas do mês", "Produção pela data da venda"));
   raiz.appendChild(secao("px-pos", "Pós-vendas", "Adimplência e pagamentos"));
   raiz.appendChild(secao("px-fin", "Financeiro", `Contas e faturamento de ${MESES_PT[hoje.getMonth()]}`));
@@ -164,6 +165,7 @@ async function carregarPainel() {
     painelVendas(hoje).then((r) => { k.vendas = r; desenharKpis(); }).catch((e) => falha("px-vendas", "Não foi possível carregar as vendas: " + e.message)),
     pedirResumo("posvendas").then((r) => { k.pos = r; desenharKpis(); painelPos(r); }).catch(() => { k.pos = false; desenharKpis(); falha("px-pos", "Sem acesso aos dados do pós-vendas para este login."); }),
     pedirResumo("financeiro").then((r) => { k.fin = r; desenharKpis(); painelFin(r); }).catch(() => { k.fin = false; desenharKpis(); falha("px-fin", "Não foi possível carregar o financeiro."); }),
+    painelRitmo(hoje).catch((e) => falha("px-ritmo", "Não foi possível calcular a projeção: " + (e.message || e))),
     painelCampanha().catch((e) => falha("px-campanha", "Não foi possível carregar o ranking: " + e.message)),
     buscarMetas(hoje).then((r) => { preencher("px-metas", [blocoColetivas(r), tabelaVendedores(r.vendedores || [])]); verificarConquistas(r); })
       .catch((e) => falha("px-metas", "Não foi possível carregar as metas: " + (e.message || e))),
@@ -223,6 +225,184 @@ async function painelVendas(hoje) {
     ]),
   ]);
   return { credito: total, qtd: doMes.length, variacaoTexto };
+}
+
+// ---------- ritmo e projeção ----------
+// Produção (crédito vendido) até o dia de hoje comparada ao mesmo período dos meses fechados, e projeção
+// de fechamento: em média, até o dia D os meses anteriores tinham feito X% do total do mês → atual ÷ X%.
+// Só entram meses a partir de set/2026: jul e ago foram importados com a data de venda no início do mês.
+const RITMO_INICIO = "2026-09-01";
+const RITMO_MESES = 6; // no máximo os 6 meses fechados mais recentes
+const brl0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+function compactoBRL(v) {
+  if (Math.abs(v) >= 1e6) return `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi`;
+  if (Math.abs(v) >= 1e3) return `R$ ${Math.round(v / 1e3).toLocaleString("pt-BR")} mil`;
+  return brl2.format(v);
+}
+async function painelRitmo(hoje) {
+  const ano = hoje.getFullYear(), mes = hoje.getMonth(), dia = hoje.getDate();
+  const inicioHist = new Date(ano, mes - RITMO_MESES, 1);
+  const desde = isoLocal(inicioHist) > RITMO_INICIO ? isoLocal(inicioHist) : RITMO_INICIO;
+  const [{ data, error }, metas] = await Promise.all([
+    sb.from("administrativo_vendas").select("data_venda, valor_venda, parcelinha, tabela").gte("data_venda", desde).lte("data_venda", isoLocal(hoje)),
+    buscarMetas(hoje).catch(() => null),
+  ]);
+  if (error) throw error;
+
+  // acumulado por dia de cada mês
+  const meses = new Map(); // "YYYY-MM" → { chave, dias, porDia[], qtdAte[] }
+  const chaveDe = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
+  const garantir = (y, m) => {
+    const k = chaveDe(y, m);
+    if (!meses.has(k)) { const dias = new Date(y, m + 1, 0).getDate(); meses.set(k, { chave: k, ano: y, mes: m, dias, porDia: Array(dias + 1).fill(0), qtdDia: Array(dias + 1).fill(0), p: 0, a: 0 }); }
+    return meses.get(k);
+  };
+  for (let d = new Date(desde + "T12:00:00"); d <= hoje; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) garantir(d.getFullYear(), d.getMonth());
+  (data || []).forEach((v) => {
+    const [y, m, d] = v.data_venda.slice(0, 10).split("-").map(Number);
+    const x = garantir(y, m - 1);
+    const val = Number(v.valor_venda) || 0;
+    x.porDia[d] += val; x.qtdDia[d]++;
+    if (ehParcelinhaVenda(v)) x.p += val; else x.a += val;
+  });
+  const lista = [...meses.values()].sort((a, b) => a.chave.localeCompare(b.chave));
+  lista.forEach((x) => {
+    x.acum = [0]; x.qtdAcum = [0];
+    for (let d = 1; d <= x.dias; d++) { x.acum[d] = x.acum[d - 1] + x.porDia[d]; x.qtdAcum[d] = x.qtdAcum[d - 1] + x.qtdDia[d]; }
+    x.total = x.acum[x.dias];
+    x.nome = MESES_PT[x.mes];
+    x.curto = MESES_PT[x.mes].slice(0, 3);
+  });
+  const atual = lista.find((x) => x.chave === chaveDe(ano, mes)) || garantir(ano, mes);
+  const fechados = lista.filter((x) => x.chave < atual.chave && x.total > 0);
+  const ateHoje = atual.acum[dia], qtdHoje = atual.qtdAcum[dia];
+  const diaDe = (x) => Math.min(dia, x.dias);
+  fechados.forEach((x) => { x.ateDia = x.acum[diaDe(x)]; x.qtdAteDia = x.qtdAcum[diaDe(x)]; x.parte = x.ateDia / x.total; });
+  const anterior = fechados[fechados.length - 1] || null;
+
+  // projeção: proporção média (ponderada pelo volume) que os meses fechados tinham feito até o dia D
+  const somaAte = fechados.reduce((s, x) => s + x.ateDia, 0);
+  const somaTot = fechados.reduce((s, x) => s + x.total, 0);
+  const parte = somaTot ? somaAte / somaTot : 0;
+  const projecao = parte > 0 ? ateHoje / parte : null;
+  const cenarios = fechados.filter((x) => x.parte > 0).map((x) => ({ x, v: ateHoje / x.parte }));
+  const minC = cenarios.length ? cenarios.reduce((a, b) => (b.v < a.v ? b : a)) : null;
+  const maxC = cenarios.length ? cenarios.reduce((a, b) => (b.v > a.v ? b : a)) : null;
+  const meta = metas && metas.empresa ? (Number(metas.empresa.meta_parcelinha) || 0) + (Number(metas.empresa.meta_adesao) || 0) : 0;
+  const restantes = atual.dias - dia;
+
+  const cards = [];
+  cards.push(card(`Produção até hoje (1 a ${dia}/${String(mes + 1).padStart(2, "0")})`, brl2.format(ateHoje), `${num.format(qtdHoje)} venda${qtdHoje === 1 ? "" : "s"} · ${restantes} dia${restantes === 1 ? "" : "s"} para fechar o mês`));
+  if (anterior) {
+    const varA = anterior.ateDia ? ((ateHoje - anterior.ateDia) / anterior.ateDia) * 100 : null;
+    cards.push(card(`Mesmo período de ${anterior.nome} (1 a ${diaDe(anterior)})`, brl2.format(anterior.ateDia),
+      (varA === null ? "sem vendas nesse período" : `${varA >= 0 ? "▲" : "▼"} ${pctFmt(Math.abs(varA))} ${varA >= 0 ? "acima" : "abaixo"} · `) + `${num.format(anterior.qtdAteDia)} vendas · fechou em ${compactoBRL(anterior.total)}`,
+      { status: varA === null ? null : varA >= 0 ? "bom" : "atencao" }));
+  }
+  if (projecao !== null) {
+    const faixa = minC && maxC && cenarios.length > 1 ? ` · entre ${compactoBRL(minC.v)} (ritmo de ${minC.x.curto}) e ${compactoBRL(maxC.v)} (ritmo de ${maxC.x.curto})` : "";
+    cards.push(card("Projeção de fechamento", brl0.format(projecao),
+      `até o dia ${dia} costuma sair ${pctFmt(parte * 100)} do mês${faixa}`, { destaque: true }));
+    if (meta > 0) {
+      const pctMeta = (projecao / meta) * 100;
+      const falta = Math.max(0, meta - ateHoje);
+      cards.push(card("Projeção × meta do mês", pctFmt(pctMeta),
+        `meta ${compactoBRL(meta)} · ${falta > 0 ? `faltam ${compactoBRL(falta)}${restantes > 0 ? ` (${compactoBRL(falta / restantes)} por dia)` : ""}` : "meta batida 🎉"}`,
+        { status: pctMeta >= 100 ? "bom" : pctMeta >= 80 ? "atencao" : "critico" }));
+    }
+  } else {
+    cards.push(card("Projeção de fechamento", "—", "ainda não há meses fechados suficientes para projetar"));
+  }
+
+  const aviso = projecao !== null && dia < 7 ? el("div", { class: "px-sub rt-aviso" }, "Início de mês: a projeção oscila bastante nos primeiros dias e fica mais confiável a partir da segunda semana.") : null;
+  const parteAtualP = ateHoje ? atual.p / ateHoje : 0;
+  const divisao = projecao !== null && ateHoje > 0 ? el("div", { class: "px-sub rt-aviso" },
+    `Mantida a divisão atual: Parcelinha ≈ ${compactoBRL(projecao * parteAtualP)} · Adesão ≈ ${compactoBRL(projecao * (1 - parteAtualP))}.`) : null;
+
+  // tabela de transparência: cada mês fechado até o dia D
+  const tabela = fechados.length ? el("div", { class: "px-card rc-tabela-wrap" }, el("table", { class: "rc-tabela" }, [
+    el("thead", {}, el("tr", {}, [el("th", {}, "Mês"), el("th", { class: "rc-num" }, `Até o dia ${dia}`), el("th", { class: "rc-num" }, "Mês fechado"), el("th", { class: "rc-num" }, `% feito até o dia ${dia}`), el("th", { class: "rc-num" }, "Se repetir esse ritmo")])),
+    el("tbody", {}, [
+      ...fechados.slice().reverse().map((x) => el("tr", {}, [
+        el("td", { class: "rc-nome" }, `${x.nome}/${String(x.ano).slice(2)}`),
+        el("td", { class: "rc-num" }, brl2.format(x.ateDia)),
+        el("td", { class: "rc-num" }, brl2.format(x.total)),
+        el("td", { class: "rc-num" }, pctFmt(x.parte * 100)),
+        el("td", { class: "rc-num" }, x.parte > 0 ? brl0.format(ateHoje / x.parte) : "—"),
+      ])),
+      el("tr", { class: "rt-linha-atual" }, [
+        el("td", { class: "rc-nome" }, `${atual.nome}/${String(atual.ano).slice(2)} (atual)`),
+        el("td", { class: "rc-num rc-total" }, brl2.format(ateHoje)),
+        el("td", { class: "rc-num" }, projecao !== null ? `≈ ${brl0.format(projecao)}` : "—"),
+        el("td", { class: "rc-num" }, pctFmt(parte * 100)),
+        el("td", { class: "rc-num" }, "média ponderada"),
+      ]),
+    ]),
+  ])) : null;
+
+  preencher("px-ritmo", [el("div", { class: "px-grid px-kpis" }, cards), aviso, divisao, graficoRitmo(atual, fechados, dia, projecao, meta), tabela]);
+}
+
+// curva acumulada do mês atual × meses fechados, com a projeção tracejada até o fim do mês
+function graficoRitmo(atual, fechados, dia, projecao, meta) {
+  const NS = "http://www.w3.org/2000/svg";
+  const W = 760, H = 260, L = 64, R = 118, T = 14, B = 28;
+  const maxDias = Math.max(atual.dias, ...fechados.map((x) => x.dias));
+  const topo = Math.max(1, projecao || 0, meta || 0, atual.acum[dia], ...fechados.map((x) => x.total)) * 1.06;
+  const X = (d) => L + ((d - 1) / (maxDias - 1)) * (W - L - R);
+  const Y = (v) => T + (1 - v / topo) * (H - T - B);
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("class", "rt-svg");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Produção acumulada por dia do mês: mês atual, meses anteriores e projeção");
+  const add = (tag, at, txt) => { const n = document.createElementNS(NS, tag); Object.entries(at).forEach(([k, v]) => n.setAttribute(k, v)); if (txt !== undefined) n.textContent = txt; svg.appendChild(n); return n; };
+  // grade + eixo y (4 linhas)
+  const passo = (() => { const bruto = topo / 4; const p = Math.pow(10, Math.floor(Math.log10(bruto))); return [1, 2, 2.5, 5, 10].map((m) => m * p).find((m) => m >= bruto) || bruto; })();
+  for (let v = 0; v <= topo; v += passo) {
+    add("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), class: "rt-grade" });
+    add("text", { x: L - 8, y: Y(v) + 4, class: "rt-eixo", "text-anchor": "end" }, v === 0 ? "0" : compactoBRL(v).replace("R$ ", ""));
+  }
+  [1, 5, 10, 15, 20, 25, 30].filter((d) => d <= maxDias).forEach((d) => add("text", { x: X(d), y: H - 8, class: "rt-eixo", "text-anchor": "middle" }, String(d)));
+  if (meta > 0) {
+    add("line", { x1: L, x2: W - R, y1: Y(meta), y2: Y(meta), class: "rt-meta" });
+    add("text", { x: L + 6, y: Y(meta) - 6, class: "rt-eixo rt-meta-txt" }, `meta ${compactoBRL(meta)}`);
+  }
+  const caminho = (x, ate) => { let p = ""; for (let d = 1; d <= ate; d++) p += `${d === 1 ? "M" : "L"}${X(d).toFixed(1)},${Y(x.acum[d]).toFixed(1)}`; return p; };
+  const rotulos = [];
+  const anterior = fechados[fechados.length - 1];
+  fechados.forEach((x) => {
+    const ehAnt = x === anterior;
+    add("path", { d: caminho(x, x.dias), class: "rt-linha " + (ehAnt ? "rt-anterior" : "rt-antigo") });
+    rotulos.push({ y: Y(x.total), txt: `${x.curto} ${compactoBRL(x.total).replace("R$ ", "")}`, cls: ehAnt ? "rt-rot-anterior" : "rt-rot-antigo" });
+  });
+  if (projecao !== null && dia < atual.dias) {
+    add("path", { d: `M${X(dia)},${Y(atual.acum[dia])}L${X(atual.dias)},${Y(projecao)}`, class: "rt-linha rt-projecao" });
+    add("circle", { cx: X(atual.dias), cy: Y(projecao), r: 4, class: "rt-ponto-proj" });
+    rotulos.push({ y: Y(projecao), txt: `projeção ${compactoBRL(projecao).replace("R$ ", "")}`, cls: "rt-rot-atual" });
+  }
+  add("path", { d: caminho(atual, dia), class: "rt-linha rt-atual" });
+  add("circle", { cx: X(dia), cy: Y(atual.acum[dia]), r: 4.5, class: "rt-ponto" });
+  // rótulos diretos à direita, afastados para não encostar
+  rotulos.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < rotulos.length; i++) if (rotulos[i].y - rotulos[i - 1].y < 14) rotulos[i].y = rotulos[i - 1].y + 14;
+  rotulos.forEach((r) => add("text", { x: W - R + 8, y: r.y + 4, class: "rt-rot " + r.cls }, r.txt));
+  // dica ao passar o mouse: uma faixa por dia
+  const largura = (W - L - R) / (maxDias - 1);
+  for (let d = 1; d <= maxDias; d++) {
+    const linhas = [`Dia ${d}`];
+    if (d <= dia) linhas.push(`${atual.nome}: ${brl2.format(atual.acum[d])}`);
+    fechados.slice().reverse().forEach((x) => { if (d <= x.dias) linhas.push(`${x.nome}: ${brl2.format(x.acum[d])}`); });
+    const r = add("rect", { x: X(d) - largura / 2, y: T, width: largura, height: H - T - B, class: "rt-alvo" });
+    const t = document.createElementNS(NS, "title"); t.textContent = linhas.join("\n"); r.appendChild(t);
+  }
+  const legenda = el("div", { class: "rt-legenda" }, [
+    el("span", {}, [el("i", { class: "rt-leg rt-leg-atual" }), `${atual.nome} (até hoje)`]),
+    projecao !== null ? el("span", {}, [el("i", { class: "rt-leg rt-leg-proj" }), "projeção"]) : null,
+    anterior ? el("span", {}, [el("i", { class: "rt-leg rt-leg-anterior" }), anterior.nome]) : null,
+    fechados.length > 1 ? el("span", {}, [el("i", { class: "rt-leg rt-leg-antigo" }), "meses anteriores"]) : null,
+  ]);
+  return el("div", { class: "px-card rt-grafico" }, [el("div", { class: "px-titulo" }, "Produção acumulada no mês, dia a dia"), legenda, svg]);
 }
 
 // ---------- pós-vendas ----------
