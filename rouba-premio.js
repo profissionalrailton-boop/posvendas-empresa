@@ -1,6 +1,7 @@
 // Aba "Rouba prêmio": lista de metas; quem bate uma meta escolhe um prêmio da banca ou "rouba" de outra pessoa.
-// Todo login vê; só o editor (RP_EDITOR) risca metas, escolhe prêmio, desfaz e troca fotos — a trava real é no
-// banco (sql/021: funções rp_bater / rp_desfazer e policies de rp_fotos e do bucket "rouba-premio").
+// Todo login vê; só o editor (RP_EDITOR) risca metas, escolhe prêmio e desfaz — a trava real é no banco
+// (sql/021: funções rp_bater / rp_desfazer). Fotos = foto de perfil (foto-perfil.js, sql/022): cada vendedor
+// troca a própria e o editor troca a de qualquer um.
 const RP_EDITOR = "profissionalrailton@gmail.com";
 const RP_FORA = ["Railton Angelo"]; // gestão com cadastro de vendedor: não participa
 let rpDados = null;
@@ -10,25 +11,20 @@ const rpDataHora = (iso) => {
   const d = new Date(iso);
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 };
-const rpIniciais = (nome) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 const rpPremioTxt = (p) => `${p.emoji} ${p.nome}`;
 
-function rpFoto(nome, classe) {
-  const url = rpDados.fotos.get(nome);
-  return url
-    ? el("img", { class: classe, src: url, alt: nome, loading: "lazy" })
-    : el("div", { class: classe + " rp-sem-foto", "aria-hidden": "true" }, rpIniciais(nome));
-}
+const rpFoto = (nome, classe) => avatarPerfil(nome, rpDados.fotos.get(nome), classe);
 
 async function carregarRoubaPremio() {
   const raiz = document.getElementById("sx-rouba-premio");
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo a banca…"));
-  const [m, p, f, e, v] = await Promise.all([
+  const [m, p, f, e, v, a] = await Promise.all([
     sb.from("rp_metas").select("*").order("numero"),
     sb.from("rp_premios").select("*").order("ordem"),
-    sb.from("rp_fotos").select("vendedor, foto_url"),
+    sb.from("vendedor_fotos").select("vendedor, foto_url"),
     sb.from("rp_eventos").select("*").order("id", { ascending: false }).limit(40),
     sb.from("administrativo_vendedores").select("nome, ativo").order("nome"),
+    sb.from("posvendas_vendedor_acesso").select("vendedor").ilike("email", (perms && perms.email) || "-").limit(1),
   ]);
   const erro = [m, p, f, e, v].find((r) => r.error);
   if (erro) {
@@ -39,6 +35,7 @@ async function carregarRoubaPremio() {
   rpDados = {
     metas: m.data, premios: p.data, eventos: e.data,
     fotos: new Map(f.data.map((x) => [x.vendedor, x.foto_url])),
+    eu: a.data && a.data[0] ? a.data[0].vendedor : null,
     vendedores: v.data.filter((x) => x.ativo !== false && !RP_FORA.includes(x.nome)).map((x) => x.nome),
   };
   desenharRoubaPremio(raiz);
@@ -92,7 +89,7 @@ function desenharRoubaPremio(raiz) {
     el("div", { class: "rp-pessoas" }, participantes.map(([nome, lista]) => el("div", { class: "rp-pessoa" + (lista.length ? " tem" : "") }, [
       el("div", { class: "rp-pessoa-foto" }, [
         rpFoto(nome, "rp-avatar"),
-        editor ? el("button", { type: "button", class: "rp-foto-btn", title: "Trocar foto", "aria-label": `Trocar foto de ${nome}`, onclick: () => trocarFotoRoubaPremio(nome) }, "📷") : null,
+        editor || nome === rpDados.eu ? el("button", { type: "button", class: "rp-foto-btn", title: nome === rpDados.eu ? "Trocar minha foto" : "Trocar foto", "aria-label": `Trocar foto de ${nome}`, onclick: () => trocarFotoPerfil(nome, carregarRoubaPremio) }, "📷") : null,
       ]),
       el("div", { class: "rp-pessoa-nome" }, nome),
       el("div", { class: "rp-pessoa-qtd" }, lista.length ? `${lista.length} ${lista.length === 1 ? "prêmio" : "prêmios"}` : "nenhum prêmio ainda"),
@@ -205,28 +202,4 @@ async function desfazerRoubaPremio() {
   if (error) { showToast("Não foi possível desfazer: " + error.message); return; }
   showToast("Jogada desfeita.");
   carregarRoubaPremio();
-}
-
-function trocarFotoRoubaPremio(nome) {
-  const input = el("input", { type: "file", accept: "image/*" });
-  input.addEventListener("change", async () => {
-    const arquivo = input.files && input.files[0];
-    if (!arquivo) return;
-    try {
-      showToast("Enviando foto…");
-      const blob = await comprimirFotoSonho(arquivo);
-      const slug = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      const caminho = `${slug}-${Date.now()}.jpg`;
-      const { error: eUp } = await sb.storage.from("rouba-premio").upload(caminho, blob, { contentType: "image/jpeg", upsert: true });
-      if (eUp) throw eUp;
-      const url = sb.storage.from("rouba-premio").getPublicUrl(caminho).data.publicUrl;
-      const { error: eS } = await sb.from("rp_fotos").upsert({ vendedor: nome, foto_url: url, atualizado_em: new Date().toISOString() }, { onConflict: "vendedor" });
-      if (eS) throw eS;
-      showToast(`Foto de ${nome} atualizada.`);
-      carregarRoubaPremio();
-    } catch (err) {
-      showToast("Não foi possível salvar a foto: " + (err.message || err));
-    }
-  });
-  input.click();
 }

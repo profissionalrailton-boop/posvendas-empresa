@@ -77,8 +77,9 @@ async function carregarMinhaArea() {
   const nomeMes = `${MESES_PT[hoje.getMonth()]} de ${hoje.getFullYear()}`;
   raiz.innerHTML = "";
   const titulo = el("h1", {}, "Minha área");
+  const fotoBox = el("div", { class: "ma-perfil" }); // preenchido quando souber o nome do vendedor
   raiz.appendChild(el("div", { class: "px-topo" }, [
-    el("div", {}, [titulo, el("p", { class: "px-secao-sub" }, `Sua produção em ${nomeMes} · atualizado às ${String(hoje.getHours()).padStart(2, "0")}:${String(hoje.getMinutes()).padStart(2, "0")}`)]),
+    el("div", { class: "ma-topo-id" }, [fotoBox, el("div", {}, [titulo, el("p", { class: "px-secao-sub" }, `Sua produção em ${nomeMes} · atualizado às ${String(hoje.getHours()).padStart(2, "0")}:${String(hoje.getMinutes()).padStart(2, "0")}`)])]),
     el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => carregarMinhaArea() }, "↻ Atualizar"),
   ]));
   // "Meu sonho" (sonho.js): banner motivacional no topo
@@ -104,7 +105,19 @@ async function carregarMinhaArea() {
     if (eV) throw eV;
     if (eM) throw eM;
     const meuNome = acesso && acesso[0] ? acesso[0].vendedor : "";
-    if (meuNome) titulo.textContent = `Olá, ${primeiroNome(meuNome)}`;
+    if (meuNome) {
+      titulo.textContent = `Olá, ${primeiroNome(meuNome)}`;
+      const desenharFoto = (url) => {
+        fotoBox.innerHTML = "";
+        fotoBox.appendChild(el("button", { type: "button", class: "ma-perfil-btn", title: url ? "Trocar minha foto" : "Colocar minha foto",
+          onclick: () => trocarFotoPerfil(meuNome, desenharFoto) }, [
+          avatarPerfil(meuNome, url, "ma-perfil-foto"),
+          el("span", { class: "ma-perfil-cam", "aria-hidden": "true" }, "📷"),
+        ]));
+        if (!url) fotoBox.appendChild(el("span", { class: "ma-perfil-dica" }, "Coloque sua foto"));
+      };
+      buscarFotoPerfil(meuNome).then(desenharFoto).catch(() => desenharFoto(null));
+    }
     const meta = metas && metas[0] ? { p: Number(metas[0].meta_parcelinha) || 0, a: Number(metas[0].meta_adesao) || 0 } : { p: 0, a: 0 };
 
     const credito = (v) => Number(v.valor_venda) || 0;

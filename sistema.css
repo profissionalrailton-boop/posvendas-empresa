@@ -782,7 +782,7 @@ body:not(.sx-fixo) .sx-sidebar:not(:hover) .sx-item { justify-content: center; p
 .rp-pessoa-foto { position: relative; margin-bottom: 4px; }
 .rp-avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 3px solid var(--border); display: block; }
 .rp-pessoa.tem .rp-avatar { border-color: #f59e0b; }
-.rp-sem-foto { display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 28px; color: var(--text-muted); background: var(--surface-2); }
+.pf-sem-foto { display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 28px; color: var(--text-muted); background: var(--surface-2); }
 .rp-foto-btn { position: absolute; right: -4px; bottom: -2px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 15px; }
 .rp-foto-btn:hover { border-color: var(--primary); }
 .rp-pessoa-nome { font-weight: 800; font-size: 15px; }
@@ -823,3 +823,13 @@ button.rp-meta-btn:hover { border-color: var(--primary); background: var(--surfa
 .rp-opcao-dono { font-size: 12px; color: var(--text-muted); }
 @media (max-width: 600px) { .rp-titulo { font-size: 24px; } .rp-pessoas { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rp-avatar { width: 76px; height: 76px; } }
 .rp-modal > .btn-primary { position: sticky; bottom: 0; margin-top: 12px; box-shadow: 0 -10px 16px var(--surface, #151a23); }
+
+/* foto de perfil (foto-perfil.js) na Minha área */
+.ma-topo-id { display: flex; align-items: center; gap: 14px; }
+.ma-perfil { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ma-perfil-btn { position: relative; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%; }
+.ma-perfil-foto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary); display: flex; }
+.ma-perfil-cam { position: absolute; right: -4px; bottom: -4px; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.ma-perfil-btn:hover .ma-perfil-foto { filter: brightness(1.1); }
+.ma-perfil-dica { font-size: 11px; color: var(--primary-light); font-weight: 700; white-space: nowrap; }
+.ma-perfil-foto.pf-sem-foto { font-size: 22px; }
