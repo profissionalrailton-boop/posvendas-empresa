@@ -258,7 +258,7 @@ function escolherPremioRoubaPremio(nome, porOutro) {
     const { error } = await sb.rpc("rp_escolher", porOutro ? { p_premio: escolhido.id, p_vendedor: nome } : { p_premio: escolhido.id });
     if (error) { rpErro(erro, "Não foi possível escolher: " + error.message); confirmar.disabled = false; return; }
     fechar();
-    showToast(escolhido.dono ? `🦹 ${rpPrimeiro(nome)} roubou ${escolhido.nome} de ${rpPrimeiro(escolhido.dono)}!` : `🎉 ${rpPrimeiro(nome)} pegou ${escolhido.nome}!`);
+    if (!rpAoVivoOk) showToast(escolhido.dono ? `🦹 ${rpPrimeiro(nome)} roubou ${escolhido.nome} de ${rpPrimeiro(escolhido.dono)}!` : `🎉 ${rpPrimeiro(nome)} pegou ${escolhido.nome}!`);
     carregarRoubaPremio();
   });
   desenhar();
@@ -287,11 +287,65 @@ function rpMudou() {
     if (raiz && !raiz.classList.contains("hidden")) carregarRoubaPremio();
   }, 500);
 }
+// escolha nova: quem está com a aba aberta (inclusive quem escolheu) vê a animação grande;
+// quem está em outra parte do sistema recebe só o aviso pequeno
 function rpAvisarEscolha(ev) {
-  if (Date.now() - rpAcaoLocal < 4000 || !rpDados) return; // quem clicou já recebeu o aviso
+  if (!rpDados) return;
+  const raiz = document.getElementById("sx-rouba-premio");
+  if (raiz && !raiz.classList.contains("hidden")) { rpCelebrar(ev); return; }
+  if (Date.now() - rpAcaoLocal < 4000) return;
   const p = rpDados.premios.find((x) => x.id === ev.premio_id);
   const nome = p ? p.nome : "um prêmio";
   showToast(ev.de_dono ? `🦹 ${rpPrimeiro(ev.vendedor)} roubou ${nome} de ${rpPrimeiro(ev.de_dono)}!` : `🎉 ${rpPrimeiro(ev.vendedor)} pegou ${nome} da banca!`);
+}
+
+// ---------- animação de tela cheia (uma por vez, em fila) ----------
+const rpFila = [];
+let rpAnimando = false;
+const RPA_CORES = ["#f59e0b", "#ec4899", "#22d3ee", "#10b981", "#a78bfa", "#f97316", "#fde047"];
+function rpCelebrar(ev) {
+  const p = rpDados.premios.find((x) => x.id === ev.premio_id) || { nome: "um prêmio", emoji: "🎁" };
+  rpFila.push({ ev, p, foto: rpDados.fotos.get(ev.vendedor), fotoVitima: ev.de_dono ? rpDados.fotos.get(ev.de_dono) : null });
+  if (!rpAnimando) rpProximaCelebracao();
+}
+function rpProximaCelebracao() {
+  const item = rpFila.shift();
+  if (!item) { rpAnimando = false; return; }
+  rpAnimando = true;
+  const { ev, p, foto, fotoVitima } = item;
+  const roubo = !!ev.de_dono;
+  const confete = roubo ? null : el("div", { class: "rpa-confete", "aria-hidden": "true" }, Array.from({ length: 70 }, () => el("i", {
+    style: `left:${Math.random() * 100}%;background:${RPA_CORES[Math.floor(Math.random() * RPA_CORES.length)]};` +
+      `animation-delay:${(Math.random() * 0.9).toFixed(2)}s;animation-duration:${(2.2 + Math.random() * 1.6).toFixed(2)}s;` +
+      `width:${6 + Math.random() * 8}px;height:${8 + Math.random() * 10}px;--gira:${Math.round(Math.random() * 720 - 360)}deg`,
+  })));
+  const camada = el("div", { class: "rpa " + (roubo ? "roubo" : "pega"), role: "status", "aria-live": "assertive",
+    "aria-label": roubo ? `${ev.vendedor} roubou ${p.nome} de ${ev.de_dono}` : `${ev.vendedor} pegou ${p.nome} da banca` }, [
+    el("div", { class: "rpa-raios", "aria-hidden": "true" }),
+    confete,
+    el("div", { class: "rpa-card" }, [
+      el("div", { class: "rpa-selo" }, roubo ? "🦹 ROUBOU!" : "🎉 PEGOU!"),
+      el("div", { class: "rpa-foto-wrap" }, [
+        avatarPerfil(ev.vendedor, foto, "rpa-foto"),
+        el("div", { class: "rpa-emoji", "aria-hidden": "true" }, p.emoji),
+      ]),
+      el("div", { class: "rpa-nome" }, ev.vendedor),
+      el("div", { class: "rpa-premio" }, [el("span", { "aria-hidden": "true" }, p.emoji + " "), p.nome]),
+      roubo
+        ? el("div", { class: "rpa-vitima" }, [avatarPerfil(ev.de_dono, fotoVitima, "rpa-vitima-foto"), el("span", {}, ["roubado de ", el("strong", {}, ev.de_dono), " 😱"])])
+        : el("div", { class: "rpa-vitima" }, "direto da banca 🏦"),
+    ]),
+  ]);
+  let fechado = false;
+  const fechar = () => {
+    if (fechado) return;
+    fechado = true;
+    camada.classList.add("saindo");
+    setTimeout(() => { camada.remove(); setTimeout(rpProximaCelebracao, 250); }, 380);
+  };
+  camada.addEventListener("click", fechar);
+  document.body.appendChild(camada);
+  setTimeout(fechar, 5500);
 }
 function rpAoVivo() {
   if (rpCanal) return;

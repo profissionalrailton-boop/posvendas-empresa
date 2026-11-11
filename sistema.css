@@ -854,3 +854,57 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .rp-check input { width: 16px; height: 16px; accent-color: var(--primary); }
 .rp-aovivo { align-self: center; font-size: 12px; font-weight: 800; color: var(--text-muted); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
 .rp-aovivo.on { color: #10b981; border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.1); }
+
+/* Rouba prêmio: animação de tela cheia quando alguém pega/rouba (rouba-premio.js → rpCelebrar) */
+.rpa { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 16px; cursor: pointer; overflow: hidden;
+  background: radial-gradient(circle at 50% 45%, rgba(245, 158, 11, 0.32), transparent 62%), rgba(8, 10, 18, 0.9); animation: rpa-fundo 0.35s ease-out both; }
+.rpa.roubo { background: radial-gradient(circle at 50% 45%, rgba(239, 68, 68, 0.4), transparent 62%), rgba(8, 10, 18, 0.92); }
+.rpa.roubo::after { content: ""; position: absolute; inset: 0; pointer-events: none; animation: rpa-sirene 0.5s ease-in-out 4 alternate; }
+.rpa.saindo { animation: rpa-sai 0.38s ease-in forwards; }
+.rpa-raios { position: absolute; width: 180vmax; height: 180vmax; left: 50%; top: 50%; margin: -90vmax 0 0 -90vmax; opacity: 0.22; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.9) 0deg 6deg, transparent 6deg 22deg); animation: rpa-gira 14s linear infinite;
+  -webkit-mask: radial-gradient(circle, #000 0%, transparent 55%); mask: radial-gradient(circle, #000 0%, transparent 55%); }
+.rpa.roubo .rpa-raios { background: repeating-conic-gradient(from 0deg, rgba(255, 120, 120, 0.9) 0deg 6deg, transparent 6deg 22deg); }
+
+.rpa-card { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; color: #fff; max-width: 92vw;
+  animation: rpa-entra 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.rpa.roubo .rpa-card { animation: rpa-entra 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) both, rpa-treme 0.45s ease-in-out 0.75s 2; }
+.rpa-selo { font-size: clamp(34px, 9vw, 72px); font-weight: 900; letter-spacing: 0.04em; line-height: 1;
+  background: linear-gradient(180deg, #fde68a, #f59e0b); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 18px rgba(245, 158, 11, 0.6)); animation: rpa-pulsa 0.9s ease-in-out 0.7s infinite alternate; }
+.rpa.roubo .rpa-selo { background-image: linear-gradient(180deg, #fecaca, #ef4444); filter: drop-shadow(0 4px 18px rgba(239, 68, 68, 0.7)); }
+
+.rpa-foto-wrap { position: relative; margin: 14px 0 8px; }
+.rpa-foto { width: clamp(150px, 42vw, 240px); height: clamp(150px, 42vw, 240px); border-radius: 50%; object-fit: cover; display: flex;
+  border: 6px solid #f59e0b; box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.25), 0 0 60px rgba(245, 158, 11, 0.7); animation: rpa-brilho 1.2s ease-in-out infinite alternate; }
+.rpa.roubo .rpa-foto { border-color: #ef4444; box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.25), 0 0 60px rgba(239, 68, 68, 0.75); }
+.rpa-foto.pf-sem-foto { font-size: clamp(52px, 14vw, 84px); background: #1f2433; color: #fde68a; }
+.rpa-emoji { position: absolute; right: -14px; bottom: -6px; font-size: clamp(56px, 15vw, 92px); line-height: 1; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+  animation: rpa-voa 0.8s cubic-bezier(0.2, 1.5, 0.4, 1) 0.45s both; }
+.rpa-nome { font-size: clamp(26px, 7vw, 46px); font-weight: 900; line-height: 1.05; text-shadow: 0 3px 16px rgba(0, 0, 0, 0.7); animation: rpa-sobe 0.5s ease-out 0.35s both; }
+.rpa-premio { font-size: clamp(18px, 5vw, 28px); font-weight: 800; color: #fde68a; animation: rpa-sobe 0.5s ease-out 0.5s both; }
+.rpa.roubo .rpa-premio { color: #fecaca; }
+.rpa-vitima { display: flex; align-items: center; gap: 10px; margin-top: 6px; padding: 8px 16px 8px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.45);
+  font-size: clamp(14px, 4vw, 18px); animation: rpa-sobe 0.5s ease-out 0.7s both; }
+.rpa.pega .rpa-vitima { padding: 8px 16px; }
+.rpa-vitima-foto { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; display: flex; filter: grayscale(0.6); border: 2px solid rgba(255, 255, 255, 0.4); }
+.rpa-vitima-foto.pf-sem-foto { font-size: 15px; background: #2a2f3d; color: #ddd; }
+
+.rpa-confete { position: absolute; inset: 0; pointer-events: none; }
+.rpa-confete i { position: absolute; top: -30px; border-radius: 2px; animation-name: rpa-cai; animation-timing-function: linear; animation-fill-mode: both; }
+
+@keyframes rpa-fundo { from { opacity: 0; } }
+@keyframes rpa-sai { to { opacity: 0; transform: scale(1.05); } }
+@keyframes rpa-gira { to { transform: rotate(360deg); } }
+@keyframes rpa-entra { from { opacity: 0; transform: scale(0.3) rotate(-8deg); } }
+@keyframes rpa-treme { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-14px) rotate(-2deg); } 40% { transform: translateX(12px) rotate(2deg); } 60% { transform: translateX(-8px); } 80% { transform: translateX(6px); } }
+@keyframes rpa-pulsa { to { transform: scale(1.08); } }
+@keyframes rpa-brilho { to { box-shadow: 0 0 0 14px rgba(245, 158, 11, 0.12), 0 0 90px rgba(245, 158, 11, 0.9); } }
+@keyframes rpa-voa { from { opacity: 0; transform: translate(-120px, 160px) scale(0.2) rotate(-40deg); } }
+@keyframes rpa-sobe { from { opacity: 0; transform: translateY(18px); } }
+@keyframes rpa-sirene { from { background: rgba(239, 68, 68, 0); } to { background: rgba(239, 68, 68, 0.22); } }
+@keyframes rpa-cai { from { transform: translateY(0) rotate(0); opacity: 1; } to { transform: translateY(110vh) rotate(var(--gira)); opacity: 0.9; } }
+@media (prefers-reduced-motion: reduce) {
+  .rpa, .rpa *, .rpa::after { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
+  .rpa-confete, .rpa-raios { display: none; }
+}
