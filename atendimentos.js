@@ -163,7 +163,7 @@ async function carregarMeusAtendimentos() {
   const [l, a, u] = await Promise.all([
     sb.from("atendimentos_gravacoes").select("id, criado_em, vendedor, cliente, tipo, resultado, origem, canais, arquivo_nome, pasta, segmentos, partes, tamanho_bytes, duracao_seg, status, nota, mime, extensao")
       .order("criado_em", { ascending: false }).limit(300),
-    sb.from("posvendas_vendedor_acesso").select("vendedor").ilike("email", (perms && perms.email) || "-").limit(1),
+    sb.rpc("atd_eu"),
     sb.auth.getUser(),
   ]);
   if (l.error) {
@@ -173,7 +173,7 @@ async function carregarMeusAtendimentos() {
   }
   atdDados = {
     lista: l.data,
-    eu: a.data && a.data[0] ? a.data[0].vendedor : null,
+    eu: a.error ? null : a.data || null,
     uid: u.data && u.data.user ? u.data.user.id : null,
     filtro: atdDados ? atdDados.filtro : "",
   };
