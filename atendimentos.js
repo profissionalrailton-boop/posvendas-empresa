@@ -1,6 +1,6 @@
-// Aba "Meus atendimentos" (Fase 1): o vendedor GRAVA na hora ou ENVIA O ARQUIVO de um atendimento/fechamento.
+// Aba "Meus atendimentos": o vendedor GRAVA na hora ou ENVIA O ARQUIVO de um atendimento/fechamento.
 // Depois de gravar (ou ao escolher o arquivo) ele informa cliente, tipo (Atendimento | Fechamento) e resultado
-// (pegou documentação | não passou — vendeu | não fechou). A análise comercial (n8n) entra na Fase 2.
+// (pegou documentação | não passou — vendeu | não fechou). A análise comercial é feita pelo n8n (fluxo "Sistema Infinity - Meus atendimentos").
 // Banco: sql/025 (tabela atendimentos_gravacoes + funções atd_* + bucket privado "atendimentos").
 //
 // Robustez da gravação:
@@ -9,10 +9,14 @@
 // - a tela é mantida acesa (Wake Lock); se o celular cortar o microfone (tela bloqueada / troca de app), a
 //   gravação fica "interrompida" e o vendedor pode continuar (novo segmento na mesma gravação) ou finalizar;
 // - "chamada no computador": grava a tela/aba compartilhada COM áudio + microfone, em estéreo
-//   (vendedor à esquerda, cliente à direita) para separar as vozes na transcrição.
+//   (vendedor à esquerda, cliente à direita). Obs.: a transcrição (Whisper) mistura os canais; quem fala é deduzido pela IA.
 const ATD_PARTE_SEG = 60;                    // um pedaço por minuto de gravação
 const ATD_PEDACO_ARQ = 8 * 1024 * 1024;      // arquivo enviado: pedaços de 8 MB (o bucket aceita até 10 MB)
 const ATD_MAX_ARQ = 600 * 1024 * 1024;       // limite de arquivo enviado
+const ATD_SEG_MAX = 15 * 60;                 // gravação: novo arquivo a cada 15 min (limite de 25 MB da transcrição)
+const ATD_ARQ_DIRETO = 24 * 1024 * 1024;     // arquivo até 24 MB em formato aceito vai como está; acima, é convertido
+const ATD_ARQ_ACEITOS = new Set(["mp3", "m4a", "mp4", "wav", "webm", "ogg", "oga", "opus", "mpeg", "mpga", "flac"]);
+const ATD_WAV_SEG = 300;                     // conversão: partes de 5 min em WAV 16 kHz mono (~9,6 MB)
 const ATD_TIPOS = { atendimento: "Atendimento", fechamento: "Fechamento" };
 const ATD_RESULTADOS = {
   atendimento: [["documentacao", "Pegou documentação"], ["sem_documentacao", "Não passou documentação"]],
@@ -161,7 +165,7 @@ async function carregarMeusAtendimentos() {
   atdAoVivo();
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo seus atendimentos…"));
   const [l, a, u] = await Promise.all([
-    sb.from("atendimentos_gravacoes").select("id, criado_em, vendedor, cliente, tipo, resultado, origem, canais, arquivo_nome, pasta, segmentos, partes, tamanho_bytes, duracao_seg, status, nota, mime, extensao")
+    sb.from("atendimentos_gravacoes").select("id, criado_em, vendedor, cliente, tipo, resultado, origem, canais, arquivo_nome, pasta, segmentos, partes, tamanho_bytes, duracao_seg, status, nota, mime, extensao, erro, analisado_em, criterios:analise->criterios")
       .order("criado_em", { ascending: false }).limit(300),
     sb.rpc("atd_eu"),
     sb.auth.getUser(),
@@ -224,8 +228,13 @@ function desenharMeusAtendimentos(raiz) {
     ]));
   }
 
+  // evolução (vendedor) / padrões (gestão)
+  const base = ehGestao ? lista.filter((g) => !atdDados.filtro || g.vendedor === atdDados.filtro) : lista.filter((g) => g.vendedor === eu);
+  const blocoAnalises = atdPainelAnalises(base, ehGestao);
+  if (blocoAnalises) raiz.appendChild(blocoAnalises);
+
   // lista
-  const vendedores = [...new Set(lista.map((g) => g.vendedor))].sort();
+  const vendedores =[...new Set(lista.map((g) => g.vendedor))].sort();
   const cab = el("div", { class: "atd-lista-cab" }, [el("h2", { class: "atd-h2" }, eu && !ehGestao ? "Minhas gravações" : "Gravações")]);
   if (ehGestao && vendedores.length > 1) {
     const sel = el("select", { class: "ap-input atd-filtro", "aria-label": "Filtrar por vendedor" },
@@ -241,7 +250,7 @@ function desenharMeusAtendimentos(raiz) {
   } else {
     raiz.appendChild(el("div", { class: "atd-lista" }, visiveis.map((g) => atdLinha(g, ehGestao))));
   }
-  raiz.appendChild(el("p", { class: "atd-rodape" }, "🧠 Em breve: cada gravação recebe uma análise com notas por etapa, o que você fez bem, o que pode melhorar e a sua evolução."));
+  raiz.appendChild(el("p", { class: "atd-rodape" }, "🧠 Cada gravação é analisada em poucos minutos depois de enviada: notas por etapa, o que foi bem, o que pode melhorar e como falar."));
   atdPintarRec();
 }
 
@@ -260,6 +269,8 @@ function atdLinha(g, mostrarVendedor) {
   if (g.partes > 0) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: (ev) => atdOuvir(g, ev.currentTarget) }, "▶ Ouvir"));
   if (meu && incompleta && g.partes > 0 && !naFila) acoes.push(el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => atdFormulario(g.id, null) }, "Concluir"));
   if (meu && g.status === "aguardando") acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => atdFormulario(g.id, g) }, "✏️ Editar"));
+  if (g.status === "pronta") acoes.unshift(el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => atdVerAnalise(g) }, "📋 Ver análise"));
+  if (g.status === "erro" && (meu || perms.adm || perms.fin)) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => atdReanalisar(g) }, "↻ Analisar de novo"));
   if (meu && (incompleta || g.status === "aguardando")) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm atd-apagar", title: "Descartar gravação", "aria-label": "Descartar gravação", onclick: () => atdDescartar(g) }, "🗑"));
   return el("div", { class: "atd-item" + (incompleta ? " incompleta" : "") }, [
     el("div", { class: "atd-item-topo" }, [
@@ -267,7 +278,9 @@ function atdLinha(g, mostrarVendedor) {
         el("div", { class: "atd-item-cliente" }, g.cliente || (incompleta ? "Gravação sem dados" : "—")),
         el("div", { class: "atd-item-data" }, [atdDataHora(g.criado_em), mostrarVendedor ? " · " + g.vendedor : ""].join("")),
       ]),
-      el("span", { class: "atd-status s-" + g.status }, naFila ? "Enviando áudio…" : ATD_STATUS[g.status] || g.status),
+      g.status === "pronta" && g.nota != null
+        ? el("span", { class: "atd-nota " + atdNotaClasse(g.nota), title: "Nota geral da análise" }, atdNotaTxt(g.nota))
+        : el("span", { class: "atd-status s-" + g.status }, naFila ? "Enviando áudio…" : ATD_STATUS[g.status] || g.status),
     ]),
     el("div", { class: "atd-item-tags" }, [
       g.tipo ? el("span", { class: "atd-tag t-" + g.tipo }, ATD_TIPOS[g.tipo]) : null,
@@ -277,6 +290,8 @@ function atdLinha(g, mostrarVendedor) {
     incompleta && meu && !naFila ? el("div", { class: "atd-item-alerta" }, g.partes > 0
       ? "A gravação não foi concluída. Toque em “Concluir” para informar o cliente e enviar, ou descarte."
       : "Nenhum áudio chegou desta gravação. Pode descartar.") : null,
+    g.status === "erro" && g.erro ? el("div", { class: "atd-item-alerta" }, "⚠️ " + g.erro) : null,
+    g.status === "pronta" && g.nota == null ? el("div", { class: "atd-item-info" }, "Sem nota: a gravação não tinha conversa suficiente para avaliar.") : null,
     acoes.length ? el("div", { class: "atd-item-acoes" }, acoes) : null,
     el("div", { class: "atd-player" }),
   ]);
@@ -422,6 +437,7 @@ async function atdComecar(modo) {
     const t = document.getElementById("atd-rec-tempo");
     if (t && atdRec) t.textContent = atdDuracao(atdRec.segundos());
     atdPilula();
+    atdGirarSegmento();
   }, 1000);
   atdTelaAcesa(true);
   desenharMeusAtendimentos(document.getElementById("sx-meus-atendimentos"));
@@ -452,8 +468,24 @@ function atdNovoSegmento(audio) {
   // o celular derruba o microfone ao bloquear a tela / trocar de app; no computador, "parar compartilhamento"
   audio.vigiar.forEach((t) => t.addEventListener("ended", () => atdInterrompida()));
   rec.start(ATD_PARTE_SEG * 1000);
-  r.desde = Date.now();
+  if (!r.desde) r.desde = Date.now();
+  r.segIni = r.segundos();
   r.estado = "gravando";
+}
+
+// a cada ATD_SEG_MAX de gravação, fecha o arquivo e começa outro (cada parte fica abaixo do limite da transcrição)
+function atdGirarSegmento() {
+  const r = atdRec;
+  if (!r || r.girando || r.estado !== "gravando" || !r.audio || !r.rec || r.rec.state !== "recording") return;
+  if (r.segundos() - (r.segIni || 0) < ATD_SEG_MAX) return;
+  r.girando = true;
+  const velho = r.rec;
+  try {
+    atdNovoSegmento(r.audio);          // o novo já está gravando antes de parar o antigo (sem buraco no áudio)
+    velho.onerror = null;
+    velho.stop();
+  } catch (e) { /* segue no gravador atual */ }
+  r.girando = false;
 }
 
 function atdSoltar(audio) {
@@ -591,19 +623,65 @@ function atdDuracaoArquivo(f) {
   });
 }
 
+// WAV 16 bits mono
+function atdWav(amostras, taxa) {
+  const buf = new ArrayBuffer(44 + amostras.length * 2);
+  const v = new DataView(buf);
+  const txt = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  txt(0, "RIFF"); v.setUint32(4, 36 + amostras.length * 2, true); txt(8, "WAVE"); txt(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, taxa, true);
+  v.setUint32(28, taxa * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); txt(36, "data"); v.setUint32(40, amostras.length * 2, true);
+  for (let i = 0, o = 44; i < amostras.length; i++, o += 2) {
+    const s = Math.max(-1, Math.min(1, amostras[i]));
+    v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buf], { type: "audio/wav" });
+}
+
 async function atdEnviarArquivo(f, dados, botao) {
   const ext = ((f.name.split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin").slice(0, 8);
-  const { data: id, error } = await sb.rpc("atd_criar", { p_origem: "arquivo", p_mime: f.type || null, p_extensao: ext, p_arquivo_nome: f.name });
+  const direto = f.size <= ATD_ARQ_DIRETO && ATD_ARQ_ACEITOS.has(ext);
+  let audio = null;
+  if (!direto) {
+    // grande demais ou formato que a transcrição não aceita: converte aqui para WAV leve, em partes de 5 min
+    botao.textContent = "Preparando o áudio…";
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error("Este navegador não consegue preparar esse arquivo. Use o Chrome no computador.");
+    const ctx = new AC({ sampleRate: 16000 });
+    try { audio = await ctx.decodeAudioData(await f.arrayBuffer()); }
+    catch (e) { throw new Error("Não consegui ler esse arquivo aqui. Tente pelo Chrome no computador, ou envie em mp3/m4a."); }
+    finally { ctx.close().catch(() => {}); }
+  }
+  const { data: id, error } = await sb.rpc("atd_criar", { p_origem: "arquivo", p_mime: direto ? (f.type || null) : "audio/wav", p_extensao: direto ? ext : "wav", p_arquivo_nome: f.name });
   if (error) throw error;
   atdFinalizandoAqui.add(id);
-  const dur = await atdDuracaoArquivo(f);
-  const total = Math.max(1, Math.ceil(f.size / ATD_PEDACO_ARQ));
-  for (let i = 0; i < total; i++) {
-    const caminho = `${atdDados.uid}/${id}/01-${String(i + 1).padStart(4, "0")}.${ext}`;
-    const blob = f.slice(i * ATD_PEDACO_ARQ, Math.min(f.size, (i + 1) * ATD_PEDACO_ARQ));
-    // o arquivo continua no aparelho: não guarda cópia, só a fila em memória
-    atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob, tipo: "application/octet-stream",
-      prog: { seg: 1, partes: i + 1, bytes: Math.min(f.size, (i + 1) * ATD_PEDACO_ARQ), dur } }, false);
+  let total;
+  if (direto) {
+    const dur = await atdDuracaoArquivo(f);
+    total = Math.max(1, Math.ceil(f.size / ATD_PEDACO_ARQ));
+    for (let i = 0; i < total; i++) {
+      const caminho = `${atdDados.uid}/${id}/01-${String(i + 1).padStart(4, "0")}.${ext}`;
+      const blob = f.slice(i * ATD_PEDACO_ARQ, Math.min(f.size, (i + 1) * ATD_PEDACO_ARQ));
+      // o arquivo continua no aparelho: não guarda cópia, só a fila em memória
+      atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob, tipo: "application/octet-stream",
+        prog: { seg: 1, partes: i + 1, bytes: Math.min(f.size, (i + 1) * ATD_PEDACO_ARQ), dur } }, false);
+    }
+  } else {
+    const canais = [];
+    for (let c = 0; c < audio.numberOfChannels; c++) canais.push(audio.getChannelData(c));
+    const porParte = ATD_WAV_SEG * audio.sampleRate;
+    total = Math.max(1, Math.ceil(audio.length / porParte));
+    let bytes = 0;
+    for (let i = 0; i < total; i++) {
+      const ini = i * porParte, fim = Math.min(audio.length, ini + porParte);
+      const mono = new Float32Array(fim - ini);
+      for (let j = ini; j < fim; j++) { let s = 0; for (const ch of canais) s += ch[j]; mono[j - ini] = s / canais.length; }
+      const blob = atdWav(mono, audio.sampleRate);
+      bytes += blob.size;
+      const caminho = `${atdDados.uid}/${id}/${String(i + 1).padStart(2, "0")}-0001.wav`;
+      atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob, tipo: "audio/wav",
+        prog: { seg: i + 1, partes: i + 1, bytes, dur: audio.duration } }, false);
+    }
   }
   atdFormGuardado(id, dados);
   const timer = setInterval(() => {
@@ -727,7 +805,8 @@ async function atdOuvir(g, botao) {
       if (!segs.has(s)) segs.set(s, []);
       segs.get(s).push(data);
     }
-    const tipo = g.origem === "arquivo" ? (g.mime || "") : (g.mime || "audio/webm").split(";")[0];
+    const tipoBase = g.origem === "arquivo" ? (g.mime || "") : (g.mime || "audio/webm").split(";")[0];
+    const tipo = g.extensao === "wav" ? "audio/wav" : tipoBase;
     const video = /^video/.test(tipo);
     [...segs.entries()].forEach(([s, partes], i) => {
       const url = URL.createObjectURL(new Blob(partes, { type: tipo || undefined }));
@@ -764,4 +843,176 @@ async function atdDescartar(g) {
     showToast("Não foi possível descartar: " + (e.message || e));
   }
   carregarMeusAtendimentos();
+}
+
+// ---------- análise (Fase 2) ----------
+const atdNotaTxt = (n) => (n == null ? "—" : Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+const atdNotaClasse = (n) => (n == null ? "n-sem" : n >= 8 ? "n-boa" : n >= 6 ? "n-media" : "n-baixa");
+const atdMedia = (arr) => (arr.length ? arr.reduce((s, n) => s + n, 0) / arr.length : null);
+const ATD_OBJ_TXT = { bem_tratada: "Bem tratada", parcial: "Parcial", mal_tratada: "Mal tratada", nao_tratada: "Não tratada" };
+
+async function atdReanalisar(g) {
+  const { error } = await sb.rpc("atd_reanalisar", { p_id: g.id });
+  if (error) { showToast("Não foi possível: " + error.message); return; }
+  showToast("Ok! A gravação volta para a fila de análise.");
+  carregarMeusAtendimentos();
+}
+
+function atdBarra(nota) {
+  const pct = nota == null ? 0 : Math.max(0, Math.min(100, nota * 10));
+  return el("div", { class: "atd-barra" }, [el("div", { class: "atd-barra-ench " + atdNotaClasse(nota), style: `width:${pct}%` })]);
+}
+
+// médias por critério de um conjunto de gravações prontas
+function atdMediasCriterios(gravs) {
+  const mapa = new Map();
+  gravs.forEach((g) => (g.criterios || []).forEach((c) => {
+    if (!c || !c.avaliado || c.nota == null) return;
+    if (!mapa.has(c.chave)) mapa.set(c.chave, { chave: c.chave, nome: c.nome || c.chave, notas: [] });
+    mapa.get(c.chave).notas.push(Number(c.nota));
+  }));
+  return [...mapa.values()].map((x) => ({ ...x, media: atdMedia(x.notas) }));
+}
+
+function atdPainelAnalises(base, ehGestao) {
+  let prontas = base.filter((g) => g.status === "pronta" && Array.isArray(g.criterios));
+  if (ehGestao && !atdDados.filtro) prontas = prontas.filter((g) => !/^Teste \(/.test(g.vendedor));
+  if (!prontas.length) return null;
+  const caixa = el("div", { class: "atd-painel" });
+  const comNota = prontas.filter((g) => g.nota != null).sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
+
+  // nota geral + tendência
+  const ult = comNota.slice(-10), ant = comNota.slice(-20, -10);
+  const mUlt = atdMedia(ult.map((g) => Number(g.nota))), mAnt = atdMedia(ant.map((g) => Number(g.nota)));
+  const tend = mUlt != null && mAnt != null ? mUlt - mAnt : null;
+  caixa.appendChild(el("div", { class: "atd-painel-cab" }, [
+    el("h2", { class: "atd-h2" }, ehGestao ? (atdDados.filtro ? "Evolução de " + atdDados.filtro : "Padrões da equipe") : "Minha evolução"),
+    el("span", { class: "atd-item-info" }, `${prontas.length} análise${prontas.length > 1 ? "s" : ""}`),
+  ]));
+  if (comNota.length) {
+    caixa.appendChild(el("div", { class: "atd-evol" }, [
+      el("div", { class: "atd-evol-nota" }, [
+        el("div", { class: "atd-kpi-rot" }, ult.length < comNota.length ? "Nota média (últimas 10)" : "Nota média"),
+        el("div", { class: "atd-evol-num " + atdNotaClasse(mUlt) }, atdNotaTxt(mUlt)),
+        tend != null ? el("div", { class: "atd-evol-tend " + (tend >= 0 ? "sobe" : "desce") }, (tend >= 0 ? "▲ " : "▼ ") + atdNotaTxt(Math.abs(tend)) + " vs. 10 anteriores") : null,
+      ]),
+      el("div", { class: "atd-evol-hist", title: "Notas das últimas análises, da mais antiga para a mais recente" },
+        comNota.slice(-16).map((g) => el("div", { class: "atd-evol-col", title: `${g.cliente || ""} · ${atdNotaTxt(g.nota)}` }, [
+          el("div", { class: "atd-evol-bar " + atdNotaClasse(g.nota), style: `height:${Math.max(6, Number(g.nota) * 10)}%` }),
+        ]))),
+    ]));
+  }
+
+  // por tipo: médias por critério e, havendo os dois resultados, sucesso × insucesso
+  ["atendimento", "fechamento"].forEach((tipo) => {
+    const doTipo = prontas.filter((g) => g.tipo === tipo);
+    if (!doTipo.length) return;
+    const ok = doTipo.filter((g) => ATD_RES_OK.has(g.resultado)), nao = doTipo.filter((g) => !ATD_RES_OK.has(g.resultado));
+    const geral = atdMediasCriterios(doTipo);
+    if (!geral.length) return;
+    const mOk = new Map(atdMediasCriterios(ok).map((x) => [x.chave, x.media]));
+    const mNao = new Map(atdMediasCriterios(nao).map((x) => [x.chave, x.media]));
+    const sucessoTxt = tipo === "atendimento" ? ["pegou doc.", "não pegou"] : ["vendeu", "não fechou"];
+    const bloco = el("div", { class: "atd-padrao" }, [
+      el("div", { class: "atd-padrao-tit" }, `${ATD_TIPOS[tipo]} · ${doTipo.length} análise${doTipo.length > 1 ? "s" : ""} (${ok.length} ${sucessoTxt[0]}, ${nao.length} ${sucessoTxt[1]})`),
+    ]);
+    const comparar = ok.length && nao.length;
+    let destaque = null;
+    if (comparar) {
+      geral.forEach((c) => { c.dif = mOk.has(c.chave) && mNao.has(c.chave) ? mOk.get(c.chave) - mNao.get(c.chave) : null; });
+      destaque = geral.filter((c) => c.dif != null).sort((a, b) => b.dif - a.dif)[0];
+    }
+    const pior = [...geral].sort((a, b) => a.media - b.media)[0];
+    geral.forEach((c) => {
+      const tags = [];
+      if (c === pior) tags.push(el("span", { class: "atd-mini-tag treino" }, "🎯 ponto de treino"));
+      if (destaque && c === destaque && destaque.dif > 0.5) tags.push(el("span", { class: "atd-mini-tag pesa" }, "⚖️ mais pesa no resultado"));
+      bloco.appendChild(el("div", { class: "atd-crit-linha" }, [
+        el("div", { class: "atd-crit-nome" }, [c.nome, ...tags]),
+        atdBarra(c.media),
+        el("div", { class: "atd-crit-num" }, atdNotaTxt(c.media)),
+        comparar ? el("div", { class: "atd-crit-comp", title: `Média quando ${sucessoTxt[0]} × quando ${sucessoTxt[1]}` },
+          `${atdNotaTxt(mOk.get(c.chave))} × ${atdNotaTxt(mNao.get(c.chave))}`) : null,
+      ]));
+    });
+    if (comparar) bloco.appendChild(el("div", { class: "atd-item-info" }, `À direita: média quando ${sucessoTxt[0]} × quando ${sucessoTxt[1]}. A maior diferença mostra o que mais separa sucesso de insucesso.`));
+    caixa.appendChild(bloco);
+  });
+
+  // gestão sem filtro: média por vendedor
+  if (ehGestao && !atdDados.filtro) {
+    const porV = new Map();
+    comNota.forEach((g) => { if (!porV.has(g.vendedor)) porV.set(g.vendedor, []); porV.get(g.vendedor).push(Number(g.nota)); });
+    if (porV.size > 1) {
+      const linhas = [...porV.entries()].map(([v, ns]) => ({ v, m: atdMedia(ns), n: ns.length })).sort((a, b) => b.m - a.m);
+      caixa.appendChild(el("div", { class: "atd-padrao" }, [
+        el("div", { class: "atd-padrao-tit" }, "Nota média por vendedor"),
+        ...linhas.map((x) => el("div", { class: "atd-crit-linha" }, [
+          el("div", { class: "atd-crit-nome" }, `${x.v} (${x.n})`), atdBarra(x.m), el("div", { class: "atd-crit-num" }, atdNotaTxt(x.m)),
+        ])),
+      ]));
+    }
+  }
+  return caixa;
+}
+
+// detalhe da análise
+async function atdVerAnalise(g) {
+  const { data, error } = await sb.from("atendimentos_gravacoes").select("analise, transcricao, nota, analisado_em").eq("id", g.id).single();
+  if (error || !data || !data.analise) { showToast("Não foi possível abrir a análise" + (error ? ": " + error.message : ".")); return; }
+  const a = data.analise;
+  const ok = ATD_RES_OK.has(g.resultado);
+  const sec = (titulo, filhos) => {
+    const f = (filhos || []).filter(Boolean);
+    return f.length ? el("section", { class: "atd-sec" }, [el("h3", {}, titulo), ...f]) : null;
+  };
+  const trecho = (x) => (x && x.trecho ? el("div", { class: "atd-trecho" }, [x.tempos && x.tempos.length ? el("span", { class: "atd-trecho-t" }, atdDuracao(x.tempos[0])) : null, "“" + x.trecho + "”"]) : null);
+
+  const corpo = el("div", { class: "atd-analise" }, [
+    el("div", { class: "atd-an-topo" }, [
+      el("div", { class: "atd-an-nota " + atdNotaClasse(data.nota) }, [el("small", {}, "Nota"), el("strong", {}, atdNotaTxt(data.nota))]),
+      el("div", { class: "atd-an-resumo" }, [
+        el("div", { class: "atd-item-tags" }, [
+          g.tipo ? el("span", { class: "atd-tag t-" + g.tipo }, ATD_TIPOS[g.tipo]) : null,
+          g.resultado ? el("span", { class: "atd-tag " + (ok ? "r-ok" : "r-nao") }, (ok ? "✓ " : "✕ ") + ATD_RES_TXT[g.resultado]) : null,
+          a.fala_vendedor_pct ? el("span", { class: "atd-item-info" }, `🗣️ vendedor falou ~${a.fala_vendedor_pct}% do tempo`) : null,
+        ]),
+        el("p", {}, a.resumo || ""),
+      ]),
+    ]),
+    a.acao_pratica ? el("div", { class: "atd-acao-pratica" }, [el("strong", {}, "🎯 Para treinar no próximo: "), a.acao_pratica]) : null,
+    a.momento_decisivo && a.momento_decisivo.descricao ? sec(ok ? "✨ O que fez dar certo" : "📍 Onde se perdeu", [el("p", {}, a.momento_decisivo.descricao), trecho(a.momento_decisivo)]) : null,
+    sec("Notas por etapa", (a.criterios || []).map((c) => el("div", { class: "atd-an-crit" + (c.avaliado ? "" : " nao-aval") }, [
+      el("div", { class: "atd-crit-linha" }, [el("div", { class: "atd-crit-nome" }, c.nome), atdBarra(c.avaliado ? c.nota : null), el("div", { class: "atd-crit-num" }, c.avaliado ? String(c.nota) : "n/a")]),
+      el("div", { class: "atd-an-coment" }, c.comentario || ""),
+      c.avaliado ? trecho(c) : null,
+    ]))),
+    sec("👍 O que você fez bem", (a.fez_bem || []).map((x) => el("div", { class: "atd-ponto bom" }, [el("strong", {}, x.titulo), el("p", {}, x.detalhe), trecho(x)]))),
+    sec("🔧 O que pode melhorar", (a.melhorar || []).map((x) => el("div", { class: "atd-ponto melhorar" }, [
+      el("strong", {}, x.titulo), el("p", {}, x.detalhe), trecho(x),
+      x.como_falar ? el("div", { class: "atd-como-falar" }, [el("small", {}, "💬 Como poderia falar"), "“" + x.como_falar + "”"]) : null,
+    ]))),
+    sec("🛡️ Objeções", (a.objecoes || []).map((x) => el("div", { class: "atd-ponto" }, [
+      el("div", { class: "atd-obj-cab" }, [el("strong", {}, x.objecao), el("span", { class: "atd-mini-tag obj-" + x.avaliacao }, ATD_OBJ_TXT[x.avaliacao] || x.avaliacao)]),
+      el("p", {}, x.como_tratou), trecho(x),
+      x.sugestao ? el("div", { class: "atd-como-falar" }, [el("small", {}, "💬 Resposta sugerida"), "“" + x.sugestao + "”"]) : null,
+    ]))),
+    sec("🧲 Gatilhos mentais", [
+      (a.gatilhos_usados || []).length ? el("div", { class: "atd-chips" }, [el("small", {}, "Usou:"), ...a.gatilhos_usados.map((x) => el("span", { class: "atd-chip ok", title: x.trecho || "" }, x.gatilho))]) : null,
+      (a.gatilhos_faltaram || []).length ? el("div", { class: "atd-chips" }, [el("small", {}, "Faltou:"), ...a.gatilhos_faltaram.map((x) => el("span", { class: "atd-chip falta" }, x))]) : null,
+    ]),
+    sec("💡 Argumentos que fariam diferença", (a.argumentos_faltaram || []).length ? [el("ul", {}, a.argumentos_faltaram.map((x) => el("li", {}, x)))] : []),
+    sec("👀 Sinais do cliente", (a.sinais_cliente || []).map((x) => el("div", { class: "atd-ponto " + (x.tipo === "interesse" ? "bom" : "melhorar") }, [
+      el("strong", {}, x.tipo === "interesse" ? "Interesse" : "Desconfiança"), el("p", {}, x.descricao), trecho(x),
+    ]))),
+    a.proximo_passo ? sec(g.tipo === "fechamento" && ok ? "🤝 Pós-venda" : "📞 Próximo passo / follow-up", [el("p", {}, a.proximo_passo)]) : null,
+    (data.transcricao || []).length ? el("details", { class: "atd-transc" }, [
+      el("summary", {}, `Transcrição (${data.transcricao.length} trechos)`),
+      el("div", { class: "atd-transc-box" }, data.transcricao.map((t) => el("div", { class: "atd-transc-linha" }, [el("span", { class: "atd-trecho-t" }, atdDuracao(t.s)), t.t]))),
+    ]) : null,
+    el("p", { class: "atd-item-info" }, "Análise feita por IA a partir da transcrição — ela pode confundir quem disse o quê. Use como apoio de treino."),
+  ]);
+  atdModal(`Análise · ${g.cliente || "atendimento"}`, `${g.vendedor} · ${atdDataHora(g.criado_em)}${g.duracao_seg ? " · " + atdDuracao(g.duracao_seg) : ""}`, [corpo]);
+  const box = document.body.lastElementChild && document.body.lastElementChild.querySelector(".modal-box");
+  if (box) box.classList.add("atd-modal-grande");
 }

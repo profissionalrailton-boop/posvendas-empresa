@@ -1003,3 +1003,77 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
   .atd-rec-tempo { font-size: 26px; }
   .atd-pilula { right: 12px; bottom: 12px; }
 }
+
+/* Meus atendimentos — análise (Fase 2) */
+.n-boa { --nota: var(--success); }
+.n-media { --nota: var(--warning); }
+.n-baixa { --nota: var(--danger); }
+.n-sem { --nota: var(--text-muted); }
+.atd-nota { flex-shrink: 0; min-width: 44px; padding: 4px 10px; border-radius: 999px; font-size: 14px; font-weight: 800; text-align: center; color: var(--nota); background: color-mix(in srgb, var(--nota) 16%, transparent); border: 1px solid color-mix(in srgb, var(--nota) 45%, transparent); font-variant-numeric: tabular-nums; }
+.atd-barra { flex: 1 1 auto; height: 8px; min-width: 60px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.atd-barra-ench { height: 100%; border-radius: 999px; background: var(--nota); }
+
+.atd-painel { margin-bottom: 18px; padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px; }
+.atd-painel-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.atd-evol { display: flex; align-items: stretch; gap: 16px; }
+.atd-evol-nota { flex-shrink: 0; min-width: 130px; }
+.atd-evol-num { font-size: 34px; font-weight: 800; color: var(--nota); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.atd-evol-tend { font-size: 12px; font-weight: 700; }
+.atd-evol-tend.sobe { color: var(--success); }
+.atd-evol-tend.desce { color: var(--danger-text); }
+.atd-evol-hist { flex: 1 1 auto; display: flex; align-items: flex-end; gap: 4px; min-height: 64px; padding-bottom: 2px; border-bottom: 1px solid var(--border); }
+.atd-evol-col { flex: 1 1 0; max-width: 26px; height: 64px; display: flex; align-items: flex-end; }
+.atd-evol-bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--nota); }
+.atd-padrao { display: flex; flex-direction: column; gap: 7px; }
+.atd-padrao-tit { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.atd-crit-linha { display: flex; align-items: center; gap: 10px; }
+.atd-crit-nome { flex: 0 0 42%; font-size: 13.5px; font-weight: 600; color: var(--text); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.atd-crit-num { flex: 0 0 34px; text-align: right; font-weight: 800; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.atd-crit-comp { flex: 0 0 74px; text-align: right; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.atd-mini-tag { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: var(--surface-2); color: var(--text-muted); white-space: nowrap; }
+.atd-mini-tag.treino { background: var(--warning-bg); color: var(--warning); }
+.atd-mini-tag.pesa { background: rgba(139, 92, 246, 0.16); color: var(--primary-light); }
+.atd-mini-tag.obj-bem_tratada { background: var(--success-bg); color: var(--success); }
+.atd-mini-tag.obj-parcial { background: var(--warning-bg); color: var(--warning); }
+.atd-mini-tag.obj-mal_tratada, .atd-mini-tag.obj-nao_tratada { background: var(--danger-bg); color: var(--danger-text); }
+
+.modal-box.atd-modal-grande { max-width: 760px; width: calc(100vw - 32px); max-height: calc(100vh - 40px); overflow-y: auto; }
+.atd-analise { display: flex; flex-direction: column; gap: 16px; }
+.atd-an-topo { display: flex; gap: 14px; align-items: flex-start; }
+.atd-an-nota { flex-shrink: 0; width: 76px; height: 76px; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--nota); background: color-mix(in srgb, var(--nota) 14%, transparent); border: 2px solid color-mix(in srgb, var(--nota) 50%, transparent); }
+.atd-an-nota small { font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.atd-an-nota strong { font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
+.atd-an-resumo { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.atd-an-resumo p, .atd-sec p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text); }
+.atd-acao-pratica { padding: 12px 14px; border-radius: 12px; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.4); font-size: 14px; line-height: 1.45; }
+.atd-sec { display: flex; flex-direction: column; gap: 8px; }
+.atd-sec h3 { margin: 0; font-size: 15px; font-weight: 800; color: var(--text); }
+.atd-sec ul { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.5; }
+.atd-an-crit { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.atd-an-crit:last-child { border-bottom: 0; }
+.atd-an-crit.nao-aval { opacity: 0.6; }
+.atd-an-coment { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+.atd-ponto { padding: 10px 12px; border-radius: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 5px; border-left: 3px solid var(--border); }
+.atd-ponto.bom { border-left-color: var(--success); }
+.atd-ponto.melhorar { border-left-color: var(--warning); }
+.atd-ponto strong { font-size: 14px; }
+.atd-obj-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.atd-trecho { font-size: 12.5px; color: var(--text-muted); font-style: italic; line-height: 1.45; }
+.atd-trecho-t { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: var(--surface); font-style: normal; font-weight: 700; font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.atd-como-falar { padding: 8px 10px; border-radius: 10px; background: var(--surface); font-size: 13.5px; line-height: 1.45; }
+.atd-como-falar small { display: block; font-size: 11px; font-weight: 700; color: var(--primary-light); margin-bottom: 2px; }
+.atd-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.atd-chips small { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.atd-chip { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.atd-chip.ok { background: var(--success-bg); color: var(--success); }
+.atd-chip.falta { background: var(--surface-2); color: var(--text-muted); border: 1px dashed var(--border); }
+.atd-transc summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.atd-transc-box { margin-top: 8px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; }
+@media (max-width: 600px) {
+  .atd-evol { flex-direction: column; gap: 10px; }
+  .atd-crit-linha { flex-wrap: wrap; row-gap: 4px; }
+  .atd-crit-nome { flex-basis: 100%; font-size: 13px; }
+  .atd-crit-comp { flex-basis: auto; }
+  .atd-an-nota { width: 62px; height: 62px; }
+  .atd-an-nota strong { font-size: 21px; }
+}
