@@ -8,6 +8,7 @@ returns text language sql stable security definer set search_path to 'public' as
     case when private.is_allowed_user() then 'Teste (' || split_part(lower(auth.jwt() ->> 'email'), '@', 1) || ')' end);
 $$;
 revoke all on function private.atd_vendedor() from public;
+grant execute on function private.atd_vendedor() to authenticated; -- usada nas políticas do storage
 
 -- quem eu sou nesta aba (a tela usa para mostrar os botões de gravar)
 create or replace function public.atd_eu()
