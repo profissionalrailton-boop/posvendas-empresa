@@ -165,7 +165,7 @@ async function carregarMeusAtendimentos() {
   atdAoVivo();
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo seus atendimentos…"));
   const [l, a, u] = await Promise.all([
-    sb.from("atendimentos_gravacoes").select("id, criado_em, vendedor, cliente, tipo, resultado, origem, canais, arquivo_nome, pasta, segmentos, partes, tamanho_bytes, duracao_seg, status, nota, mime, extensao, erro, analisado_em, criterios:analise->criterios")
+    sb.from("atendimentos_gravacoes").select("id, criado_em, vendedor, cliente, tipo, resultado, origem, canais, arquivo_nome, pasta, segmentos, partes, tamanho_bytes, duracao_seg, status, nota, mime, extensao, erro, analisado_em, audio_apagado_em, criterios:analise->criterios")
       .order("criado_em", { ascending: false }).limit(300),
     sb.rpc("atd_eu"),
     sb.auth.getUser(),
@@ -266,7 +266,8 @@ function atdLinha(g, mostrarVendedor) {
     g.origem === "arquivo" ? "📁 arquivo" : g.canais ? "💻 chamada" : "🎙️ gravado",
   ].filter(Boolean).join(" · ");
   const acoes = [];
-  if (g.partes > 0) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: (ev) => atdOuvir(g, ev.currentTarget) }, "▶ Ouvir"));
+  if (g.partes > 0 && !g.audio_apagado_em) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: (ev) => atdOuvir(g, ev.currentTarget) }, "▶ Ouvir"));
+  if (g.audio_apagado_em) acoes.push(el("span", { class: "atd-item-info", title: "O áudio é apagado 7 dias depois da análise para economizar espaço. A análise e a transcrição continuam aqui." }, "🗄 áudio apagado após 7 dias"));
   if (meu && incompleta && g.partes > 0 && !naFila) acoes.push(el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => atdFormulario(g.id, null) }, "Concluir"));
   if (meu && g.status === "aguardando") acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => atdFormulario(g.id, g) }, "✏️ Editar"));
   if (g.status === "pronta") acoes.unshift(el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => atdVerAnalise(g) }, "📋 Ver análise"));
