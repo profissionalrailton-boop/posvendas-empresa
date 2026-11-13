@@ -117,6 +117,65 @@ async function blocoRecebimentosEquipe(id) {
 
 function falha(id, texto) { preencher(id, [el("div", { class: "px-vazio" }, texto)]); }
 
+// ---------- olhinho: esconder os valores em R$ ----------
+// Todo valor em R$ que aparece no painel (quadros, tabelas, metas, gráfico) é marcado automaticamente e
+// fica borrado quando o olho está fechado. A escolha fica salva neste aparelho.
+const PX_OCULTAR = "px-ocultar-valores";
+const PX_RE_DINHEIRO = /[-−]?R\$[\s ]*[-−]?\d[\d.,]*(?:[\s ]*(?:mi|mil)\b)?/g;
+function pxOculto() { try { return localStorage.getItem(PX_OCULTAR) === "1"; } catch (e) { return false; } }
+function pxAplicarOculto(raiz) {
+  const oculto = pxOculto();
+  raiz.classList.toggle("px-oculto", oculto);
+  const b = document.getElementById("px-olho");
+  if (b) {
+    b.textContent = oculto ? "🙈 Mostrar valores" : "👁 Ocultar valores";
+    b.setAttribute("aria-pressed", oculto ? "true" : "false");
+    b.title = oculto ? "Mostrar os valores em R$" : "Esconder os valores em R$";
+  }
+}
+function pxBotaoOlho(raiz) {
+  const b = el("button", { type: "button", id: "px-olho", class: "btn btn-secondary btn-sm px-olho", onclick: () => {
+    try { localStorage.setItem(PX_OCULTAR, pxOculto() ? "0" : "1"); } catch (e) { /* sem armazenamento: só nesta tela */ raiz.classList.toggle("px-oculto"); return; }
+    pxAplicarOculto(raiz);
+  } });
+  setTimeout(() => pxAplicarOculto(raiz), 0);
+  return b;
+}
+function pxMarcarTexto(t) {
+  const pai = t.parentNode;
+  if (!pai || !t.nodeValue || pai.closest(".px-din, svg, script, style, textarea")) return;
+  const s = t.nodeValue;
+  PX_RE_DINHEIRO.lastIndex = 0;
+  if (!PX_RE_DINHEIRO.test(s)) return;
+  PX_RE_DINHEIRO.lastIndex = 0;
+  const frag = document.createDocumentFragment();
+  let ult = 0, m;
+  while ((m = PX_RE_DINHEIRO.exec(s))) {
+    if (m.index > ult) frag.appendChild(document.createTextNode(s.slice(ult, m.index)));
+    frag.appendChild(el("span", { class: "px-din" }, m[0]));
+    ult = m.index + m[0].length;
+  }
+  if (ult < s.length) frag.appendChild(document.createTextNode(s.slice(ult)));
+  pai.replaceChild(frag, t);
+}
+function pxMarcarDinheiro(no) {
+  if (no.nodeType === 3) { pxMarcarTexto(no); return; }
+  if (no.nodeType !== 1) return;
+  const w = document.createTreeWalker(no, NodeFilter.SHOW_TEXT);
+  const textos = [];
+  while (w.nextNode()) textos.push(w.currentNode);
+  textos.forEach(pxMarcarTexto);
+}
+let pxObservador = null;
+function pxObservarDinheiro(raiz) {
+  if (pxObservador) return;
+  pxObservador = new MutationObserver((ms) => ms.forEach((m) => {
+    if (m.type === "characterData") pxMarcarTexto(m.target);
+    else m.addedNodes.forEach(pxMarcarDinheiro);
+  }));
+  pxObservador.observe(raiz, { childList: true, subtree: true, characterData: true });
+}
+
 // ---------- montagem ----------
 let painelCarregando = false;
 async function carregarPainel() {
@@ -126,9 +185,14 @@ async function carregarPainel() {
   const hoje = new Date();
   const nomeMes = `${MESES_PT[hoje.getMonth()]} de ${hoje.getFullYear()}`;
   raiz.innerHTML = "";
+  pxObservarDinheiro(raiz);
+  pxAplicarOculto(raiz);
   raiz.appendChild(el("div", { class: "px-topo" }, [
     el("div", {}, [el("h1", {}, "Painel geral"), el("p", { class: "px-secao-sub" }, `Resumo de ${nomeMes} · atualizado às ${String(hoje.getHours()).padStart(2, "0")}:${String(hoje.getMinutes()).padStart(2, "0")}`)]),
-    el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => carregarPainel() }, "↻ Atualizar"),
+    el("div", { class: "px-topo-acoes" }, [
+      pxBotaoOlho(raiz),
+      el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => carregarPainel() }, "↻ Atualizar"),
+    ]),
   ]));
   const kpis = el("div", { class: "px-grid px-kpis", id: "px-kpis" });
   raiz.appendChild(kpis);

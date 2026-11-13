@@ -1110,3 +1110,10 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 @media (max-width: 600px) {
   .atd-tipo-topo { flex-direction: column; align-items: stretch; gap: 8px; }
 }
+
+/* Painel geral: olhinho para esconder os valores em R$ (painel.js) */
+.px-topo-acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.px-din { transition: filter 0.15s; }
+.px-oculto .px-din { filter: blur(7px); user-select: none; }
+.px-oculto .rt-svg .rt-rot, .px-oculto .rt-svg .rt-meta-txt, .px-oculto .rt-svg text[text-anchor="end"] { filter: blur(4px); }
+.px-oculto .rt-alvo, .px-oculto [title*="R$"] { pointer-events: none; }
