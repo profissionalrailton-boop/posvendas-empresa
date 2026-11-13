@@ -17,6 +17,7 @@ const ICONES = {
   roubapremio: ic('<rect x="3" y="8" width="14" height="9.5" rx="1.5"/><path d="M2.5 5.5h15V8h-15zM10 5.5v12M10 5.5C8.5 2.5 5.5 2.8 6 4.6c.3 1 2.4.9 4 .9M10 5.5c1.5-3 4.5-2.7 4-.9-.3 1-2.4.9-4 .9"/>'),
   minhaequipe: ic('<circle cx="7" cy="7" r="2.6"/><circle cx="13.5" cy="7.5" r="2.2"/><path d="M2.5 16.5c.4-2.8 2.2-4.5 4.5-4.5s4.1 1.7 4.5 4.5M11.8 12.3c.5-.2 1.1-.3 1.7-.3 2 0 3.5 1.4 3.9 4"/>'),
   painel: ic('<rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="4" rx="1.5"/><rect x="11" y="8.5" width="6.5" height="9" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/>'),
+  meusatendimentos: ic('<rect x="7.5" y="2.5" width="5" height="9" rx="2.5"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5M7 17.5h6"/>'),
   financeiro: ic('<path d="M10 2.5v15"/><path d="M13.6 5.6c-.6-1-1.9-1.6-3.6-1.6-2.1 0-3.6 1-3.6 2.6 0 3.6 7.3 1.8 7.3 5.4 0 1.6-1.6 2.7-3.7 2.7-1.8 0-3.2-.7-3.9-1.9"/>'),
 };
 
@@ -39,6 +40,13 @@ const GRUPOS = [
     app: "minhaarea", titulo: "Minha área", exige: "vendedor", unico: true, nativo: true,
     container: "sx-minha-area", carregar: () => carregarMinhaArea(),
     itens: [{ aba: "minhaarea", label: "Minha área" }],
+  },
+  {
+    // Meus atendimentos (página desta tela — ver atendimentos.js): o vendedor grava/envia o áudio de atendimentos
+    // e fechamentos para análise. Vendedor vê os dele; supervisor, a equipe; diretoria, todos (trava no banco, sql/025).
+    app: "meusatendimentos", titulo: "Meus atendimentos", exige: "atendimentos", unico: true, nativo: true, semMetas: true,
+    container: "sx-meus-atendimentos", carregar: () => carregarMeusAtendimentos(),
+    itens: [{ aba: "meusatendimentos", label: "Meus atendimentos" }],
   },
   {
     // página única (sem subitens), pública: aparece para todo mundo que tem algum acesso.
@@ -303,6 +311,7 @@ function itensPermitidos(grupo) {
   if (grupo.exige === "supervisor" && !perms.sup) return [];
   if (grupo.exige === "qualquer" && !(perms.adm || perms.pos || perms.fin || perms.sup)) return [];
   if (grupo.exige === "quadrosonhos" && !perms.quadrosonhos) return [];
+  if (grupo.exige === "atendimentos" && !(perms.pos === "vendedor" || perms.sup || perms.fin)) return [];
   return grupo.itens.filter((it) => {
     if (it.exige === "comissao" && !perms.comissao) return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;

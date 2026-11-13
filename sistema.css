@@ -908,3 +908,98 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
   .rpa, .rpa *, .rpa::after { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
   .rpa-confete, .rpa-raios { display: none; }
 }
+
+/* Meus atendimentos (atendimentos.js) */
+.atd-raiz { max-width: 860px; }
+.atd-acao { margin-bottom: 18px; }
+.atd-botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.atd-grande { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 20px 14px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; text-align: center; transition: transform 0.15s, border-color 0.15s; }
+.atd-grande:hover { transform: translateY(-2px); border-color: var(--primary); }
+.atd-grande.gravar { background: linear-gradient(160deg, rgba(239, 68, 68, 0.16), var(--surface) 70%); border-color: rgba(239, 68, 68, 0.45); }
+.atd-grande-ic { font-size: 34px; line-height: 1; }
+.atd-grande-txt { font-size: 17px; font-weight: 800; }
+.atd-grande-sub { font-size: 12px; color: var(--text-muted); }
+.atd-dica { margin: 10px 2px 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+.atd-aviso { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; background: var(--warning-bg); color: var(--warning); font-size: 13px; font-weight: 600; }
+
+.atd-rec { margin-bottom: 18px; padding: 18px; border-radius: 16px; border: 2px solid var(--danger); background: linear-gradient(160deg, rgba(239, 68, 68, 0.14), var(--surface) 75%); display: flex; flex-direction: column; gap: 10px; }
+.atd-rec.pausado, .atd-rec.parando { border-color: var(--warning); background: var(--surface); }
+.atd-rec.interrompido { border-color: var(--warning); background: linear-gradient(160deg, rgba(245, 158, 11, 0.14), var(--surface) 75%); }
+.atd-rec-topo { display: flex; align-items: center; gap: 10px; }
+.atd-rec-ponto { width: 14px; height: 14px; border-radius: 50%; background: var(--danger); animation: atd-pisca 1.1s ease-in-out infinite; }
+.atd-rec:not(.gravando) .atd-rec-ponto { background: var(--warning); animation: none; }
+.atd-rec-estado { font-weight: 800; font-size: 16px; }
+.atd-rec-tempo { margin-left: auto; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.atd-rec-modo { font-size: 13px; color: var(--text-muted); }
+.atd-rec-alerta { padding: 10px 12px; border-radius: 10px; background: var(--warning-bg); color: var(--warning); font-size: 13px; font-weight: 600; line-height: 1.4; }
+.atd-rec-alerta.leve { background: var(--surface-2); color: var(--text-muted); font-weight: 500; }
+.atd-rec-envio { font-size: 12.5px; color: var(--text-muted); }
+.atd-rec-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.atd-rec-botoes .btn { flex: 1 1 auto; min-width: 110px; }
+.atd-parar { background: var(--danger) !important; box-shadow: none !important; }
+@keyframes atd-pisca { 50% { opacity: 0.25; } }
+
+.atd-pilula { position: fixed; right: 16px; bottom: 16px; z-index: 300; padding: 10px 16px; border-radius: 999px; border: 0; background: var(--danger); color: #fff; font: inherit; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); cursor: pointer; }
+
+.atd-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.atd-kpi { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+.atd-kpi-rot { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.atd-kpi-val { margin-top: 4px; font-size: 15px; font-weight: 800; color: var(--text); }
+
+.atd-lista-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 10px; }
+.atd-h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--text); }
+.atd-filtro { max-width: 240px; font-size: 13.5px; padding: 7px 10px; }
+.atd-lista { display: flex; flex-direction: column; gap: 8px; }
+.atd-item { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.atd-item.incompleta { border-style: dashed; border-color: var(--warning); }
+.atd-item-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.atd-item-quem { min-width: 0; }
+.atd-item-cliente { font-weight: 800; font-size: 15px; color: var(--text); overflow-wrap: anywhere; }
+.atd-item-data { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.atd-item-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.atd-item-info { font-size: 12px; color: var(--text-muted); }
+.atd-tag { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+.atd-tag.t-atendimento { border-color: rgba(56, 189, 248, 0.5); color: var(--accent-cyan); }
+.atd-tag.t-fechamento { border-color: rgba(139, 92, 246, 0.55); color: var(--primary-light); }
+.atd-tag.r-ok { background: var(--success-bg); color: var(--success); border-color: transparent; }
+.atd-tag.r-nao { background: var(--danger-bg); color: var(--danger-text); border-color: transparent; }
+.atd-status { flex-shrink: 0; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: var(--surface-2); color: var(--text-muted); white-space: nowrap; }
+.atd-status.s-gravando { background: var(--warning-bg); color: var(--warning); }
+.atd-status.s-pronta { background: var(--success-bg); color: var(--success); }
+.atd-status.s-erro { background: var(--danger-bg); color: var(--danger-text); }
+.atd-item-alerta { font-size: 12.5px; color: var(--warning); }
+.atd-item-acoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.atd-apagar { margin-left: auto; }
+.atd-player:empty { display: none; }
+.atd-player { display: flex; flex-direction: column; gap: 6px; }
+.atd-player-rot { font-size: 11.5px; font-weight: 700; color: var(--text-muted); }
+.atd-audio { width: 100%; max-height: 320px; }
+.atd-rodape { margin-top: 18px; font-size: 12.5px; color: var(--text-muted); }
+
+.atd-modos { display: flex; flex-direction: column; gap: 10px; }
+.atd-modo { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.atd-modo:hover { border-color: var(--primary); }
+.atd-modo-ic { font-size: 26px; line-height: 1; }
+.atd-modo strong { display: block; font-size: 14.5px; }
+.atd-modo small { display: block; margin-top: 3px; font-size: 12.5px; color: var(--text-muted); line-height: 1.4; }
+.atd-rot { display: block; }
+.atd-opcoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.atd-opcao { display: flex; flex-direction: column; gap: 2px; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.atd-opcao strong { font-size: 14px; }
+.atd-opcao small { font-size: 11.5px; color: var(--text-muted); line-height: 1.3; }
+.atd-opcao:hover { border-color: var(--primary); }
+.atd-opcao.sel { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.35); }
+.atd-opcao.ok.sel { border-color: var(--success); box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3); }
+.atd-opcao.nao.sel { border-color: var(--danger); box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3); }
+.rp-modal .ap-input { width: 100%; box-sizing: border-box; }
+@media (max-width: 600px) {
+  .atd-botoes { grid-template-columns: 1fr; }
+  .atd-grande { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 16px 18px; text-align: left; }
+  .atd-grande-ic { font-size: 30px; }
+  .atd-grande-sub { display: none; }
+  .atd-kpis { grid-template-columns: 1fr; gap: 6px; }
+  .atd-kpi { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; }
+  .atd-kpi-val { margin-top: 0; font-size: 13.5px; text-align: right; }
+  .atd-rec-tempo { font-size: 26px; }
+  .atd-pilula { right: 12px; bottom: 12px; }
+}
