@@ -945,7 +945,8 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .atd-parar { background: var(--danger) !important; box-shadow: none !important; }
 @keyframes atd-pisca { 50% { opacity: 0.25; } }
 
-.atd-pilula { position: fixed; right: 16px; bottom: 16px; z-index: 300; padding: 10px 16px; border-radius: 999px; border: 0; background: var(--danger); color: #fff; font: inherit; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); cursor: pointer; }
+.atd-pilula { position: fixed; right: 16px; bottom: 16px; z-index: 300; width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85); background: var(--danger); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25), 0 4px 12px rgba(0, 0, 0, 0.35); cursor: pointer; animation: atd-pisca 1.1s ease-in-out infinite; }
+.atd-pilula.parado { background: var(--warning); box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), 0 4px 12px rgba(0, 0, 0, 0.35); animation: none; }
 
 .atd-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
 .atd-kpi { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }

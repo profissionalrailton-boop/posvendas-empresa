@@ -354,7 +354,12 @@ function atdPilula() {
     p = el("button", { type: "button", id: "atd-pilula", class: "atd-pilula", onclick: () => abrir("meusatendimentos", "meusatendimentos") });
     document.body.appendChild(p);
   }
-  p.textContent = (atdRec.estado === "gravando" ? "● Gravando " : "⏸ Gravação ") + atdDuracao(atdRec.segundos());
+  // só uma bolinha vermelha (piscando enquanto grava); o tempo aparece ao passar o mouse
+  const gravando = atdRec.estado === "gravando";
+  p.classList.toggle("parado", !gravando);
+  const dica = (gravando ? "Gravando " : "Gravação pausada · ") + atdDuracao(atdRec.segundos()) + " — toque para voltar";
+  p.title = dica;
+  p.setAttribute("aria-label", dica);
 }
 
 // ---------- gravação ----------
