@@ -878,74 +878,94 @@ function atdPainelAnalises(base, ehGestao) {
   let prontas = base.filter((g) => g.status === "pronta" && Array.isArray(g.criterios));
   if (ehGestao && !atdDados.filtro) prontas = prontas.filter((g) => !/^Teste \(/.test(g.vendedor));
   if (!prontas.length) return null;
+  const porData = (a, b) => new Date(a.criado_em) - new Date(b.criado_em);
   const caixa = el("div", { class: "atd-painel" });
-  const comNota = prontas.filter((g) => g.nota != null).sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em));
-
-  // nota geral + tendência
-  const ult = comNota.slice(-10), ant = comNota.slice(-20, -10);
-  const mUlt = atdMedia(ult.map((g) => Number(g.nota))), mAnt = atdMedia(ant.map((g) => Number(g.nota)));
-  const tend = mUlt != null && mAnt != null ? mUlt - mAnt : null;
   caixa.appendChild(el("div", { class: "atd-painel-cab" }, [
     el("h2", { class: "atd-h2" }, ehGestao ? (atdDados.filtro ? "Evolução de " + atdDados.filtro : "Padrões da equipe") : "Minha evolução"),
     el("span", { class: "atd-item-info" }, `${prontas.length} análise${prontas.length > 1 ? "s" : ""}`),
   ]));
-  if (comNota.length) {
-    caixa.appendChild(el("div", { class: "atd-evol" }, [
-      el("div", { class: "atd-evol-nota" }, [
-        el("div", { class: "atd-kpi-rot" }, ult.length < comNota.length ? "Nota média (últimas 10)" : "Nota média"),
-        el("div", { class: "atd-evol-num " + atdNotaClasse(mUlt) }, atdNotaTxt(mUlt)),
-        tend != null ? el("div", { class: "atd-evol-tend " + (tend >= 0 ? "sobe" : "desce") }, (tend >= 0 ? "▲ " : "▼ ") + atdNotaTxt(Math.abs(tend)) + " vs. 10 anteriores") : null,
-      ]),
-      el("div", { class: "atd-evol-hist", title: "Notas das últimas análises, da mais antiga para a mais recente" },
-        comNota.slice(-16).map((g) => el("div", { class: "atd-evol-col", title: `${g.cliente || ""} · ${atdNotaTxt(g.nota)}` }, [
-          el("div", { class: "atd-evol-bar " + atdNotaClasse(g.nota), style: `height:${Math.max(6, Number(g.nota) * 10)}%` }),
-        ]))),
-    ]));
-  }
 
-  // por tipo: médias por critério e, havendo os dois resultados, sucesso × insucesso
   ["atendimento", "fechamento"].forEach((tipo) => {
-    const doTipo = prontas.filter((g) => g.tipo === tipo);
+    const doTipo = prontas.filter((g) => g.tipo === tipo).sort(porData);
     if (!doTipo.length) return;
+    const comNota = doTipo.filter((g) => g.nota != null);
     const ok = doTipo.filter((g) => ATD_RES_OK.has(g.resultado)), nao = doTipo.filter((g) => !ATD_RES_OK.has(g.resultado));
-    const geral = atdMediasCriterios(doTipo);
-    if (!geral.length) return;
-    const mOk = new Map(atdMediasCriterios(ok).map((x) => [x.chave, x.media]));
-    const mNao = new Map(atdMediasCriterios(nao).map((x) => [x.chave, x.media]));
     const sucessoTxt = tipo === "atendimento" ? ["pegou doc.", "não pegou"] : ["vendeu", "não fechou"];
-    const bloco = el("div", { class: "atd-padrao" }, [
+    const bloco = el("div", { class: "atd-tipo-bloco" }, [
       el("div", { class: "atd-padrao-tit" }, `${ATD_TIPOS[tipo]} · ${doTipo.length} análise${doTipo.length > 1 ? "s" : ""} (${ok.length} ${sucessoTxt[0]}, ${nao.length} ${sucessoTxt[1]})`),
     ]);
-    const comparar = ok.length && nao.length;
-    let destaque = null;
-    if (comparar) {
-      geral.forEach((c) => { c.dif = mOk.has(c.chave) && mNao.has(c.chave) ? mOk.get(c.chave) - mNao.get(c.chave) : null; });
-      destaque = geral.filter((c) => c.dif != null).sort((a, b) => b.dif - a.dif)[0];
-    }
-    const pior = [...geral].sort((a, b) => a.media - b.media)[0];
-    geral.forEach((c) => {
-      const tags = [];
-      if (c === pior) tags.push(el("span", { class: "atd-mini-tag treino" }, "🎯 ponto de treino"));
-      if (destaque && c === destaque && destaque.dif > 0.5) tags.push(el("span", { class: "atd-mini-tag pesa" }, "⚖️ mais pesa no resultado"));
-      bloco.appendChild(el("div", { class: "atd-crit-linha" }, [
-        el("div", { class: "atd-crit-nome" }, [c.nome, ...tags]),
-        atdBarra(c.media),
-        el("div", { class: "atd-crit-num" }, atdNotaTxt(c.media)),
-        comparar ? el("div", { class: "atd-crit-comp", title: `Média quando ${sucessoTxt[0]} × quando ${sucessoTxt[1]}` },
-          `${atdNotaTxt(mOk.get(c.chave))} × ${atdNotaTxt(mNao.get(c.chave))}`) : null,
+
+    // nota geral (média) + tendência + gráfico
+    const media = atdMedia(comNota.map((g) => Number(g.nota)));
+    const tend = atdTendencia(comNota.map((g) => Number(g.nota)));
+    bloco.appendChild(el("div", { class: "atd-tipo-topo" }, [
+      el("div", { class: "atd-evol-nota" }, [
+        el("div", { class: "atd-kpi-rot" }, "Nota geral (média)"),
+        el("div", { class: "atd-evol-num " + atdNotaClasse(media) }, atdNotaTxt(media)),
+        el("div", { class: "atd-evol-tend " + tend.classe }, tend.txt),
+      ]),
+      comNota.length >= 2 ? atdGrafico(comNota.slice(-20)) : el("div", { class: "atd-graf-vazio" }, "O gráfico de evolução aparece a partir da 2ª análise."),
+    ]));
+
+    // 3 pontos para melhorar (critérios mais fracos nas últimas 10 análises)
+    const recentes = doTipo.slice(-10);
+    const fracos = atdMediasCriterios(recentes).filter((c) => c.media < 8).sort((a, b) => a.media - b.media).slice(0, 3);
+    const quadro = el("div", { class: "atd-melhorar-quadro" }, [el("div", { class: "atd-melhorar-tit" }, ehGestao && !atdDados.filtro ? "🎯 3 pontos que a equipe mais precisa melhorar" : "🎯 Os 3 pontos que você mais precisa melhorar")]);
+    if (!fracos.length) quadro.appendChild(el("p", { class: "atd-item-info" }, "Nenhum ponto abaixo de 8 nas últimas análises. Continue assim! 👏"));
+    fracos.forEach((c, i) => {
+      // dica: comentário da IA na análise recente em que esse critério foi pior (a mais nova, no empate)
+      let dica = "", piorNota = 99;
+      for (let k = recentes.length - 1; k >= 0; k--) {
+        const x = (recentes[k].criterios || []).find((y) => y.chave === c.chave && y.avaliado);
+        if (x && x.comentario && Number(x.nota) < piorNota) { piorNota = Number(x.nota); dica = x.comentario; }
+      }
+      quadro.appendChild(el("div", { class: "atd-melhorar-item" }, [
+        el("span", { class: "atd-melhorar-n" }, String(i + 1)),
+        el("div", { class: "atd-melhorar-txt" }, [
+          el("div", { class: "atd-melhorar-nome" }, [c.nome, el("span", { class: "atd-nota mini " + atdNotaClasse(c.media) }, atdNotaTxt(c.media))]),
+          dica ? el("div", { class: "atd-an-coment" }, dica) : null,
+        ]),
       ]));
     });
-    if (comparar) bloco.appendChild(el("div", { class: "atd-item-info" }, `À direita: média quando ${sucessoTxt[0]} × quando ${sucessoTxt[1]}. A maior diferença mostra o que mais separa sucesso de insucesso.`));
+    bloco.appendChild(quadro);
+
+    // todos os critérios (e, havendo os dois resultados, sucesso × insucesso)
+    const geral = atdMediasCriterios(doTipo);
+    if (geral.length) {
+      const mOk = new Map(atdMediasCriterios(ok).map((x) => [x.chave, x.media]));
+      const mNao = new Map(atdMediasCriterios(nao).map((x) => [x.chave, x.media]));
+      const comparar = ok.length && nao.length;
+      let destaque = null;
+      if (comparar) {
+        geral.forEach((c) => { c.dif = mOk.has(c.chave) && mNao.has(c.chave) ? mOk.get(c.chave) - mNao.get(c.chave) : null; });
+        destaque = geral.filter((c) => c.dif != null).sort((a, b) => b.dif - a.dif)[0];
+      }
+      const det = el("details", { class: "atd-crit-det" }, [el("summary", {}, "Ver todas as etapas")]);
+      geral.forEach((c) => {
+        const tags = [];
+        if (destaque && c === destaque && destaque.dif > 0.5) tags.push(el("span", { class: "atd-mini-tag pesa" }, "⚖️ mais pesa no resultado"));
+        det.appendChild(el("div", { class: "atd-crit-linha" }, [
+          el("div", { class: "atd-crit-nome" }, [c.nome, ...tags]),
+          atdBarra(c.media),
+          el("div", { class: "atd-crit-num" }, atdNotaTxt(c.media)),
+          comparar ? el("div", { class: "atd-crit-comp", title: `Média quando ${sucessoTxt[0]} × quando ${sucessoTxt[1]}` },
+            `${atdNotaTxt(mOk.get(c.chave))} × ${atdNotaTxt(mNao.get(c.chave))}`) : null,
+        ]));
+      });
+      if (comparar) det.appendChild(el("div", { class: "atd-item-info" }, `À direita: média quando ${sucessoTxt[0]} × quando ${sucessoTxt[1]}. A maior diferença mostra o que mais separa sucesso de insucesso.`));
+      if (ehGestao && comparar) det.open = true;
+      bloco.appendChild(det);
+    }
     caixa.appendChild(bloco);
   });
 
   // gestão sem filtro: média por vendedor
   if (ehGestao && !atdDados.filtro) {
     const porV = new Map();
-    comNota.forEach((g) => { if (!porV.has(g.vendedor)) porV.set(g.vendedor, []); porV.get(g.vendedor).push(Number(g.nota)); });
+    prontas.filter((g) => g.nota != null).forEach((g) => { if (!porV.has(g.vendedor)) porV.set(g.vendedor, []); porV.get(g.vendedor).push(Number(g.nota)); });
     if (porV.size > 1) {
       const linhas = [...porV.entries()].map(([v, ns]) => ({ v, m: atdMedia(ns), n: ns.length })).sort((a, b) => b.m - a.m);
-      caixa.appendChild(el("div", { class: "atd-padrao" }, [
+      caixa.appendChild(el("div", { class: "atd-tipo-bloco" }, [
         el("div", { class: "atd-padrao-tit" }, "Nota média por vendedor"),
         ...linhas.map((x) => el("div", { class: "atd-crit-linha" }, [
           el("div", { class: "atd-crit-nome" }, `${x.v} (${x.n})`), atdBarra(x.m), el("div", { class: "atd-crit-num" }, atdNotaTxt(x.m)),
@@ -954,6 +974,48 @@ function atdPainelAnalises(base, ehGestao) {
     }
   }
   return caixa;
+}
+
+// evoluindo / regredindo: média das últimas (até 5) × as anteriores (até 5)
+function atdTendencia(notas) {
+  if (notas.length < 2) return { txt: notas.length ? "Ainda poucas análises para ver a tendência" : "", classe: "" };
+  const n = Math.min(5, Math.floor(notas.length / 2));
+  const dif = atdMedia(notas.slice(-n)) - atdMedia(notas.slice(-2 * n, -n));
+  if (dif >= 0.3) return { txt: `▲ Evoluindo (+${atdNotaTxt(dif)})`, classe: "sobe" };
+  if (dif <= -0.3) return { txt: `▼ Regredindo (−${atdNotaTxt(-dif)})`, classe: "desce" };
+  return { txt: "● Estável", classe: "estavel" };
+}
+
+// gráfico de linha das notas (0 a 10), da mais antiga para a mais recente
+function atdGrafico(gravs) {
+  const W = 320, H = 130, L = 26, R = 10, T = 10, B = 22;
+  const x = (i) => L + (gravs.length === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (gravs.length - 1));
+  const y = (n) => T + (1 - n / 10) * (H - T - B);
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("class", "atd-graf");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Evolução das notas: " + gravs.map((g) => atdNotaTxt(g.nota)).join(", "));
+  const add = (tag, attrs, txt) => { const e = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if (txt != null) e.textContent = txt; svg.appendChild(e); return e; };
+  [0, 5, 10].forEach((v) => {
+    add("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "atd-graf-grade" });
+    add("text", { x: L - 6, y: y(v) + 3.5, class: "atd-graf-rot", "text-anchor": "end" }, String(v));
+  });
+  const pts = gravs.map((g, i) => [x(i), y(Number(g.nota))]);
+  add("polyline", { points: pts.map((p) => p.join(",")).join(" "), class: "atd-graf-linha" });
+  gravs.forEach((g, i) => {
+    const c = add("circle", { cx: pts[i][0], cy: pts[i][1], r: 4.5, class: "atd-graf-ponto " + atdNotaClasse(Number(g.nota)) });
+    const d = new Date(g.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const t = document.createElementNS(ns, "title");
+    t.textContent = `${d} · ${g.cliente || ""} · nota ${atdNotaTxt(g.nota)} · ${ATD_RES_TXT[g.resultado] || ""}`;
+    c.appendChild(t);
+  });
+  const d0 = new Date(gravs[0].criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  const d1 = new Date(gravs[gravs.length - 1].criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  add("text", { x: L, y: H - 6, class: "atd-graf-rot" }, d0);
+  add("text", { x: W - R, y: H - 6, class: "atd-graf-rot", "text-anchor": "end" }, d1);
+  return el("div", { class: "atd-graf-caixa" }, [svg]);
 }
 
 // detalhe da análise
