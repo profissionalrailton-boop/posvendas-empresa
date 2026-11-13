@@ -45,8 +45,8 @@ window.addEventListener("message", (e) => {
 function card(titulo, valor, sub, opts = {}) {
   return el("div", { class: "px-card" + (opts.destaque ? " px-destaque" : "") + (opts.status ? ` px-${opts.status}` : "") }, [
     el("div", { class: "px-titulo" }, titulo),
-    el("div", { class: "px-valor" }, valor),
-    sub ? el("div", { class: "px-sub" }, sub) : null,
+    el("div", { class: "px-valor" + (opts.sensivel ? " px-din" : "") }, valor),
+    sub ? el("div", { class: "px-sub" + (opts.subSensivel ? " px-din" : "") }, sub) : null,
   ]);
 }
 // barras horizontais de uma cor só (comparação de quantidades), com rótulo e valor em texto
@@ -117,11 +117,9 @@ async function blocoRecebimentosEquipe(id) {
 
 function falha(id, texto) { preencher(id, [el("div", { class: "px-vazio" }, texto)]); }
 
-// ---------- olhinho: esconder os valores em R$ ----------
-// Todo valor em R$ que aparece no painel (quadros, tabelas, metas, gráfico) é marcado automaticamente e
-// fica borrado quando o olho está fechado. A escolha fica salva neste aparelho.
+// ---------- olhinho: esconder os valores de Resultado do mês e Saldo em conta ----------
+// A escolha fica salva neste aparelho.
 const PX_OCULTAR = "px-ocultar-valores";
-const PX_RE_DINHEIRO = /[-−]?R\$[\s ]*[-−]?\d[\d.,]*(?:[\s ]*(?:mi|mil)\b)?/g;
 function pxOculto() { try { return localStorage.getItem(PX_OCULTAR) === "1"; } catch (e) { return false; } }
 function pxAplicarOculto(raiz) {
   const oculto = pxOculto();
@@ -130,50 +128,16 @@ function pxAplicarOculto(raiz) {
   if (b) {
     b.textContent = oculto ? "🙈 Mostrar valores" : "👁 Ocultar valores";
     b.setAttribute("aria-pressed", oculto ? "true" : "false");
-    b.title = oculto ? "Mostrar os valores em R$" : "Esconder os valores em R$";
+    b.title = oculto ? "Mostrar Resultado do mês e Saldo em conta" : "Esconder Resultado do mês e Saldo em conta";
   }
 }
 function pxBotaoOlho(raiz) {
   const b = el("button", { type: "button", id: "px-olho", class: "btn btn-secondary btn-sm px-olho", onclick: () => {
-    try { localStorage.setItem(PX_OCULTAR, pxOculto() ? "0" : "1"); } catch (e) { /* sem armazenamento: só nesta tela */ raiz.classList.toggle("px-oculto"); return; }
+    try { localStorage.setItem(PX_OCULTAR, pxOculto() ? "0" : "1"); } catch (e) { raiz.classList.toggle("px-oculto"); return; }
     pxAplicarOculto(raiz);
   } });
   setTimeout(() => pxAplicarOculto(raiz), 0);
   return b;
-}
-function pxMarcarTexto(t) {
-  const pai = t.parentNode;
-  if (!pai || !t.nodeValue || pai.closest(".px-din, svg, script, style, textarea")) return;
-  const s = t.nodeValue;
-  PX_RE_DINHEIRO.lastIndex = 0;
-  if (!PX_RE_DINHEIRO.test(s)) return;
-  PX_RE_DINHEIRO.lastIndex = 0;
-  const frag = document.createDocumentFragment();
-  let ult = 0, m;
-  while ((m = PX_RE_DINHEIRO.exec(s))) {
-    if (m.index > ult) frag.appendChild(document.createTextNode(s.slice(ult, m.index)));
-    frag.appendChild(el("span", { class: "px-din" }, m[0]));
-    ult = m.index + m[0].length;
-  }
-  if (ult < s.length) frag.appendChild(document.createTextNode(s.slice(ult)));
-  pai.replaceChild(frag, t);
-}
-function pxMarcarDinheiro(no) {
-  if (no.nodeType === 3) { pxMarcarTexto(no); return; }
-  if (no.nodeType !== 1) return;
-  const w = document.createTreeWalker(no, NodeFilter.SHOW_TEXT);
-  const textos = [];
-  while (w.nextNode()) textos.push(w.currentNode);
-  textos.forEach(pxMarcarTexto);
-}
-let pxObservador = null;
-function pxObservarDinheiro(raiz) {
-  if (pxObservador) return;
-  pxObservador = new MutationObserver((ms) => ms.forEach((m) => {
-    if (m.type === "characterData") pxMarcarTexto(m.target);
-    else m.addedNodes.forEach(pxMarcarDinheiro);
-  }));
-  pxObservador.observe(raiz, { childList: true, subtree: true, characterData: true });
 }
 
 // ---------- montagem ----------
@@ -185,7 +149,6 @@ async function carregarPainel() {
   const hoje = new Date();
   const nomeMes = `${MESES_PT[hoje.getMonth()]} de ${hoje.getFullYear()}`;
   raiz.innerHTML = "";
-  pxObservarDinheiro(raiz);
   pxAplicarOculto(raiz);
   raiz.appendChild(el("div", { class: "px-topo" }, [
     el("div", {}, [el("h1", {}, "Painel geral"), el("p", { class: "px-secao-sub" }, `Resumo de ${nomeMes} · atualizado às ${String(hoje.getHours()).padStart(2, "0")}:${String(hoje.getMinutes()).padStart(2, "0")}`)]),
@@ -217,10 +180,10 @@ async function carregarPainel() {
       ? card("Adimplência", pctFmt(k.pos.pctAdimplencia), `${num.format(k.pos.inadimplentes)} inadimplentes de ${num.format(k.pos.acompanhados)}`, { status: k.pos.pctAdimplencia >= 90 ? "bom" : k.pos.pctAdimplencia >= 75 ? "atencao" : "critico" })
       : card("Adimplência", k.pos === false ? "—" : "…", k.pos === false ? "sem acesso aos dados" : null));
     kpis.appendChild(k.fin
-      ? card("Resultado do mês", brl2.format(k.fin.resultado), `Faturamento ${brl2.format(k.fin.faturamento)} − despesas ${brl2.format(k.fin.despesas)}`, { status: k.fin.resultado >= 0 ? "bom" : "critico" })
+      ? card("Resultado do mês", brl2.format(k.fin.resultado), `Faturamento ${brl2.format(k.fin.faturamento)} − despesas ${brl2.format(k.fin.despesas)}`, { status: k.fin.resultado >= 0 ? "bom" : "critico", sensivel: true, subSensivel: true })
       : card("Resultado do mês", k.fin === false ? "—" : "…"));
     kpis.appendChild(k.fin
-      ? card("Saldo em conta", brl2.format(k.fin.saldoConta), "Acumulado até este mês", { status: k.fin.saldoConta >= 0 ? "bom" : "critico" })
+      ? card("Saldo em conta", brl2.format(k.fin.saldoConta), "Acumulado até este mês", { status: k.fin.saldoConta >= 0 ? "bom" : "critico", sensivel: true })
       : card("Saldo em conta", k.fin === false ? "—" : "…"));
   };
   desenharKpis();
