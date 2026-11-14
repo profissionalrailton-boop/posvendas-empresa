@@ -34,6 +34,12 @@ const atdFila = [];    // pedaços aguardando envio: { chave, id, caminho, blob,
 let atdEnviando = false;
 const atdEsperas = []; // { id, resolve } — quem espera a fila de uma gravação esvaziar
 const atdFinalizandoAqui = new Set(); // formulário aberto esperando o envio: ele mesmo finaliza
+const atdEnvio = {};   // id → { total, feitos }: progresso do envio em segundo plano
+const atdEnvioSoma = (id) => { (atdEnvio[id] = atdEnvio[id] || { total: 0, feitos: 0 }).total++; };
+const atdEnvioPct = (id) => { const e = atdEnvio[id]; return e && e.total ? Math.min(99, Math.round((e.feitos / e.total) * 100)) : 0; };
+function atdPintarEnvio(id) {
+  document.querySelectorAll('[data-atd-envio="' + id + '"]').forEach((sp) => { sp.textContent = "Enviando áudio… " + atdEnvioPct(id) + "%"; });
+}
 
 const atdDuracao = (s) => {
   s = Math.max(0, Math.round(s || 0));
@@ -91,6 +97,7 @@ function atdFormGuardado(id, dados) {
 async function atdEnfileirar(item, guardar) {
   item.guardado = !!guardar;
   atdFila.push(item);
+  atdEnvioSoma(item.id);
   if (guardar) await atdIdbGuardar(item);
   atdEnviarFila();
 }
@@ -111,7 +118,7 @@ async function atdEnviarFila() {
           if (!eG && (!g || !["gravando", "aguardando"].includes(g.status))) {
             atdFila.shift();
             if (item.guardado) await atdIdbApagar(item.chave);
-            if (!atdNaFila(item.id)) atdFilaVazia(item.id);
+            if (!atdNaFila(item.id)) { delete atdEnvio[item.id]; atdFilaVazia(item.id); }
             continue;
           }
         }
@@ -124,7 +131,9 @@ async function atdEnviarFila() {
       await sb.rpc("atd_progresso", { p_id: item.id, p_segmentos: p.seg, p_partes: p.partes, p_tamanho: p.bytes, p_duracao: p.dur == null ? null : Math.round(p.dur) });
       atdFila.shift();
       if (item.guardado) await atdIdbApagar(item.chave);
-      if (!atdNaFila(item.id)) atdFilaVazia(item.id);
+      if (atdEnvio[item.id]) atdEnvio[item.id].feitos++;
+      if (!atdNaFila(item.id)) { delete atdEnvio[item.id]; atdFilaVazia(item.id); }
+      else atdPintarEnvio(item.id);
       atdPintarRec();
     }
   } finally {
@@ -149,7 +158,7 @@ async function atdRetomarGuardados() {
   const todos = await atdIdbTodos();
   if (!todos || !todos.length) return;
   todos.sort((a, b) => (a.chave < b.chave ? -1 : 1)).forEach((it) => {
-    if (!atdFila.some((x) => x.chave === it.chave)) atdFila.push({ ...it, guardado: true });
+    if (!atdFila.some((x) => x.chave === it.chave)) { atdFila.push({ ...it, guardado: true }); atdEnvioSoma(it.id); }
   });
   atdEnviarFila();
 }
@@ -260,6 +269,7 @@ function atdLinha(g, mostrarVendedor) {
   const meu = g.vendedor === atdDados.eu;
   const incompleta = g.status === "gravando";
   const naFila = atdNaFila(g.id);
+  const formEnvio = naFila ? atdFormGuardado(g.id) : null;
   const info = [
     g.duracao_seg ? "⏱ " + atdDuracao(g.duracao_seg) : null,
     g.tamanho_bytes ? atdMb(g.tamanho_bytes) : null,
@@ -276,12 +286,12 @@ function atdLinha(g, mostrarVendedor) {
   return el("div", { class: "atd-item" + (incompleta ? " incompleta" : "") }, [
     el("div", { class: "atd-item-topo" }, [
       el("div", { class: "atd-item-quem" }, [
-        el("div", { class: "atd-item-cliente" }, g.cliente || (incompleta ? "Gravação sem dados" : "—")),
+        el("div", { class: "atd-item-cliente" }, g.cliente || (formEnvio && formEnvio.cliente) || (incompleta ? "Gravação sem dados" : "—")),
         el("div", { class: "atd-item-data" }, [atdDataHora(g.criado_em), mostrarVendedor ? " · " + g.vendedor : ""].join("")),
       ]),
       g.status === "pronta" && g.nota != null
         ? el("span", { class: "atd-nota " + atdNotaClasse(g.nota), title: "Nota geral da análise" }, atdNotaTxt(g.nota))
-        : el("span", { class: "atd-status s-" + g.status }, naFila ? "Enviando áudio…" : ATD_STATUS[g.status] || g.status),
+        : el("span", { class: "atd-status s-" + g.status, "data-atd-envio": naFila ? g.id : null }, naFila ? "Enviando áudio… " + atdEnvioPct(g.id) + "%" : ATD_STATUS[g.status] || g.status),
     ]),
     el("div", { class: "atd-item-tags" }, [
       g.tipo ? el("span", { class: "atd-tag t-" + g.tipo }, ATD_TIPOS[g.tipo]) : null,
@@ -689,13 +699,8 @@ async function atdEnviarArquivo(f, dados, botao) {
         prog: { seg: i + 1, partes: i + 1, bytes, dur: audio.duration } }, false);
     }
   }
+  // o envio segue em segundo plano: quando a fila esvaziar, atdFilaVazia finaliza com estes dados
   atdFormGuardado(id, dados);
-  const timer = setInterval(() => {
-    const falta = atdNaFila(id);
-    botao.textContent = `Enviando… ${Math.round(((total - falta) / total) * 100)}%`;
-  }, 500);
-  await atdEsperarFila(id);
-  clearInterval(timer);
   return id;
 }
 
@@ -755,18 +760,21 @@ function atdFormulario(id, atual, arquivo) {
     if (gid) atdFinalizandoAqui.add(gid);
     try {
       if (arquivo) {
-        confirmar.textContent = "Enviando… 0%";
+        confirmar.textContent = "Preparando…";
         gid = await atdEnviarArquivo(arquivo, dados, confirmar);
-      } else if (atdNaFila(gid)) {
-        // ainda subindo o áudio: guarda o formulário e finaliza sozinho quando terminar
+      }
+      if (atdNaFila(gid)) {
+        // ainda subindo o áudio: guarda o formulário, fecha a janela e o envio segue em segundo plano
+        // (atdFilaVazia finaliza sozinho quando o último pedaço chegar)
         atdFormGuardado(gid, dados);
-        confirmar.textContent = "Enviando o áudio…";
-        if (!navigator.onLine) {
-          atdFinalizandoAqui.delete(gid); // finaliza sozinho quando a internet voltar
-          showToast("Sem internet: o áudio fica guardado neste aparelho e é enviado quando a conexão voltar.");
-          fechar(); carregarMeusAtendimentos(); return;
-        }
-        await atdEsperarFila(gid);
+        atdFinalizandoAqui.delete(gid);
+        fechar();
+        showToast(!navigator.onLine
+          ? "Sem internet: o áudio fica guardado neste aparelho e é enviado quando a conexão voltar."
+          : arquivo ? "Enviando o áudio em segundo plano. Pode continuar usando o sistema, só não feche esta página."
+          : "Enviando o áudio em segundo plano. Pode continuar usando o sistema.");
+        carregarMeusAtendimentos();
+        return;
       }
       const { error } = await sb.rpc("atd_finalizar", { p_id: gid, p_cliente: dados.cliente, p_tipo: dados.tipo, p_resultado: dados.resultado });
       if (error) throw error;
