@@ -103,7 +103,7 @@ const GRUPOS = [
       { aba: "producao", label: "Produção" },
       { aba: "pendencias", label: "Pendências" },
       { aba: "checagem", label: "Checagem" },
-      { aba: "analise", label: "Análise de gravação" },
+      { aba: "analise", label: "Auditoria de Qualidade" },
       { aba: "radar", label: "Cadastro de vendas" },
       { aba: "reincidencia", label: "Reincidência" },
       { aba: "gestao", label: "Gestão" },
