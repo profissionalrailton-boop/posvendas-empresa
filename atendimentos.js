@@ -407,7 +407,7 @@ function atdPintarRec() {
         ? "🔇 Sem som da chamada há mais de " + ATD_SEM_SOM_SEG + " segundos. Se o cliente está falando, a gravação NÃO está captando: confira se o áudio da chamada está ligado e se você marcou “Compartilhar áudio” ao escolher a tela."
         : "🔇 Sem som no microfone há mais de " + ATD_SEM_SOM_SEG + " segundos. Se alguém está falando, a gravação NÃO está captando: confira se o microfone não está no mudo, se é o aparelho certo e se o navegador tem permissão. Fale algo e veja se a barra se mexe.")) : []),
     estado === "interrompido"
-      ? el("div", { class: "atd-rec-alerta" }, "O aparelho parou o microfone (tela bloqueada, troca de app ou fim do compartilhamento). O que já foi gravado está salvo. Continue gravando ou finalize.")
+      ? el("div", { class: "atd-rec-alerta" }, "A gravação parou: " + (r.motivo || "o aparelho parou o microfone") + ". O que já foi gravado está salvo. Toque em “Continuar gravando” ou finalize.")
       : el("div", { class: "atd-rec-alerta leve" }, r.modo === "chamada" ? "Mantenha a chamada e esta aba abertas até finalizar." : "⚠️ Não bloqueie a tela nem troque de app até finalizar."),
     el("div", { class: "atd-rec-envio" }, `☁️ ${enviados} ${enviados === 1 ? "pedaço salvo" : "pedaços salvos"} na nuvem${fila ? ` · ${fila} na fila` : ""}`),
     el("div", { class: "atd-rec-botoes" }, [
@@ -434,8 +434,10 @@ function atdPilula() {
   const gravando = atdRec.estado === "gravando";
   const semSom = gravando && atdSemSom();
   p.classList.toggle("parado", !gravando);
-  p.classList.toggle("sem-som", semSom);
-  const dica = (semSom ? "🔇 SEM SOM — a gravação não está captando! " : gravando ? "Gravando " : "Gravação pausada · ") + atdDuracao(atdRec.segundos()) + " — toque para voltar";
+  const parou = atdRec.estado === "interrompido";
+  p.classList.toggle("sem-som", semSom || parou);
+  p.classList.toggle("interrompida", parou);
+  const dica = parou ? "⚠️ A GRAVAÇÃO PAROU — toque para voltar e continuar" : ((semSom ? "🔇 SEM SOM — a gravação não está captando! " : gravando ? "Gravando " : "Gravação pausada · ") + atdDuracao(atdRec.segundos()) + " — toque para voltar");
   p.title = dica;
   p.setAttribute("aria-label", dica);
 }
@@ -549,9 +551,9 @@ function atdNovoSegmento(audio) {
       prog: { seg, partes: r.partes, bytes: r.bytes, dur: r.segundos() } }, true);
     atdPintarRec();
   };
-  rec.onerror = () => atdInterrompida();
+  rec.onerror = (ev) => { if (r.rec === rec) atdInterrompida("o gravador do navegador deu erro" + (ev && ev.error && ev.error.name ? " (" + ev.error.name + ")" : "")); };
   // o celular derruba o microfone ao bloquear a tela / trocar de app; no computador, "parar compartilhamento"
-  audio.vigiar.forEach((t) => t.addEventListener("ended", () => atdInterrompida()));
+  audio.vigiar.forEach((t) => t.addEventListener("ended", () => { if (r.audio === audio) atdInterrompida(t.kind === "video" ? "o compartilhamento de tela foi encerrado" : "o navegador encerrou o microfone"); }));
   rec.start(ATD_PARTE_SEG * 1000);
   if (!r.desde) r.desde = Date.now();
   r.segIni = r.segundos();
@@ -642,15 +644,37 @@ function atdCongelarTempo() {
   if (atdRec && atdRec.desde) { atdRec.acumulado += (Date.now() - atdRec.desde) / 1000; atdRec.desde = null; }
 }
 
-async function atdInterrompida() {
+async function atdInterrompida(motivo) {
   const r = atdRec;
-  if (!r || r.estado === "interrompido" || r.estado === "parando") return;
+  if (!r || r.estado === "interrompido" || r.estado === "parando" || r.recuperando) return;
   atdCongelarTempo();
   r.estado = "interrompido";
+  r.motivo = motivo || "o microfone parou";
   await atdPararGravador();
   atdSoltar(r.audio);
   r.audio = null;
+  // gravação pelo microfone: tenta voltar sozinha (o navegador não pede clique quando a permissão já foi dada)
+  r.quedas = (r.quedas || 0) + 1;
+  if (r.modo === "mic" && r.quedas <= 5 && atdRec === r) {
+    r.recuperando = true;
+    try {
+      const audio = await atdPegarAudio("mic");
+      if (atdRec === r && r.estado === "interrompido") {
+        atdNovoSegmento(audio);
+        atdTelaAcesa(true);
+        r.recuperando = false;
+        atdPintarRec();
+        showToast("O microfone caiu por um instante e a gravação continuou sozinha 🎙️");
+        return;
+      }
+      atdSoltar(audio);
+    } catch (e) { /* não deu: fica interrompida e avisa */ }
+    r.recuperando = false;
+  }
   atdPintarRec();
+  // avisa em qualquer tela do sistema: a gravação parou e precisa de um clique para voltar
+  showToast("⚠️ A gravação PAROU (" + r.motivo + "). Volte em Meus atendimentos e toque em “Continuar gravando”. O que já foi gravado está salvo.");
+  try { tocarSom(); if (navigator.vibrate) navigator.vibrate([400, 200, 400]); } catch (e) { /* aviso sonoro é opcional */ }
 }
 async function atdContinuarInterrompida() {
   if (!atdRec) return;
@@ -728,7 +752,7 @@ document.addEventListener("visibilitychange", () => {
   atdTelaAcesa(true);
   // alguns celulares "silenciam" o microfone em vez de encerrar: confere ao voltar
   const t = atdRec.audio && atdRec.audio.vigiar[0];
-  if (atdRec.estado === "gravando" && t && (t.readyState === "ended" || t.muted)) atdInterrompida();
+  if (atdRec.estado === "gravando" && t && t.readyState === "ended") atdInterrompida("o navegador encerrou o microfone enquanto a tela estava fora");
   atdPintarRec();
 });
 window.addEventListener("beforeunload", (ev) => {
