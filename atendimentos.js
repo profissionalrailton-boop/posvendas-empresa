@@ -18,6 +18,8 @@ const ATD_SEG_MAX = 15 * 60;                 // gravação: novo arquivo a cada 
 const ATD_ARQ_DIRETO = 24 * 1024 * 1024;     // arquivo até 24 MB em formato aceito vai como está; acima, é convertido
 const ATD_ARQ_ACEITOS = new Set(["mp3", "m4a", "mp4", "wav", "webm", "ogg", "oga", "opus", "mpeg", "mpga", "flac"]);
 const ATD_WAV_SEG = 300;                     // conversão: partes de 5 min em WAV 16 kHz mono (~9,6 MB)
+const ATD_SOM_MIN = 0.004;                   // pico abaixo disso (~ -48 dB) conta como silêncio
+const ATD_SEM_SOM_SEG = 20;                  // segundos seguidos sem som para avisar o vendedor
 const ATD_TIPOS = { atendimento: "Atendimento", fechamento: "Fechamento" };
 const ATD_RESULTADOS = {
   atendimento: [["documentacao", "Pegou documentação"], ["sem_documentacao", "Não passou documentação"]],
@@ -394,6 +396,16 @@ function atdPintarRec() {
       el("span", { class: "atd-rec-tempo", id: "atd-rec-tempo" }, atdDuracao(r.segundos())),
     ]),
     el("div", { class: "atd-rec-modo" }, r.modo === "chamada" ? "💻 Chamada no computador (tela + microfone)" : "🎙️ Microfone deste aparelho"),
+    r.audio && r.audio.vu && estado !== "interrompido" ? el("div", { class: "atd-vu" + (estado === "gravando" ? "" : " parado") }, r.audio.vu.map((v, i) =>
+      el("div", { class: "atd-vu-linha" + (v.mudo ? " mudo" : "") }, [
+        el("span", { class: "atd-vu-rot" }, v.rot),
+        el("div", { class: "atd-vu-trilho", role: "meter", "aria-label": "Volume: " + v.rot }, [el("div", { class: "atd-vu-barra", id: "atd-vu-" + i, style: "width:" + Math.round(v.nivel * 100) + "%" })]),
+        el("span", { class: "atd-vu-estado" }, v.mudo ? "sem som" : estado === "gravando" ? "captando" : "—"),
+      ]))) : null,
+    ...(r.audio && r.audio.vu && estado === "gravando" ? r.audio.vu.filter((v) => v.mudo).map((v) =>
+      el("div", { class: "atd-rec-alerta forte" }, v.rot === "Cliente"
+        ? "🔇 Sem som da chamada há mais de " + ATD_SEM_SOM_SEG + " segundos. Se o cliente está falando, a gravação NÃO está captando: confira se o áudio da chamada está ligado e se você marcou “Compartilhar áudio” ao escolher a tela."
+        : "🔇 Sem som no microfone há mais de " + ATD_SEM_SOM_SEG + " segundos. Se alguém está falando, a gravação NÃO está captando: confira se o microfone não está no mudo, se é o aparelho certo e se o navegador tem permissão. Fale algo e veja se a barra se mexe.")) : []),
     estado === "interrompido"
       ? el("div", { class: "atd-rec-alerta" }, "O aparelho parou o microfone (tela bloqueada, troca de app ou fim do compartilhamento). O que já foi gravado está salvo. Continue gravando ou finalize.")
       : el("div", { class: "atd-rec-alerta leve" }, r.modo === "chamada" ? "Mantenha a chamada e esta aba abertas até finalizar." : "⚠️ Não bloqueie a tela nem troque de app até finalizar."),
@@ -420,8 +432,10 @@ function atdPilula() {
   }
   // só uma bolinha vermelha (piscando enquanto grava); o tempo aparece ao passar o mouse
   const gravando = atdRec.estado === "gravando";
+  const semSom = gravando && atdSemSom();
   p.classList.toggle("parado", !gravando);
-  const dica = (gravando ? "Gravando " : "Gravação pausada · ") + atdDuracao(atdRec.segundos()) + " — toque para voltar";
+  p.classList.toggle("sem-som", semSom);
+  const dica = (semSom ? "🔇 SEM SOM — a gravação não está captando! " : gravando ? "Gravando " : "Gravação pausada · ") + atdDuracao(atdRec.segundos()) + " — toque para voltar";
   p.title = dica;
   p.setAttribute("aria-label", dica);
 }
@@ -518,6 +532,7 @@ function atdNovoSegmento(audio) {
   const r = atdRec;
   r.seg += 1;
   r.audio = audio;
+  atdMedidorLigar(audio);
   let idx = 0;
   const seg = r.seg;
   const opcoes = { audioBitsPerSecond: audio.bits };
@@ -558,8 +573,60 @@ function atdGirarSegmento() {
   r.girando = false;
 }
 
+// ---------- medidor de volume ----------
+// Mostra ao vendedor se o som está chegando e avisa quando fica em silêncio (microfone mudo, aparelho errado,
+// chamada compartilhada sem áudio). Só escuta o nível; não altera o que é gravado.
+function atdMedidorLigar(audio) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || audio.vu) return;
+    const ctx = audio.ctx || new AC();
+    if (!audio.ctx) audio.ctxMedidor = ctx;
+    if (ctx.resume) ctx.resume().catch(() => {});
+    const rotulos = audio.fontes.length > 1 ? ["Você", "Cliente"] : ["Microfone"];
+    audio.vu = audio.fontes.map((fonte, i) => {
+      const an = ctx.createAnalyser();
+      an.fftSize = 1024;
+      ctx.createMediaStreamSource(new MediaStream(fonte.getAudioTracks())).connect(an);
+      return { rot: rotulos[i] || "Áudio", an, buf: new Float32Array(an.fftSize), nivel: 0, ultimoSom: Date.now(), mudo: false };
+    });
+    audio.vuTimer = setInterval(() => atdMedidorLer(audio), 120);
+  } catch (e) { audio.vu = null; }
+}
+function atdMedidorLer(audio) {
+  const r = atdRec;
+  if (!r || r.audio !== audio || !audio.vu) return;
+  const gravando = r.estado === "gravando";
+  let mudou = false;
+  audio.vu.forEach((v, i) => {
+    v.an.getFloatTimeDomainData(v.buf);
+    let pico = 0;
+    for (let k = 0; k < v.buf.length; k++) { const a = Math.abs(v.buf[k]); if (a > pico) pico = a; }
+    const db = 20 * Math.log10(pico || 1e-7);
+    const alvo = gravando ? Math.max(0, Math.min(1, (db + 60) / 54)) : 0; // -60 dB = vazio, -6 dB = cheio
+    v.nivel = alvo > v.nivel ? alvo : Math.max(alvo, v.nivel - 0.07);
+    if (pico >= ATD_SOM_MIN || !gravando) v.ultimoSom = Date.now();
+    const mudo = gravando && Date.now() - v.ultimoSom > ATD_SEM_SOM_SEG * 1000;
+    if (mudo !== v.mudo) {
+      v.mudo = mudo;
+      mudou = true;
+      if (mudo) {
+        showToast(v.rot === "Cliente" ? "🔇 A gravação não está captando o som da chamada!" : "🔇 A gravação não está captando o som do microfone!");
+        try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) { /* sem vibração */ }
+      }
+    }
+    const barra = document.getElementById("atd-vu-" + i);
+    if (barra) barra.style.width = Math.round(v.nivel * 100) + "%";
+  });
+  if (mudou) atdPintarRec();
+}
+const atdSemSom = () => !!(atdRec && atdRec.audio && atdRec.audio.vu && atdRec.audio.vu.some((v) => v.mudo));
+
 function atdSoltar(audio) {
   if (!audio) return;
+  clearInterval(audio.vuTimer);
+  if (audio.ctxMedidor) audio.ctxMedidor.close().catch(() => {});
+  audio.vu = null;
   audio.fontes.forEach((s) => s.getTracks().forEach((t) => t.stop()));
   if (audio.ctx) audio.ctx.close().catch(() => {});
 }

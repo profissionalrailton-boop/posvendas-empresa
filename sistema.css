@@ -939,6 +939,16 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .atd-rec-tempo { margin-left: auto; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .atd-rec-modo { font-size: 13px; color: var(--text-muted); }
 .atd-rec-alerta { padding: 10px 12px; border-radius: 10px; background: var(--warning-bg); color: var(--warning); font-size: 13px; font-weight: 600; line-height: 1.4; }
+.atd-rec-alerta.forte { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger); font-weight: 700; }
+.atd-vu { display: flex; flex-direction: column; gap: 6px; }
+.atd-vu-linha { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-muted); }
+.atd-vu-rot { flex: 0 0 74px; font-weight: 700; }
+.atd-vu-trilho { flex: 1 1 auto; height: 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+.atd-vu-barra { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #22c55e, #84cc16 70%, #f59e0b); transition: width 0.1s linear; }
+.atd-vu-estado { flex: 0 0 62px; text-align: right; font-weight: 600; }
+.atd-vu-linha.mudo .atd-vu-trilho { border-color: var(--danger); }
+.atd-vu-linha.mudo .atd-vu-estado { color: var(--danger-text); font-weight: 800; }
+.atd-vu.parado { opacity: 0.55; }
 .atd-rec-alerta.leve { background: var(--surface-2); color: var(--text-muted); font-weight: 500; }
 .atd-rec-envio { font-size: 12.5px; color: var(--text-muted); }
 .atd-rec-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -947,6 +957,8 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 @keyframes atd-pisca { 50% { opacity: 0.25; } }
 
 .atd-pilula { position: fixed; right: 16px; bottom: 16px; z-index: 300; width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85); background: var(--danger); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25), 0 4px 12px rgba(0, 0, 0, 0.35); cursor: pointer; animation: atd-pisca 1.1s ease-in-out infinite; }
+.atd-pilula.sem-som { width: 26px; height: 26px; background: var(--warning); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35); }
+.atd-pilula.sem-som::after { content: "🔇"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
 .atd-pilula.parado { background: var(--warning); box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), 0 4px 12px rgba(0, 0, 0, 0.35); animation: none; }
 
 .atd-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
