@@ -1013,6 +1013,16 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .atd-modo strong { display: block; font-size: 14.5px; }
 .atd-modo small { display: block; margin-top: 3px; font-size: 12.5px; color: var(--text-muted); line-height: 1.4; }
 .atd-rot { display: block; }
+.atd-partes { display: flex; flex-direction: column; gap: 6px; }
+.atd-parte { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.atd-parte-n { flex: 0 0 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.atd-parte-info { flex: 1 1 auto; min-width: 0; }
+.atd-parte-nome { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atd-parte-info small { font-size: 12px; color: var(--text-muted); }
+.atd-parte-acoes { display: flex; gap: 2px; flex-shrink: 0; }
+.atd-parte-acoes .icon-btn[disabled] { opacity: 0.3; cursor: default; }
+.atd-parte-mais { align-self: flex-start; }
+.atd-partes .atd-dica { margin-top: 2px; }
 .atd-opcoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .atd-opcao { display: flex; flex-direction: column; gap: 2px; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .atd-opcao strong { font-size: 14px; }

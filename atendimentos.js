@@ -768,13 +768,18 @@ window.addEventListener("beforeunload", (ev) => {
 });
 
 // ---------- enviar arquivo ----------
-function atdEscolherArquivo() {
-  const input = el("input", { type: "file", accept: "audio/*,video/*,.opus,.ogg,.oga,.m4a,.mp3,.wav,.aac,.amr,.3gp,.mp4,.webm" });
+// Escolhe um ou mais arquivos. Várias partes da mesma conversa viram um único áudio, na ordem da lista.
+// aoEscolher: usado pelo botão "Adicionar outra parte" do formulário (recebe os arquivos novos).
+function atdEscolherArquivo(aoEscolher) {
+  const input = el("input", { type: "file", multiple: "multiple", accept: "audio/*,video/*,.opus,.ogg,.oga,.m4a,.mp3,.wav,.aac,.amr,.3gp,.mp4,.webm" });
   input.addEventListener("change", () => {
-    const f = input.files && input.files[0];
-    if (!f) return;
-    if (f.size > ATD_MAX_ARQ) { showToast(`Arquivo muito grande (${atdMb(f.size)}). O limite é ${atdMb(ATD_MAX_ARQ)} — se for vídeo, envie só o áudio.`); return; }
-    atdFormulario(null, null, f);
+    const novos = Array.from(input.files || []);
+    if (!novos.length) return;
+    const grande = novos.find((f) => f.size > ATD_MAX_ARQ);
+    if (grande) { showToast(`Arquivo muito grande: ${grande.name} (${atdMb(grande.size)}). O limite é ${atdMb(ATD_MAX_ARQ)} — se for vídeo, envie só o áudio.`); return; }
+    // ordem inicial pelo nome (os aparelhos costumam numerar ou pôr data e hora no nome); o vendedor ajusta se precisar
+    novos.sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
+    if (typeof aoEscolher === "function") aoEscolher(novos); else atdFormulario(null, null, novos);
   });
   input.click();
 }
@@ -807,60 +812,76 @@ function atdWav(amostras, taxa) {
   return new Blob([buf], { type: "audio/wav" });
 }
 
-async function atdEnviarArquivo(f, dados, botao) {
-  const ext = ((f.name.split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin").slice(0, 8);
-  // vídeo (mp4, mov, gravação de tela): a transcrição costuma recusar o arquivo como está, então sempre extrai o áudio aqui
-  const video = (f.type || "").startsWith("video/") || ["mp4", "mov", "mpeg", "mkv", "avi", "3gp"].includes(ext);
-  const direto = !video && f.size <= ATD_ARQ_DIRETO && ATD_ARQ_ACEITOS.has(ext);
-  let audio = null;
-  if (!direto) {
-    // grande demais ou formato que a transcrição não aceita: converte aqui para WAV leve, em partes de 5 min
-    botao.textContent = "Preparando o áudio…";
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) throw new Error("Este navegador não consegue preparar esse arquivo. Use o Chrome no computador.");
-    const ctx = new AC({ sampleRate: 16000 });
-    try { audio = await ctx.decodeAudioData(await f.arrayBuffer()); }
-    catch (e) { throw new Error("Não consegui ler esse arquivo aqui. Tente pelo Chrome no computador, ou envie em mp3/m4a."); }
-    finally { ctx.close().catch(() => {}); }
-  }
+// Envia um ou mais arquivos como UMA gravação. Cada parte vira um "segmento" (01, 02, …) e a análise e o Drive
+// juntam tudo na ordem. As partes vão como estão quando todas são do mesmo formato aceito e pequenas; senão,
+// todas são convertidas aqui para WAV leve (16 kHz mono, blocos de 5 min), o que também deixa o formato igual.
+async function atdEnviarArquivo(entrada, dados, botao) {
+  const info = [].concat(entrada).map((f) => {
+    const ext = ((f.name.split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin").slice(0, 8);
+    // vídeo (mp4, mov, gravação de tela): a transcrição costuma recusar o arquivo como está, então sempre extrai o áudio
+    const video = (f.type || "").startsWith("video/") || ["mp4", "mov", "mpeg", "mkv", "avi", "3gp"].includes(ext);
+    return { f, ext, direto: !video && f.size <= ATD_ARQ_DIRETO && ATD_ARQ_ACEITOS.has(ext) };
+  });
+  const varias = info.length > 1;
+  const direto = info.every((x) => x.direto && x.ext === info[0].ext);
+  const ext = direto ? info[0].ext : "wav";
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!direto && !AC) throw new Error("Este navegador não consegue preparar esse arquivo. Use o Chrome no computador.");
   const uidEnvio = await atdUid();
   if (!uidEnvio) throw new Error("Sua sessão expirou. Atualize a página, entre de novo e reenvie.");
-  const { data: id, error } = await sb.rpc("atd_criar", { p_origem: "arquivo", p_mime: direto ? (f.type || null) : "audio/wav", p_extensao: direto ? ext : "wav", p_arquivo_nome: f.name });
+  const nomes = info.map((x) => x.f.name).join(" + ").slice(0, 300);
+  const { data: id, error } = await sb.rpc("atd_criar", { p_origem: "arquivo", p_mime: direto ? (info[0].f.type || null) : "audio/wav", p_extensao: ext, p_arquivo_nome: nomes });
   if (error) throw error;
   atdFinalizandoAqui.add(id);
-  let total;
-  if (direto) {
-    const dur = await atdDuracaoArquivo(f);
-    total = Math.max(1, Math.ceil(f.size / ATD_PEDACO_ARQ));
-    for (let i = 0; i < total; i++) {
-      const caminho = `${uidEnvio}/${id}/01-${String(i + 1).padStart(4, "0")}.${ext}`;
-      const blob = f.slice(i * ATD_PEDACO_ARQ, Math.min(f.size, (i + 1) * ATD_PEDACO_ARQ));
-      // o arquivo continua no aparelho: não guarda cópia, só a fila em memória
-      atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob, tipo: "application/octet-stream",
-        prog: { seg: 1, partes: i + 1, bytes: Math.min(f.size, (i + 1) * ATD_PEDACO_ARQ), dur } }, false);
-    }
-  } else {
-    const canais = [];
-    for (let c = 0; c < audio.numberOfChannels; c++) canais.push(audio.getChannelData(c));
-    const porParte = ATD_WAV_SEG * audio.sampleRate;
-    total = Math.max(1, Math.ceil(audio.length / porParte));
-    let bytes = 0, partesWav = 0;
-    for (let i = 0; i < total; i++) {
-      const ini = i * porParte, fim = Math.min(audio.length, ini + porParte);
-      const mono = new Float32Array(fim - ini);
-      for (let j = ini; j < fim; j++) { let s = 0; for (const ch of canais) s += ch[j]; mono[j - ini] = s / canais.length; }
-      const blob = atdWav(mono, audio.sampleRate);
-      // cada parte de 5 min sobe em fatias de 2 MB (a análise junta as fatias do mesmo segmento)
-      const fatias = Math.max(1, Math.ceil(blob.size / ATD_PEDACO_ARQ));
-      for (let k = 0; k < fatias; k++) {
-        const fatia = blob.slice(k * ATD_PEDACO_ARQ, Math.min(blob.size, (k + 1) * ATD_PEDACO_ARQ));
-        bytes += fatia.size;
-        partesWav++;
-        const caminho = `${uidEnvio}/${id}/${String(i + 1).padStart(2, "0")}-${String(k + 1).padStart(4, "0")}.wav`;
-        atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob: fatia, tipo: "audio/wav",
-          prog: { seg: i + 1, partes: partesWav, bytes, dur: audio.duration } }, false);
+  const pad = (v, t) => String(v).padStart(t, "0");
+  let seg = 0, partes = 0, bytes = 0;
+  const enfileirar = (blob, tipo, numSeg, numPedaco, dur) => {
+    partes++;
+    bytes += blob.size;
+    const caminho = `${uidEnvio}/${id}/${pad(numSeg, 2)}-${pad(numPedaco, 4)}.${ext}`;
+    // o arquivo continua no aparelho: não guarda cópia, só a fila em memória
+    atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob, tipo, prog: { seg: numSeg, partes, bytes, dur } }, false);
+  };
+  try {
+    if (direto) {
+      const durs = await Promise.all(info.map((x) => atdDuracaoArquivo(x.f)));
+      const durTotal = durs.every((d) => d) ? durs.reduce((a, d) => a + d, 0) : null;
+      for (const x of info) {
+        seg++;
+        const pedacos = Math.max(1, Math.ceil(x.f.size / ATD_PEDACO_ARQ));
+        for (let k = 0; k < pedacos; k++) enfileirar(x.f.slice(k * ATD_PEDACO_ARQ, Math.min(x.f.size, (k + 1) * ATD_PEDACO_ARQ)), "application/octet-stream", seg, k + 1, durTotal);
+      }
+    } else {
+      let durTotal = 0;
+      for (let p = 0; p < info.length; p++) {
+        botao.textContent = varias ? `Preparando o áudio… parte ${p + 1} de ${info.length}` : "Preparando o áudio…";
+        // uma parte por vez, para não ocupar memória demais em áudios longos
+        const ctx = new AC({ sampleRate: 16000 });
+        let audio;
+        try { audio = await ctx.decodeAudioData(await info[p].f.arrayBuffer()); }
+        catch (e) { throw new Error((varias ? `Não consegui ler a parte ${p + 1} (${info[p].f.name}). ` : "Não consegui ler esse arquivo aqui. ") + "Tente pelo Chrome no computador, ou envie em mp3/m4a."); }
+        finally { ctx.close().catch(() => {}); }
+        durTotal += audio.duration;
+        const canais = [];
+        for (let c = 0; c < audio.numberOfChannels; c++) canais.push(audio.getChannelData(c));
+        const porParte = ATD_WAV_SEG * audio.sampleRate;
+        const blocos = Math.max(1, Math.ceil(audio.length / porParte));
+        for (let b = 0; b < blocos; b++) {
+          const ini = b * porParte, fim = Math.min(audio.length, ini + porParte);
+          const mono = new Float32Array(fim - ini);
+          for (let q = ini; q < fim; q++) { let soma = 0; for (const ch of canais) soma += ch[q]; mono[q - ini] = soma / canais.length; }
+          const wav = atdWav(mono, audio.sampleRate);
+          seg++;
+          // cada bloco de 5 min sobe em fatias de 2 MB (a análise junta as fatias do mesmo segmento)
+          const fatias = Math.max(1, Math.ceil(wav.size / ATD_PEDACO_ARQ));
+          for (let k = 0; k < fatias; k++) enfileirar(wav.slice(k * ATD_PEDACO_ARQ, Math.min(wav.size, (k + 1) * ATD_PEDACO_ARQ)), "audio/wav", seg, k + 1, durTotal);
+        }
       }
     }
+  } catch (e) {
+    atdFinalizandoAqui.delete(id);
+    try { await atdApagarTudo(id); } catch (e2) { /* fica como incompleta; o vendedor pode descartar */ }
+    throw e;
   }
   // o envio segue em segundo plano: quando a fila esvaziar, atdFilaVazia finaliza com estes dados
   atdFormGuardado(id, dados);
@@ -884,6 +905,32 @@ function atdModal(titulo, sub, corpo) {
 
 // id = gravação já criada (após gravar / concluir / editar); arquivo = envio de arquivo (cria ao confirmar)
 function atdFormulario(id, atual, arquivo) {
+  const arquivos = arquivo ? [].concat(arquivo) : null;
+  let partesBox = null;
+  if (arquivos) {
+    partesBox = el("div", { class: "atd-partes" });
+    const mover = (i, d) => { const t = arquivos[i]; arquivos[i] = arquivos[i + d]; arquivos[i + d] = t; pintarPartes(); };
+    const pintarPartes = () => {
+      partesBox.innerHTML = "";
+      const total = arquivos.reduce((a, f) => a + f.size, 0);
+      partesBox.appendChild(el("label", { class: "atd-rot" }, arquivos.length > 1 ? `Áudio (${arquivos.length} partes · ${atdMb(total)})` : "Áudio"));
+      arquivos.forEach((f, i) => partesBox.appendChild(el("div", { class: "atd-parte" }, [
+        el("span", { class: "atd-parte-n" }, String(i + 1)),
+        el("div", { class: "atd-parte-info" }, [el("div", { class: "atd-parte-nome", title: f.name }, f.name), el("small", {}, atdMb(f.size))]),
+        arquivos.length > 1 ? el("div", { class: "atd-parte-acoes" }, [
+          el("button", { type: "button", class: "icon-btn", title: "Subir", "aria-label": "Subir parte " + (i + 1), disabled: i === 0 ? "disabled" : null, onclick: () => mover(i, -1) }, "↑"),
+          el("button", { type: "button", class: "icon-btn", title: "Descer", "aria-label": "Descer parte " + (i + 1), disabled: i === arquivos.length - 1 ? "disabled" : null, onclick: () => mover(i, 1) }, "↓"),
+          el("button", { type: "button", class: "icon-btn", title: "Tirar esta parte", "aria-label": "Tirar parte " + (i + 1), onclick: () => { arquivos.splice(i, 1); pintarPartes(); } }, "✕"),
+        ]) : null,
+      ])));
+      partesBox.appendChild(el("button", { type: "button", class: "btn btn-secondary btn-sm atd-parte-mais",
+        onclick: () => atdEscolherArquivo((novos) => { arquivos.push(...novos); pintarPartes(); }) }, "＋ Adicionar outra parte"));
+      partesBox.appendChild(el("p", { class: "atd-dica" }, arquivos.length > 1
+        ? "As partes viram um único áudio, nesta ordem. Use ↑ ↓ para ajustar."
+        : "A gravação ficou dividida? Adicione as outras partes: o sistema junta tudo em um único áudio, na ordem."));
+    };
+    pintarPartes();
+  }
   const escolha = { tipo: atual ? atual.tipo : null, resultado: atual ? atual.resultado : null };
   const erro = el("div", { class: "auth-error hidden" });
   const cliente = el("input", { type: "text", class: "ap-input", maxlength: "120", placeholder: "Nome do cliente", autocomplete: "off" });
@@ -905,7 +952,8 @@ function atdFormulario(id, atual, arquivo) {
   }
   pintar();
 
-  const fechar = atdModal(arquivo ? "Enviar gravação" : atual ? "Editar gravação" : "Gravação finalizada 🎉", arquivo ? `${arquivo.name} · ${atdMb(arquivo.size)}` : "Conte como foi para a análise", [
+  const fechar = atdModal(arquivo ? "Enviar gravação" : atual ? "Editar gravação" : "Gravação finalizada 🎉", arquivo ? "Informe o cliente e confira as partes do áudio" : "Conte como foi para a análise", [
+    partesBox ? el("div", { class: "field" }, [partesBox]) : null,
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Cliente"), cliente]),
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Tipo"), tipos]),
     el("div", { class: "field" }, [rotRes, resultados]),
@@ -918,13 +966,14 @@ function atdFormulario(id, atual, arquivo) {
     const dados = { cliente: cliente.value.trim(), tipo: escolha.tipo, resultado: escolha.resultado };
     if (!dados.cliente) { erro.textContent = "Informe o nome do cliente."; erro.classList.remove("hidden"); return; }
     if (!dados.tipo || !dados.resultado) { erro.textContent = "Escolha o tipo e o resultado."; erro.classList.remove("hidden"); return; }
+    if (arquivos && !arquivos.length) { erro.textContent = "Adicione pelo menos um arquivo de áudio."; erro.classList.remove("hidden"); return; }
     confirmar.disabled = true;
     let gid = id;
     if (gid) atdFinalizandoAqui.add(gid);
     try {
       if (arquivo) {
         confirmar.textContent = "Preparando…";
-        gid = await atdEnviarArquivo(arquivo, dados, confirmar);
+        gid = await atdEnviarArquivo(arquivos, dados, confirmar);
       }
       if (atdNaFila(gid)) {
         // ainda subindo o áudio: guarda o formulário, fecha a janela e o envio segue em segundo plano
