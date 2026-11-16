@@ -20,6 +20,8 @@ const ATD_ARQ_ACEITOS = new Set(["mp3", "m4a", "mp4", "wav", "webm", "ogg", "oga
 const ATD_WAV_SEG = 300;                     // conversão: partes de 5 min em WAV 16 kHz mono (~9,6 MB)
 const ATD_SOM_MIN = 0.004;                   // pico abaixo disso (~ -48 dB) conta como silêncio
 const ATD_SEM_SOM_SEG = 20;                  // segundos seguidos sem som para avisar o vendedor
+const ATD_SINAL_MIN = 0.0005;                // abaixo disso (~ -66 dB) o microfone não está mandando nada (mudo/desligado)
+const ATD_SEM_SINAL_SEG = 4;                 // microfone sem sinal nenhum: avisa em poucos segundos
 const ATD_TIPOS = { atendimento: "Atendimento", fechamento: "Fechamento" };
 const ATD_RESULTADOS = {
   atendimento: [["documentacao", "Pegou documentação"], ["sem_documentacao", "Não passou documentação"]],
@@ -395,7 +397,7 @@ function atdPintarRec() {
       el("span", { class: "atd-rec-estado" }, estado === "gravando" ? "Gravando" : estado === "pausado" ? "Pausado" : estado === "parando" ? "Finalizando…" : "Gravação interrompida"),
       el("span", { class: "atd-rec-tempo", id: "atd-rec-tempo" }, atdDuracao(r.segundos())),
     ]),
-    el("div", { class: "atd-rec-modo" }, r.modo === "chamada" ? "💻 Chamada no computador (tela + microfone)" : "🎙️ Microfone deste aparelho"),
+    el("div", { class: "atd-rec-modo" }, r.modo === "chamada" ? "💻 Chamada no computador (tela + microfone)" : "🎙️ Microfone deste aparelho" + (r.audio && r.audio.vu && r.audio.vu[0] && r.audio.vu[0].nome ? ": " + r.audio.vu[0].nome : "")),
     r.audio && r.audio.vu && estado !== "interrompido" ? el("div", { class: "atd-vu" + (estado === "gravando" ? "" : " parado") }, r.audio.vu.map((v, i) =>
       el("div", { class: "atd-vu-linha" + (v.mudo ? " mudo" : "") }, [
         el("span", { class: "atd-vu-rot" }, v.rot),
@@ -405,7 +407,9 @@ function atdPintarRec() {
     ...(r.audio && r.audio.vu && estado === "gravando" ? r.audio.vu.filter((v) => v.mudo).map((v) =>
       el("div", { class: "atd-rec-alerta forte" }, v.rot === "Cliente"
         ? "🔇 Sem som da chamada há mais de " + ATD_SEM_SOM_SEG + " segundos. Se o cliente está falando, a gravação NÃO está captando: confira se o áudio da chamada está ligado e se você marcou “Compartilhar áudio” ao escolher a tela."
-        : "🔇 Sem som no microfone há mais de " + ATD_SEM_SOM_SEG + " segundos. Se alguém está falando, a gravação NÃO está captando: confira se o microfone não está no mudo, se é o aparelho certo e se o navegador tem permissão. Fale algo e veja se a barra se mexe.")) : []),
+        : v.semSinal
+          ? "🔇 O microfone não está mandando som nenhum" + (v.nome ? " (" + v.nome + ")" : "") + ". A gravação está ficando MUDA. Confira: botão de mudo do fone ou do notebook, se o microfone certo está escolhido no navegador (cadeado ao lado do endereço → Microfone) e, no Windows, Configurações → Privacidade → Microfone. Fale algo e veja se a barra se mexe; se não mexer, cancele e grave pelo celular."
+          : "🔇 Sem som no microfone há mais de " + ATD_SEM_SOM_SEG + " segundos. Se alguém está falando, a gravação NÃO está captando: confira se o microfone não está no mudo, se é o aparelho certo e se o navegador tem permissão. Fale algo e veja se a barra se mexe.")) : []),
     estado === "interrompido"
       ? el("div", { class: "atd-rec-alerta" }, "A gravação parou: " + (r.motivo || "o aparelho parou o microfone") + ". O que já foi gravado está salvo. Toque em “Continuar gravando” ou finalize.")
       : el("div", { class: "atd-rec-alerta leve" }, r.modo === "chamada" ? "Mantenha a chamada e esta aba abertas até finalizar." : "⚠️ Não bloqueie a tela nem troque de app até finalizar."),
@@ -590,7 +594,8 @@ function atdMedidorLigar(audio) {
       const an = ctx.createAnalyser();
       an.fftSize = 1024;
       ctx.createMediaStreamSource(new MediaStream(fonte.getAudioTracks())).connect(an);
-      return { rot: rotulos[i] || "Áudio", an, buf: new Float32Array(an.fftSize), nivel: 0, ultimoSom: Date.now(), mudo: false };
+      const faixa = fonte.getAudioTracks()[0];
+      return { rot: rotulos[i] || "Áudio", nome: (faixa && faixa.label) || "", an, buf: new Float32Array(an.fftSize), nivel: 0, ultimoSom: Date.now(), ultimoSinal: Date.now(), mudo: false, semSinal: false };
     });
     audio.vuTimer = setInterval(() => atdMedidorLer(audio), 120);
   } catch (e) { audio.vu = null; }
@@ -608,7 +613,10 @@ function atdMedidorLer(audio) {
     const alvo = gravando ? Math.max(0, Math.min(1, (db + 60) / 54)) : 0; // -60 dB = vazio, -6 dB = cheio
     v.nivel = alvo > v.nivel ? alvo : Math.max(alvo, v.nivel - 0.07);
     if (pico >= ATD_SOM_MIN || !gravando) v.ultimoSom = Date.now();
-    const mudo = gravando && Date.now() - v.ultimoSom > ATD_SEM_SOM_SEG * 1000;
+    if (pico >= ATD_SINAL_MIN || !gravando) v.ultimoSinal = Date.now();
+    // sem sinal nenhum (microfone mudo, desligado ou aparelho errado) avisa rápido; silêncio comum, só depois de 20 s
+    v.semSinal = gravando && Date.now() - v.ultimoSinal > ATD_SEM_SINAL_SEG * 1000;
+    const mudo = gravando && (v.semSinal || Date.now() - v.ultimoSom > ATD_SEM_SOM_SEG * 1000);
     if (mudo !== v.mudo) {
       v.mudo = mudo;
       mudou = true;
