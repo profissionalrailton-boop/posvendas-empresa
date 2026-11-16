@@ -98,6 +98,17 @@ function atdFormGuardado(id, dados) {
   return null;
 }
 
+// id do login para montar a pasta do áudio: o já conhecido ou o da sessão guardada no navegador (não depende da rede)
+async function atdUid() {
+  if (atdDados && atdDados.uid) return atdDados.uid;
+  try {
+    const { data } = await sb.auth.getSession();
+    const id = data && data.session && data.session.user ? data.session.user.id : null;
+    if (id && atdDados) atdDados.uid = id;
+    return id;
+  } catch (e) { return null; }
+}
+
 // ---------- fila de envio ----------
 async function atdEnfileirar(item, guardar) {
   item.guardado = !!guardar;
@@ -114,6 +125,13 @@ async function atdEnviarFila() {
   try {
     while (atdFila.length) {
       const item = atdFila[0];
+      if (item.caminho.startsWith("null/") || item.caminho.startsWith("undefined/")) {
+        const uid = await atdUid();
+        if (uid) {
+          item.caminho = uid + item.caminho.slice(item.caminho.indexOf("/"));
+          if (item.guardado) await atdIdbGuardar(item); // mesma chave: regrava com o caminho certo
+        }
+      }
       // envio travado (internet oscilando) não segura a fila para sempre: passa do tempo, tenta de novo
       const { error } = await Promise.race([
         sb.storage.from("atendimentos").upload(item.caminho, item.blob, { contentType: item.tipo || "application/octet-stream", upsert: true })
@@ -134,11 +152,21 @@ async function atdEnviarFila() {
         }
         atdAvisoEnvio(true);
         if (atdEnvio[item.id]) { atdEnvio[item.id].erro = msg; atdPintarEnvio(item.id); }
+        // falhou 3 vezes seguidas e há áudio de outra gravação esperando: vai para o fim da fila
+        item.falhas = (item.falhas || 0) + 1;
+        if (item.falhas >= 3 && atdFila.some((x) => x.id !== item.id)) {
+          item.falhas = 0;
+          const doMesmo = atdFila.filter((x) => x.id === item.id);
+          const outros = atdFila.filter((x) => x.id !== item.id);
+          atdFila.length = 0;
+          atdFila.push(...outros, ...doMesmo);
+        }
         await new Promise((r) => setTimeout(r, navigator.onLine ? 5000 : 15000));
         continue;
       }
       atdAvisoEnvio(false);
       if (atdEnvio[item.id]) atdEnvio[item.id].erro = null;
+      item.falhas = 0;
       const p = item.prog;
       await sb.rpc("atd_progresso", { p_id: item.id, p_segmentos: p.seg, p_partes: p.partes, p_tamanho: p.bytes, p_duracao: p.dur == null ? null : Math.round(p.dur) });
       atdFila.shift();
@@ -199,7 +227,7 @@ async function carregarMeusAtendimentos() {
   atdDados = {
     lista: l.data,
     eu: a.error ? null : a.data || null,
-    uid: u.data && u.data.user ? u.data.user.id : null,
+    uid: (u.data && u.data.user ? u.data.user.id : null) || (atdDados && atdDados.uid) || null,
     filtro: atdDados ? atdDados.filtro : "",
   };
   desenharMeusAtendimentos(raiz);
@@ -468,6 +496,7 @@ async function atdComecar(modo) {
   const { data: id, error } = await sb.rpc("atd_criar", { p_origem: "gravacao", p_mime: mime || null, p_extensao: ext, p_canais: audio.canais });
   if (error) { atdSoltar(audio); showToast("Não foi possível iniciar: " + error.message); return; }
   atdRec = {
+    uid: await atdUid(),
     id, modo, mime, ext, canais: audio.canais, seg: 0, partes: 0, bytes: 0,
     acumulado: 0, desde: null, estado: "gravando", audio: null, rec: null, wake: null, relogio: null,
     segundos() { return this.acumulado + (this.desde ? (Date.now() - this.desde) / 1000 : 0); },
@@ -500,7 +529,7 @@ function atdNovoSegmento(audio) {
     idx += 1;
     r.partes += 1;
     r.bytes += ev.data.size;
-    const caminho = `${atdDados.uid}/${r.id}/${String(seg).padStart(2, "0")}-${String(idx).padStart(4, "0")}.${r.ext}`;
+    const caminho = `${r.uid || atdDados.uid}/${r.id}/${String(seg).padStart(2, "0")}-${String(idx).padStart(4, "0")}.${r.ext}`;
     atdEnfileirar({ chave: `${r.id}/${caminho}`, id: r.id, caminho, blob: ev.data, tipo: (r.mime || ev.data.type || "").split(";")[0] || "application/octet-stream",
       prog: { seg, partes: r.partes, bytes: r.bytes, dur: r.segundos() } }, true);
     atdPintarRec();
@@ -695,6 +724,8 @@ async function atdEnviarArquivo(f, dados, botao) {
     catch (e) { throw new Error("Não consegui ler esse arquivo aqui. Tente pelo Chrome no computador, ou envie em mp3/m4a."); }
     finally { ctx.close().catch(() => {}); }
   }
+  const uidEnvio = await atdUid();
+  if (!uidEnvio) throw new Error("Sua sessão expirou. Atualize a página, entre de novo e reenvie.");
   const { data: id, error } = await sb.rpc("atd_criar", { p_origem: "arquivo", p_mime: direto ? (f.type || null) : "audio/wav", p_extensao: direto ? ext : "wav", p_arquivo_nome: f.name });
   if (error) throw error;
   atdFinalizandoAqui.add(id);
@@ -703,7 +734,7 @@ async function atdEnviarArquivo(f, dados, botao) {
     const dur = await atdDuracaoArquivo(f);
     total = Math.max(1, Math.ceil(f.size / ATD_PEDACO_ARQ));
     for (let i = 0; i < total; i++) {
-      const caminho = `${atdDados.uid}/${id}/01-${String(i + 1).padStart(4, "0")}.${ext}`;
+      const caminho = `${uidEnvio}/${id}/01-${String(i + 1).padStart(4, "0")}.${ext}`;
       const blob = f.slice(i * ATD_PEDACO_ARQ, Math.min(f.size, (i + 1) * ATD_PEDACO_ARQ));
       // o arquivo continua no aparelho: não guarda cópia, só a fila em memória
       atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob, tipo: "application/octet-stream",
@@ -726,7 +757,7 @@ async function atdEnviarArquivo(f, dados, botao) {
         const fatia = blob.slice(k * ATD_PEDACO_ARQ, Math.min(blob.size, (k + 1) * ATD_PEDACO_ARQ));
         bytes += fatia.size;
         partesWav++;
-        const caminho = `${atdDados.uid}/${id}/${String(i + 1).padStart(2, "0")}-${String(k + 1).padStart(4, "0")}.wav`;
+        const caminho = `${uidEnvio}/${id}/${String(i + 1).padStart(2, "0")}-${String(k + 1).padStart(4, "0")}.wav`;
         atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob: fatia, tipo: "audio/wav",
           prog: { seg: i + 1, partes: partesWav, bytes, dur: audio.duration } }, false);
       }
