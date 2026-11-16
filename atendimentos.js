@@ -282,7 +282,7 @@ function atdLinha(g, mostrarVendedor) {
   if (meu && g.status === "aguardando") acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => atdFormulario(g.id, g) }, "✏️ Editar"));
   if (g.status === "pronta") acoes.unshift(el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => atdVerAnalise(g) }, "📋 Ver análise"));
   if (g.status === "erro" && (meu || perms.adm || perms.fin)) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => atdReanalisar(g) }, "↻ Analisar de novo"));
-  if (meu && (incompleta || g.status === "aguardando")) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm atd-apagar", title: "Descartar gravação", "aria-label": "Descartar gravação", onclick: () => atdDescartar(g) }, "🗑"));
+  if (meu && (incompleta || g.status === "aguardando" || g.status === "erro")) acoes.push(el("button", { type: "button", class: "btn btn-secondary btn-sm atd-apagar", title: "Descartar gravação", "aria-label": "Descartar gravação", onclick: () => atdDescartar(g) }, "🗑"));
   return el("div", { class: "atd-item" + (incompleta ? " incompleta" : "") }, [
     el("div", { class: "atd-item-topo" }, [
       el("div", { class: "atd-item-quem" }, [
