@@ -11,7 +11,8 @@
 // - "chamada no computador": grava a tela/aba compartilhada COM áudio + microfone, em estéreo
 //   (vendedor à esquerda, cliente à direita). Obs.: a transcrição (Whisper) mistura os canais; quem fala é deduzido pela IA.
 const ATD_PARTE_SEG = 60;                    // um pedaço por minuto de gravação
-const ATD_PEDACO_ARQ = 8 * 1024 * 1024;      // arquivo enviado: pedaços de 8 MB (o bucket aceita até 10 MB)
+const ATD_PEDACO_ARQ = 2 * 1024 * 1024;      // arquivo enviado: pedaços de 2 MB (internet lenta envia aos poucos e o % anda)
+const ATD_ENVIO_MAX_MS = 180000;             // um pedaço que não sobe em 3 min é tentado de novo
 const ATD_MAX_ARQ = 600 * 1024 * 1024;       // limite de arquivo enviado
 const ATD_SEG_MAX = 15 * 60;                 // gravação: novo arquivo a cada 15 min (limite de 25 MB da transcrição)
 const ATD_ARQ_DIRETO = 24 * 1024 * 1024;     // arquivo até 24 MB em formato aceito vai como está; acima, é convertido
@@ -37,8 +38,12 @@ const atdFinalizandoAqui = new Set(); // formulário aberto esperando o envio: e
 const atdEnvio = {};   // id → { total, feitos }: progresso do envio em segundo plano
 const atdEnvioSoma = (id) => { (atdEnvio[id] = atdEnvio[id] || { total: 0, feitos: 0 }).total++; };
 const atdEnvioPct = (id) => { const e = atdEnvio[id]; return e && e.total ? Math.min(99, Math.round((e.feitos / e.total) * 100)) : 0; };
+const atdEnvioTxt = (id) => ((atdEnvio[id] && atdEnvio[id].erro) ? "Falha no envio, tentando de novo… " : "Enviando áudio… ") + atdEnvioPct(id) + "%";
 function atdPintarEnvio(id) {
-  document.querySelectorAll('[data-atd-envio="' + id + '"]').forEach((sp) => { sp.textContent = "Enviando áudio… " + atdEnvioPct(id) + "%"; });
+  document.querySelectorAll('[data-atd-envio="' + id + '"]').forEach((sp) => {
+    sp.textContent = atdEnvioTxt(id);
+    sp.title = (atdEnvio[id] && atdEnvio[id].erro) || "";
+  });
 }
 
 const atdDuracao = (s) => {
@@ -109,7 +114,12 @@ async function atdEnviarFila() {
   try {
     while (atdFila.length) {
       const item = atdFila[0];
-      const { error } = await sb.storage.from("atendimentos").upload(item.caminho, item.blob, { contentType: item.tipo || "application/octet-stream", upsert: true });
+      // envio travado (internet oscilando) não segura a fila para sempre: passa do tempo, tenta de novo
+      const { error } = await Promise.race([
+        sb.storage.from("atendimentos").upload(item.caminho, item.blob, { contentType: item.tipo || "application/octet-stream", upsert: true })
+          .catch((e) => ({ error: e })),
+        new Promise((r) => setTimeout(() => r({ error: { message: "o envio demorou demais (internet lenta ou instável)" } }), ATD_ENVIO_MAX_MS)),
+      ]);
       if (error) {
         const msg = String(error.message || error);
         // recusado pela regra do banco: só desiste se a gravação foi descartada ou já foi para análise
@@ -123,10 +133,12 @@ async function atdEnviarFila() {
           }
         }
         atdAvisoEnvio(true);
+        if (atdEnvio[item.id]) { atdEnvio[item.id].erro = msg; atdPintarEnvio(item.id); }
         await new Promise((r) => setTimeout(r, navigator.onLine ? 5000 : 15000));
         continue;
       }
       atdAvisoEnvio(false);
+      if (atdEnvio[item.id]) atdEnvio[item.id].erro = null;
       const p = item.prog;
       await sb.rpc("atd_progresso", { p_id: item.id, p_segmentos: p.seg, p_partes: p.partes, p_tamanho: p.bytes, p_duracao: p.dur == null ? null : Math.round(p.dur) });
       atdFila.shift();
@@ -291,7 +303,7 @@ function atdLinha(g, mostrarVendedor) {
       ]),
       g.status === "pronta" && g.nota != null
         ? el("span", { class: "atd-nota " + atdNotaClasse(g.nota), title: "Nota geral da análise" }, atdNotaTxt(g.nota))
-        : el("span", { class: "atd-status s-" + g.status, "data-atd-envio": naFila ? g.id : null }, naFila ? "Enviando áudio… " + atdEnvioPct(g.id) + "%" : ATD_STATUS[g.status] || g.status),
+        : el("span", { class: "atd-status s-" + g.status, "data-atd-envio": naFila ? g.id : null }, naFila ? atdEnvioTxt(g.id) : ATD_STATUS[g.status] || g.status),
     ]),
     el("div", { class: "atd-item-tags" }, [
       g.tipo ? el("span", { class: "atd-tag t-" + g.tipo }, ATD_TIPOS[g.tipo]) : null,
@@ -689,16 +701,22 @@ async function atdEnviarArquivo(f, dados, botao) {
     for (let c = 0; c < audio.numberOfChannels; c++) canais.push(audio.getChannelData(c));
     const porParte = ATD_WAV_SEG * audio.sampleRate;
     total = Math.max(1, Math.ceil(audio.length / porParte));
-    let bytes = 0;
+    let bytes = 0, partesWav = 0;
     for (let i = 0; i < total; i++) {
       const ini = i * porParte, fim = Math.min(audio.length, ini + porParte);
       const mono = new Float32Array(fim - ini);
       for (let j = ini; j < fim; j++) { let s = 0; for (const ch of canais) s += ch[j]; mono[j - ini] = s / canais.length; }
       const blob = atdWav(mono, audio.sampleRate);
-      bytes += blob.size;
-      const caminho = `${atdDados.uid}/${id}/${String(i + 1).padStart(2, "0")}-0001.wav`;
-      atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob, tipo: "audio/wav",
-        prog: { seg: i + 1, partes: i + 1, bytes, dur: audio.duration } }, false);
+      // cada parte de 5 min sobe em fatias de 2 MB (a análise junta as fatias do mesmo segmento)
+      const fatias = Math.max(1, Math.ceil(blob.size / ATD_PEDACO_ARQ));
+      for (let k = 0; k < fatias; k++) {
+        const fatia = blob.slice(k * ATD_PEDACO_ARQ, Math.min(blob.size, (k + 1) * ATD_PEDACO_ARQ));
+        bytes += fatia.size;
+        partesWav++;
+        const caminho = `${atdDados.uid}/${id}/${String(i + 1).padStart(2, "0")}-${String(k + 1).padStart(4, "0")}.wav`;
+        atdEnfileirar({ chave: `${id}/${caminho}`, id, caminho, blob: fatia, tipo: "audio/wav",
+          prog: { seg: i + 1, partes: partesWav, bytes, dur: audio.duration } }, false);
+      }
     }
   }
   // o envio segue em segundo plano: quando a fila esvaziar, atdFilaVazia finaliza com estes dados
