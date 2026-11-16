@@ -19,6 +19,7 @@ const rpFoto = (nome, classe) => avatarPerfil(nome, rpDados.fotos.get(nome), cla
 const rpPendentes = (nome) => rpDados.pendentes.get(nome) || 0;
 
 async function carregarRoubaPremio() {
+  rpCarregarSomRoubo();
   const raiz = document.getElementById("sx-rouba-premio");
   rpAoVivo();
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo a banca…"));
@@ -299,6 +300,42 @@ function rpAvisarEscolha(ev) {
   showToast(ev.de_dono ? `🦹 ${rpPrimeiro(ev.vendedor)} roubou ${nome} de ${rpPrimeiro(ev.de_dono)}!` : `🎉 ${rpPrimeiro(ev.vendedor)} pegou ${nome} da banca!`);
 }
 
+// ---------- sons da animação ----------
+// Pegou da banca: fanfarra de comemoração. Roubou: áudio sons/roubo.mp3 (já cortado a partir do segundo 2).
+// Usa o som liberado pela tela principal (o navegador só toca depois de um clique na página).
+let rpSomRoubo = null;   // null = não carregado · false = carregando · AudioBuffer = pronto
+let rpSomTocando = null;
+function rpCarregarSomRoubo() {
+  if (rpSomRoubo !== null) return;
+  rpSomRoubo = false;
+  fetch("sons/roubo.mp3?v=1")
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
+    .then((b) => { destravarAudio(); if (!audioCtx) throw new Error("sem áudio"); return audioCtx.decodeAudioData(b); })
+    .then((buf) => { rpSomRoubo = buf; })
+    .catch(() => { rpSomRoubo = null; });
+}
+function rpPararSom() {
+  if (!rpSomTocando) return;
+  try { rpSomTocando.stop(); } catch (e) { /* já parou */ }
+  rpSomTocando = null;
+}
+function rpTocarSom(roubo) {
+  rpPararSom();
+  try {
+    destravarAudio();
+    if (!roubo) { if (typeof tocarFanfarra === "function") tocarFanfarra(); return; }
+    if (!audioCtx || !rpSomRoubo) { rpCarregarSomRoubo(); tocarSom(); return; } // ainda carregando: toca o aviso curto
+    const fonte = audioCtx.createBufferSource();
+    const volume = audioCtx.createGain();
+    volume.gain.value = 0.9;
+    fonte.buffer = rpSomRoubo;
+    fonte.connect(volume).connect(audioCtx.destination);
+    fonte.onended = () => { if (rpSomTocando === fonte) rpSomTocando = null; };
+    fonte.start();
+    rpSomTocando = fonte;
+  } catch (e) { /* som é opcional */ }
+}
+
 // ---------- animação de tela cheia (uma por vez, em fila) ----------
 const rpFila = [];
 let rpAnimando = false;
@@ -343,8 +380,10 @@ function rpProximaCelebracao() {
     camada.classList.add("saindo");
     setTimeout(() => { camada.remove(); setTimeout(rpProximaCelebracao, 250); }, 380);
   };
-  camada.addEventListener("click", fechar);
+  // clicar na animação fecha e também para o som; se fechar sozinha, o áudio do roubo toca até o fim
+  camada.addEventListener("click", () => { rpPararSom(); fechar(); });
   document.body.appendChild(camada);
+  rpTocarSom(roubo);
   setTimeout(fechar, 5500);
 }
 function rpAoVivo() {
