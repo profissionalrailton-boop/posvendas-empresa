@@ -656,7 +656,9 @@ function atdWav(amostras, taxa) {
 
 async function atdEnviarArquivo(f, dados, botao) {
   const ext = ((f.name.split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin").slice(0, 8);
-  const direto = f.size <= ATD_ARQ_DIRETO && ATD_ARQ_ACEITOS.has(ext);
+  // vídeo (mp4, mov, gravação de tela): a transcrição costuma recusar o arquivo como está, então sempre extrai o áudio aqui
+  const video = (f.type || "").startsWith("video/") || ["mp4", "mov", "mpeg", "mkv", "avi", "3gp"].includes(ext);
+  const direto = !video && f.size <= ATD_ARQ_DIRETO && ATD_ARQ_ACEITOS.has(ext);
   let audio = null;
   if (!direto) {
     // grande demais ou formato que a transcrição não aceita: converte aqui para WAV leve, em partes de 5 min
