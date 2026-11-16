@@ -913,7 +913,8 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .atd-raiz { max-width: none; }
 .atd-raiz.tema-viagem .px-topo h1::after { content: " 💼"; }
 @media (min-width: 1100px) {
-  .atd-raiz .atd-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .atd-raiz .atd-pendentes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .atd-raiz .atd-colunas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .atd-raiz .atd-painel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 28px; align-items: start; }
   .atd-raiz .atd-painel > .atd-painel-cab, .atd-raiz .atd-painel > .atd-evol { grid-column: 1 / -1; }
 }
@@ -957,6 +958,14 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .atd-h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--text); }
 .atd-filtro { max-width: 240px; font-size: 13.5px; padding: 7px 10px; }
 .atd-lista { display: flex; flex-direction: column; gap: 8px; }
+.atd-pendentes { margin-bottom: 14px; }
+.atd-colunas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.atd-coluna { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.atd-coluna-cab { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); border-left: 4px solid var(--border); font-size: 14px; font-weight: 800; color: var(--text); }
+.atd-coluna-cab.t-atendimento { border-left-color: #38bdf8; }
+.atd-coluna-cab.t-fechamento { border-left-color: #a78bfa; }
+.atd-coluna-qtd { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.atd-coluna-vazia { padding: 14px; border-radius: 12px; border: 1px dashed var(--border); font-size: 13.5px; color: var(--text-muted); text-align: center; }
 .atd-item { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .atd-item.incompleta { border-style: dashed; border-color: var(--warning); }
 .atd-item-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }

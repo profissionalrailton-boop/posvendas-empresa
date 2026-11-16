@@ -269,7 +269,20 @@ function desenharMeusAtendimentos(raiz) {
   if (!visiveis.length) {
     raiz.appendChild(el("div", { class: "empty-state" }, eu ? "Nenhuma gravação ainda. Use “Gravar agora” no próximo atendimento 🎙️" : "Nenhuma gravação enviada ainda."));
   } else {
-    raiz.appendChild(el("div", { class: "atd-lista" }, visiveis.map((g) => atdLinha(g, ehGestao))));
+    // sem tipo ainda (incompleta ou enviando) fica em cima; o resto em duas colunas: atendimento e fechamento
+    const semTipo = visiveis.filter((g) => !g.tipo);
+    if (semTipo.length) raiz.appendChild(el("div", { class: "atd-lista atd-pendentes" }, semTipo.map((g) => atdLinha(g, ehGestao))));
+    const coluna = (tipo, titulo, vazio) => {
+      const itens = visiveis.filter((g) => g.tipo === tipo);
+      return el("div", { class: "atd-coluna" }, [
+        el("div", { class: "atd-coluna-cab t-" + tipo }, [el("span", {}, titulo), el("span", { class: "atd-coluna-qtd" }, String(itens.length))]),
+        itens.length ? el("div", { class: "atd-lista" }, itens.map((g) => atdLinha(g, ehGestao))) : el("div", { class: "atd-coluna-vazia" }, vazio),
+      ]);
+    };
+    raiz.appendChild(el("div", { class: "atd-colunas" }, [
+      coluna("atendimento", "Atendimentos", "Nenhum atendimento gravado."),
+      coluna("fechamento", "Fechamentos", "Nenhum fechamento gravado."),
+    ]));
   }
   raiz.appendChild(el("p", { class: "atd-rodape" }, "🧠 Cada gravação é analisada em poucos minutos depois de enviada: notas por etapa, o que foi bem, o que pode melhorar e como falar."));
   atdPintarRec();
