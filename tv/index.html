@@ -7,344 +7,388 @@
 <title>Corrida da documentação · TV</title>
 <!-- Tela da TV da sala de vendas: só a Corrida da documentação, em tela cheia, atualizando sozinha.
      Sem login: os dados vêm do n8n (webhook corrida-tv) com a chave que está no endereço (?chave=...).
-     Mostra só nomes, fotos e quantidade de documentações — nada de cliente. -->
+     Mostra só nomes, fotos e quantidade de documentações — nada de cliente.
+     Escrita para navegadores de TV antigos: sem variáveis CSS, sem grid, sem fetch, JavaScript ES5.
+     Diagnóstico: acrescente &diag=1 ao endereço para ver o navegador e o tamanho da tela. -->
 <style>
-  :root {
-    --fundo: #07080d; --pista: #10121b; --raia: rgba(255, 255, 255, 0.045); --linha: rgba(255, 255, 255, 0.08);
-    --texto: #f8fafc; --suave: #94a3b8; --ouro: #fbbf24; --verde: #22c55e;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fundo); color: var(--texto);
-    font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; cursor: none; }
-  body::before { content: ""; position: fixed; inset: 0; pointer-events: none;
-    background:
-      radial-gradient(60vw 40vh at 100% 0, rgba(249, 115, 22, 0.16), transparent 70%),
-      radial-gradient(55vw 45vh at 0 100%, rgba(34, 211, 238, 0.12), transparent 70%); }
-  .tela { position: relative; height: 100vh; display: flex; flex-direction: column; padding: 2.2vh 2.2vw 2vh; gap: 1.6vh; }
+  * { -webkit-box-sizing: border-box; box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #07080d; color: #f8fafc;
+    font-family: "Segoe UI", Roboto, Arial, Helvetica, sans-serif; }
+  body { background: #07080d radial-gradient(ellipse at 100% 0, rgba(249, 115, 22, 0.16), rgba(7, 8, 13, 0) 55%); }
+  .tela { position: relative; height: 100%; height: 100vh; padding: 2.2vh 2.2vw 2vh;
+    display: -webkit-box; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
+  .linha { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
+  .cresce { -webkit-flex: 1 1 0; flex: 1 1 0; min-width: 0; }
+  .fixo { -webkit-flex: 0 0 auto; flex: 0 0 auto; }
 
   /* topo */
-  .topo { display: flex; align-items: center; gap: 2vw; }
-  .topo img { height: 6vh; width: auto; }
-  .titulo { flex: 1; min-width: 0; }
-  .titulo h1 { margin: 0; font-size: 4.2vh; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; }
-  .titulo p { margin: 0.4vh 0 0; font-size: 1.9vh; color: var(--suave); font-weight: 600; }
-  .cards { display: flex; gap: 1vw; }
-  .card { padding: 1.1vh 1.2vw; border-radius: 1.4vh; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--linha); min-width: 11vw; }
-  .card small { display: block; font-size: 1.35vh; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--suave); }
+  .topo { margin-bottom: 1.6vh; }
+  .topo img { height: 6vh; margin-right: 2vw; }
+  .titulo h1 { margin: 0; font-size: 4vh; font-weight: 900; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .titulo p { margin: 0.4vh 0 0; font-size: 1.9vh; color: #94a3b8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card { margin-left: 1vw; padding: 1.1vh 1.2vw; border-radius: 1.4vh; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); min-width: 11vw; }
+  .card small { display: block; font-size: 1.35vh; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
   .card strong { display: block; margin-top: 0.3vh; font-size: 2.7vh; font-weight: 900; white-space: nowrap; }
-  .card.lider strong { color: var(--ouro); }
+  .card.lider strong { color: #fbbf24; }
 
   /* pista */
-  .pista { --quem: 15vw; --placar: 6vw; flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 1vh 1.2vw 1.2vh; border-radius: 2.2vh;
-    background: var(--pista); border: 1px solid var(--linha); box-shadow: 0 2vh 5vh rgba(0, 0, 0, 0.4); }
-  .cab { display: grid; grid-template-columns: var(--quem) 1fr var(--placar); gap: 1.2vw; align-items: end; padding-bottom: 0.6vh;
-    font-size: 1.4vh; font-weight: 800; letter-spacing: 0.1em; color: var(--suave); }
-  .cab .num { display: grid; grid-template-columns: repeat(var(--casas), 1fr); text-align: center; padding-right: 1.4vw; }
-  .cab .fim { font-size: 2.4vh; }
-  .raias { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .raia { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--quem) 1fr var(--placar); gap: 1.2vw; align-items: center; border-top: 1px dashed var(--linha); }
-  .quem { display: flex; align-items: center; gap: 0.8vw; min-width: 0; }
-  .pos { flex: 0 0 auto; min-width: 3.6vh; height: 3.6vh; padding: 0 0.5vh; border-radius: 1vh; display: flex; align-items: center; justify-content: center;
-    font-size: 1.9vh; font-weight: 900; color: var(--suave); background: var(--raia); }
-  .raia.lider .pos { color: #1c1917; background: linear-gradient(135deg, #fde047, #f59e0b); }
-  .raia.chegou .pos { color: #052e16; background: linear-gradient(135deg, #86efac, #22c55e); }
-  .nome { font-size: 2.3vh; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .trilho { position: relative; height: 72%; max-height: 7.5vh; border-radius: 1.4vh; background: var(--raia); }
-  .casas { position: absolute; inset: 0 1.4vw 0 0; display: grid; grid-template-columns: repeat(var(--casas), 1fr); }
-  .casas span { border-right: 1px solid var(--linha); }
+  .pista { -webkit-flex: 1 1 0; flex: 1 1 0; min-height: 0; padding: 1vh 1.2vw 1.2vh; border-radius: 2.2vh; background: #10121b; border: 1px solid rgba(255, 255, 255, 0.08);
+    display: -webkit-box; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
+  .quem { width: 18vw; white-space: nowrap; }
+  .placar { width: 6vw; text-align: right; }
+  .cab { padding-bottom: 0.6vh; font-size: 1.4vh; font-weight: 800; letter-spacing: 0.1em; color: #94a3b8; }
+  .cab .meio { margin: 0 1.2vw; padding-right: 1.4vw; }
+  .cab .meio span { text-align: center; }
+  .cab .fim { font-size: 2.4vh; text-align: left; }
+  .raia { -webkit-flex: 1 1 0; flex: 1 1 0; min-height: 0; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
+  .pos { display: inline-block; min-width: 3.6vh; height: 3.6vh; line-height: 3.6vh; padding: 0 0.5vh; margin-right: 0.8vw; border-radius: 1vh; text-align: center;
+    font-size: 1.9vh; font-weight: 900; color: #94a3b8; background: rgba(255, 255, 255, 0.06); vertical-align: middle; }
+  .raia.lider .pos { color: #1c1917; background: #fbbf24; }
+  .raia.chegou .pos { color: #052e16; background: #4ade80; }
+  .nome { display: inline-block; max-width: 13.5vw; font-size: 2.3vh; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+  .trilho { position: relative; margin: 0 1.2vw; height: 72%; max-height: 7.5vh; border-radius: 1.4vh; background: rgba(255, 255, 255, 0.05); }
+  .casas { position: absolute; top: 0; bottom: 0; left: 0; right: 1.4vw; }
+  .casas span { display: block; height: 100%; border-right: 1px solid rgba(255, 255, 255, 0.08); }
   .casas span:last-child { border-right: none; }
-  .casas span.feita { background: linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--cor) 16%, transparent)); }
-  .rastro { position: absolute; left: 0; top: 50%; height: 0.8vh; margin-top: -0.4vh; border-radius: 1vh; max-width: calc(100% - 1.4vw);
-    background: linear-gradient(90deg, transparent, var(--cor)); box-shadow: 0 0 2vh color-mix(in srgb, var(--cor) 60%, transparent);
-    transition: width 1.6s cubic-bezier(0.22, 1, 0.36, 1); }
-  .chegada { position: absolute; right: 0; top: 0; bottom: 0; width: 1.4vw; border-radius: 0 1.4vh 1.4vh 0;
-    background: repeating-conic-gradient(#f8fafc 0 25%, #0f172a 0 50%) 0 0 / 1vh 1vh; opacity: 0.9; }
-  .corredor { position: absolute; top: 50%; z-index: 2; left: calc((100% - 1.4vw) * var(--p) / 100); transform: translate(calc(var(--p) * -1%), -50%);
-    transition: left 1.6s cubic-bezier(0.22, 1, 0.36, 1), transform 1.6s cubic-bezier(0.22, 1, 0.36, 1); }
-  .foto { display: block; width: 5.4vh; height: 5.4vh; border-radius: 50%; object-fit: cover; border: 0.45vh solid var(--cor); background: #1e293b;
-    box-shadow: 0 0.6vh 1.8vh rgba(0, 0, 0, 0.5), 0 0 0 0.5vh color-mix(in srgb, var(--cor) 25%, transparent); }
-  .foto.sem { display: flex; align-items: center; justify-content: center; font-size: 2.1vh; font-weight: 900; color: var(--texto); }
-  .corredor.andou .foto { animation: pulo 0.5s ease-in-out 4; }
-  .coroa { position: absolute; left: 50%; top: -2.4vh; transform: translateX(-50%); font-size: 2.6vh; animation: boia 2.4s ease-in-out infinite; filter: drop-shadow(0 0.3vh 0.4vh rgba(0, 0, 0, 0.5)); }
-  .mais { position: absolute; left: 100%; top: -0.8vh; margin-left: 0.5vw; font-size: 2.4vh; font-weight: 900; color: var(--cor); animation: sobe 3s ease-out forwards; }
+  .rastro { position: absolute; left: 0; top: 50%; height: 0.8vh; margin-top: -0.4vh; border-radius: 1vh; -webkit-transition: width 1.6s ease-out; transition: width 1.6s ease-out; }
+  .chegada { position: absolute; right: 0; top: 0; bottom: 0; width: 1.4vw; border-radius: 0 1.4vh 1.4vh 0; opacity: 0.9;
+    background-color: #f8fafc;
+    background-image: linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%), linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%);
+    background-size: 1vh 1vh; background-position: 0 0, 0.5vh 0.5vh; }
+  .corredor { position: absolute; top: 50%; z-index: 2; -webkit-transition: left 1.6s ease-out, -webkit-transform 1.6s ease-out; transition: left 1.6s ease-out, transform 1.6s ease-out; }
+  .foto { display: block; width: 5.4vh; height: 5.4vh; border-radius: 50%; border: 0.45vh solid #94a3b8; background: #1e293b; object-fit: cover; }
+  .foto.sem { line-height: 4.5vh; text-align: center; font-size: 2.1vh; font-weight: 900; color: #f8fafc; }
+  .andou .foto { -webkit-animation: pulo 0.5s ease-in-out 4; animation: pulo 0.5s ease-in-out 4; }
+  .coroa { position: absolute; left: 50%; top: -2.4vh; width: 4vh; margin-left: -2vh; text-align: center; font-size: 2.6vh; }
+  .mais { position: absolute; left: 100%; top: -0.8vh; margin-left: 0.5vw; font-size: 2.4vh; font-weight: 900; -webkit-animation: sobe 3s ease-out forwards; animation: sobe 3s ease-out forwards; }
   .raia.chegou .trilho { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.5), 0 0 3vh rgba(34, 197, 94, 0.2); }
-  .placar { display: flex; align-items: baseline; justify-content: flex-end; }
-  .placar strong { font-size: 4vh; font-weight: 900; font-variant-numeric: tabular-nums; }
-  .placar small { font-size: 1.9vh; font-weight: 800; color: var(--suave); }
+  .placar strong { font-size: 4vh; font-weight: 900; }
+  .placar small { font-size: 1.9vh; font-weight: 800; color: #94a3b8; }
 
   /* rodapé */
-  .rodape { display: flex; align-items: center; gap: 1.2vw; font-size: 1.8vh; color: var(--suave); white-space: nowrap; overflow: hidden; }
-  .rodape b { color: var(--texto); }
-  .ticker { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .status { display: inline-flex; align-items: center; gap: 0.5vw; font-weight: 800; }
-  .status::before { content: ""; width: 1.1vh; height: 1.1vh; border-radius: 50%; background: var(--verde); box-shadow: 0 0 1vh var(--verde); }
-  .status.off::before { background: #f97316; box-shadow: 0 0 1vh #f97316; }
+  .rodape { margin-top: 1.6vh; font-size: 1.8vh; color: #94a3b8; white-space: nowrap; overflow: hidden; }
+  .rodape b { color: #f8fafc; }
+  .rodape .cresce { overflow: hidden; text-overflow: ellipsis; margin: 0 1.2vw; }
+  .ponto { display: inline-block; width: 1.1vh; height: 1.1vh; border-radius: 50%; background: #22c55e; margin-right: 0.5vw; vertical-align: middle; }
+  .off .ponto { background: #f97316; }
+  .status { font-weight: 800; }
 
   /* anúncio de tela cheia */
-  .anuncio { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(4, 5, 10, 0.72);
-    backdrop-filter: blur(0.6vh); animation: aparece 0.35s ease-out; }
-  .anuncio.sai { animation: some 0.5s ease-in forwards; }
-  .anuncio-card { text-align: center; padding: 5vh 6vw; border-radius: 4vh; background: linear-gradient(160deg, #161a2a, #0b0d16); border: 0.3vh solid var(--cor);
-    box-shadow: 0 0 10vh color-mix(in srgb, var(--cor) 45%, transparent); animation: entra 0.6s cubic-bezier(0.22, 1.4, 0.36, 1); }
+  .anuncio { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(4, 5, 10, 0.8); text-align: center;
+    -webkit-animation: aparece 0.35s ease-out; animation: aparece 0.35s ease-out; }
+  .anuncio.sai { -webkit-animation: some 0.5s ease-in forwards; animation: some 0.5s ease-in forwards; }
+  .anuncio-card { display: inline-block; margin-top: 16vh; padding: 5vh 6vw; border-radius: 4vh; background: #121524; border: 0.3vh solid #94a3b8;
+    -webkit-animation: entra 0.6s ease-out; animation: entra 0.6s ease-out; }
   .anuncio-card .foto { width: 22vh; height: 22vh; margin: 0 auto; border-width: 1vh; }
-  .anuncio-card .foto.sem { font-size: 7vh; }
-  .anuncio-selo { font-size: 3.4vh; font-weight: 900; letter-spacing: 0.12em; color: var(--cor); margin-bottom: 2.4vh; }
-  .anuncio-nome { margin-top: 2.6vh; font-size: 7vh; font-weight: 900; letter-spacing: -0.02em; }
-  .anuncio-txt { margin-top: 1vh; font-size: 3.4vh; font-weight: 700; color: var(--suave); }
-  .anuncio.chegada .anuncio-card { border-color: var(--ouro); box-shadow: 0 0 14vh rgba(251, 191, 36, 0.55); }
-  .confete { position: fixed; inset: 0; pointer-events: none; z-index: 51; overflow: hidden; }
-  .confete i { position: absolute; top: -4vh; width: 1.2vh; height: 1.8vh; border-radius: 0.3vh; animation: cai linear forwards; }
+  .anuncio-card .foto.sem { line-height: 20vh; font-size: 7vh; }
+  .anuncio-selo { font-size: 3.4vh; font-weight: 900; letter-spacing: 0.12em; margin-bottom: 2.4vh; }
+  .anuncio-nome { margin-top: 2.6vh; font-size: 7vh; font-weight: 900; }
+  .anuncio-txt { margin-top: 1vh; font-size: 3.4vh; font-weight: 700; color: #94a3b8; }
+  .confete { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 51; overflow: hidden; }
+  .confete i { position: absolute; top: -4vh; width: 1.2vh; height: 1.8vh; border-radius: 0.3vh; -webkit-animation: cai linear forwards; animation: cai linear forwards; }
 
-  .som { position: fixed; right: 2vw; bottom: 2vh; z-index: 60; padding: 1vh 1.4vw; border-radius: 1vh; border: 1px solid var(--linha); background: #111827; color: var(--texto);
-    font-size: 1.8vh; font-weight: 800; cursor: pointer; }
-  .aviso { margin: auto; text-align: center; font-size: 3vh; color: var(--suave); max-width: 60vw; line-height: 1.5; }
+  .som { position: fixed; right: 2vw; bottom: 2vh; z-index: 60; padding: 1vh 1.4vw; border-radius: 1vh; border: 1px solid rgba(255, 255, 255, 0.15); background: #1f2937; color: #f8fafc;
+    font-size: 1.8vh; font-weight: 800; }
+  .escondido { display: none !important; }
+  .aviso { margin: 30vh auto 0; text-align: center; font-size: 3vh; color: #cbd5e1; max-width: 70vw; line-height: 1.5; }
+  .diag { position: fixed; left: 1vw; bottom: 1vh; z-index: 70; max-width: 70vw; padding: 1vh 1vw; border-radius: 1vh; background: rgba(127, 29, 29, 0.92); color: #fff;
+    font-size: 1.6vh; line-height: 1.4; font-family: monospace; white-space: pre-wrap; }
+  .diag.info { background: rgba(30, 41, 59, 0.92); }
 
+  @-webkit-keyframes pulo { 0%, 100% { -webkit-transform: translateY(0); } 50% { -webkit-transform: translateY(-1.2vh); } }
   @keyframes pulo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2vh); } }
-  @keyframes boia { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -0.5vh); } }
-  @keyframes sobe { 0% { opacity: 0; transform: translateY(1vh); } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-2.5vh); } }
-  @keyframes aparece { from { opacity: 0; } }
+  @-webkit-keyframes sobe { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; -webkit-transform: translateY(-2.5vh); } }
+  @keyframes sobe { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-2.5vh); } }
+  @-webkit-keyframes aparece { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes aparece { from { opacity: 0; } to { opacity: 1; } }
+  @-webkit-keyframes some { to { opacity: 0; } }
   @keyframes some { to { opacity: 0; } }
-  @keyframes entra { from { opacity: 0; transform: scale(0.5) rotate(-4deg); } }
-  @keyframes cai { to { transform: translateY(112vh) rotate(var(--gira)); } }
+  @-webkit-keyframes entra { from { opacity: 0; -webkit-transform: scale(0.5); } to { opacity: 1; -webkit-transform: scale(1); } }
+  @keyframes entra { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+  @-webkit-keyframes cai { to { -webkit-transform: translateY(112vh) rotate(540deg); } }
+  @keyframes cai { to { transform: translateY(112vh) rotate(540deg); } }
 </style>
 </head>
 <body>
 <div class="tela" id="tela">
   <div class="aviso" id="aviso">Carregando a corrida…</div>
 </div>
-<button class="som" id="som" type="button" hidden>🔊 Toque para ligar o som</button>
+<button class="som escondido" id="som" type="button">🔊 Aperte OK para ligar o som</button>
 <script>
 (function () {
   "use strict";
   var DADOS_URL = "https://n8n.infinitypromvendas.com.br/webhook/corrida-tv";
-  var CHAVE = new URLSearchParams(location.search).get("chave") || "";
   var ATUALIZA_MS = 15000;
   var CORES = ["#f97316", "#22d3ee", "#a78bfa", "#34d399", "#f472b6", "#facc15", "#60a5fa", "#fb7185", "#2dd4bf", "#c084fc", "#fbbf24", "#4ade80", "#38bdf8", "#e879f9"];
   var OFF = 3 * 3600 * 1000; // Fortaleza = UTC-3
   var tela = document.getElementById("tela");
-  var anterior = null;      // casas de cada vendedor na última leitura
-  var dados = null;
-  var falhas = 0;
-  var filaAnuncio = [];
-  var anunciando = false;
-  var ctxSom = null;
+  var btnSom = document.getElementById("som");
+  var anterior = null, dados = null, falhas = 0, filaAnuncio = [], anunciando = false, ctxSom = null;
 
+  function param(nome) {
+    var m = new RegExp("[?&]" + nome + "=([^&#]*)").exec(location.search || "");
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+  }
+  var CHAVE = param("chave");
+  var DIAG = param("diag") === "1";
+
+  // ---------- diagnóstico na própria tela (para foto quando algo não aparece) ----------
+  function mostrarDiag(txt, info) {
+    var d = document.getElementById("diag");
+    if (!d) { d = document.createElement("div"); d.id = "diag"; document.body.appendChild(d); }
+    d.className = "diag" + (info ? " info" : "");
+    d.textContent = txt;
+  }
+  window.onerror = function (msg, arq, linha, col) {
+    mostrarDiag("Erro: " + msg + " (linha " + linha + ":" + col + ")\n" + navigator.userAgent);
+  };
+  if (DIAG) mostrarDiag("Navegador: " + navigator.userAgent + "\nTela: " + window.innerWidth + "×" + window.innerHeight + " · pixel " + (window.devicePixelRatio || 1), true);
+
+  // ---------- utilidades (ES5) ----------
+  function cada(lista, fn) { for (var i = 0; i < lista.length; i++) fn(lista[i], i); }
   function h(tag, attrs, filhos) {
     var n = document.createElement(tag);
-    if (attrs) Object.keys(attrs).forEach(function (k) {
+    if (attrs) for (var k in attrs) if (attrs.hasOwnProperty(k)) {
       var v = attrs[k];
-      if (v === null || v === undefined || v === false) return;
-      if (k === "class") n.className = v; else if (k === "style") n.setAttribute("style", v); else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
-    });
-    (filhos || []).forEach(function (c) { if (c === null || c === undefined || c === false) return; n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") n.className = v; else if (k === "style") n.style.cssText = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+    }
+    if (filhos) cada(filhos, function (c) { if (c === null || c === undefined || c === false) return; n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
     return n;
   }
-  function primeiro(nome) { return String(nome || "").split(" ")[0]; }
-  function iniciais(nome) { var p = String(nome || "").trim().split(/\s+/); return ((p[0] || "")[0] || "").toUpperCase() + ((p.length > 1 ? p[p.length - 1][0] : "") || "").toUpperCase(); }
-  function foto(c, classe) {
-    if (c.foto) return h("img", { class: "foto " + (classe || ""), src: c.foto, alt: "" });
-    return h("div", { class: "foto sem " + (classe || "") }, [iniciais(c.nome)]);
+  function tirar(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+  function rgba(hex, a) {
+    var n = parseInt(hex.slice(1), 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
   }
-  function dia(iso) { return new Date(new Date(iso).getTime() - OFF).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }); }
-  function hora(iso) { return new Date(new Date(iso).getTime() - OFF).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }); }
+  // aceita "2026-11-17T13:09:30.480075+00:00" (microssegundos) — alguns navegadores de TV não entendem esse formato
+  function quando(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):?(\d{2}))?$/.exec(String(iso || ""));
+    if (!m) { var t = new Date(iso).getTime(); return isNaN(t) ? 0 : t; }
+    var ms = m[7] ? parseInt((m[7] + "00").slice(0, 3), 10) : 0;
+    var t2 = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], ms);
+    if (m[9]) t2 -= (m[9] === "-" ? -1 : 1) * (parseInt(m[10], 10) * 60 + parseInt(m[11], 10)) * 60000;
+    return t2;
+  }
+  function dois(n) { return (n < 10 ? "0" : "") + n; }
+  function dia(ms) { var d = new Date(ms - OFF); return dois(d.getUTCDate()) + "/" + dois(d.getUTCMonth() + 1); }
+  function hora(ms) { var d = new Date(ms - OFF); return dois(d.getUTCHours()) + ":" + dois(d.getUTCMinutes()); }
   function falta(ms) {
     var min = Math.max(0, Math.round(ms / 60000)), d = Math.floor(min / 1440), hh = Math.floor((min % 1440) / 60), m = min % 60;
     return d ? d + "d " + hh + "h" : hh ? hh + "h " + m + "min" : m + "min";
   }
+  function primeiro(nome) { return String(nome || "").split(" ")[0]; }
+  function iniciais(nome) { var p = String(nome || "").replace(/^\s+|\s+$/g, "").split(/\s+/); return ((p[0] || " ").charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : "")).toUpperCase(); }
+  function foto(c) {
+    var estilo = "border-color:" + c.cor;
+    if (c.foto) return h("img", { class: "foto", src: c.foto, alt: "", style: estilo });
+    return h("div", { class: "foto sem", style: estilo }, [iniciais(c.nome)]);
+  }
+  function faixas(n, fn) { var r = []; for (var i = 0; i < n; i++) r.push(fn(i)); return r; }
 
   function ordenar(d) {
-    var casas = d.casas;
-    var lista = d.corredores.map(function (c, i) {
-      var docs = (c.docs || []).map(function (x) { return new Date(x).getTime(); });
-      return { nome: c.nome, foto: c.foto, casas: docs.length, cor: CORES[i % CORES.length],
-        ultimo: docs.length ? docs[docs.length - 1] : Infinity, chegouEm: docs.length >= casas ? docs[casas - 1] : null };
+    var casas = d.casas, lista = [];
+    cada(d.corredores, function (c, i) {
+      var docs = [];
+      cada(c.docs || [], function (x) { docs.push(quando(x)); });
+      docs.sort(function (a, b) { return a - b; });
+      lista.push({ nome: c.nome, foto: c.foto, casas: docs.length, cor: CORES[i % CORES.length],
+        ultimo: docs.length ? docs[docs.length - 1] : 9e15, chegouEm: docs.length >= casas ? docs[casas - 1] : null });
     });
-    lista.sort(function (a, b) { return b.casas - a.casas || a.ultimo - b.ultimo || a.nome.localeCompare(b.nome, "pt-BR"); });
+    lista.sort(function (a, b) { return (b.casas - a.casas) || (a.ultimo - b.ultimo) || (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0); });
     return lista;
   }
 
+  // ---------- desenho ----------
   function desenhar() {
     var d = dados, casas = d.casas, lista = ordenar(d);
     var lider = lista[0] && lista[0].casas ? lista[0] : null;
-    var chegaram = lista.filter(function (x) { return x.chegouEm; }).sort(function (a, b) { return a.chegouEm - b.chegouEm; });
-    var ordemChegada = {};
-    chegaram.forEach(function (x, i) { ordemChegada[x.nome] = i + 1; });
-    var total = lista.reduce(function (s, x) { return s + x.casas; }, 0);
-    var fimSemana = new Date(d.semana_fim).getTime();
+    var chegaram = [], ordemChegada = {}, total = 0;
+    cada(lista, function (x) { total += x.casas; if (x.chegouEm) chegaram.push(x); });
+    chegaram.sort(function (a, b) { return a.chegouEm - b.chegouEm; });
+    cada(chegaram, function (x, i) { ordemChegada[x.nome] = i + 1; });
+    var ini = quando(d.semana_ini), fim = quando(d.semana_fim);
+    var larguraCasa = (100 / casas) + "%";
 
     tela.innerHTML = "";
-    tela.appendChild(h("div", { class: "topo" }, [
-      h("img", { src: "../logo.png", alt: "" }),
-      h("div", { class: "titulo" }, [
+    tela.appendChild(h("div", { class: "topo linha" }, [
+      h("img", { class: "fixo", src: "../logo.png", alt: "" }),
+      h("div", { class: "titulo cresce" }, [
         h("h1", { text: "🏁 Corrida da documentação" }),
-        h("p", { text: "Semana de " + dia(d.semana_ini) + " a " + dia(fimSemana - 1) + " · cada documentação avança uma casa" }),
+        h("p", { text: "Semana de " + dia(ini) + " a " + dia(fim - 1) + " · cada documentação avança uma casa" })
       ]),
-      h("div", { class: "cards" }, [
-        h("div", { class: "card" }, [h("small", { text: "Documentações" }), h("strong", { text: String(total) })]),
-        h("div", { class: "card lider" }, [h("small", { text: "👑 Na frente" }), h("strong", { text: lider ? primeiro(lider.nome) + " · " + lider.casas : "Largada!" })]),
-        h("div", { class: "card" }, [h("small", { text: "🏁 Chegada" }), h("strong", { text: chegaram.length ? chegaram.length + (chegaram.length === 1 ? " cruzou" : " cruzaram") : casas + " casas" })]),
-        h("div", { class: "card" }, [h("small", { text: "⏳ Zera em" }), h("strong", { id: "zera", text: falta(fimSemana - Date.now()) })]),
-      ]),
+      h("div", { class: "card fixo" }, [h("small", { text: "Documentações" }), h("strong", { text: String(total) })]),
+      h("div", { class: "card lider fixo" }, [h("small", { text: "👑 Na frente" }), h("strong", { text: lider ? primeiro(lider.nome) + " · " + lider.casas : "Largada!" })]),
+      h("div", { class: "card fixo" }, [h("small", { text: "🏁 Chegada" }), h("strong", { text: chegaram.length ? chegaram.length + (chegaram.length === 1 ? " cruzou" : " cruzaram") : casas + " casas" })]),
+      h("div", { class: "card fixo" }, [h("small", { text: "⏳ Zera em" }), h("strong", { id: "zera", text: falta(fim - new Date().getTime()) })])
     ]));
 
-    var num = h("div", { class: "num" }, Array.from({ length: casas }, function (_, i) { return h("span", { text: String(i + 1) }); }));
-    var raias = h("div", { class: "raias" });
-    var pista = h("div", { class: "pista", style: "--casas:" + casas }, [
-      h("div", { class: "cab" }, [h("span", { text: "LARGADA" }), num, h("span", { class: "fim", text: "🏁" })]),
-      raias,
-    ]);
+    var pista = h("div", { class: "pista" });
+    pista.appendChild(h("div", { class: "cab linha" }, [
+      h("span", { class: "quem fixo", text: "LARGADA" }),
+      h("div", { class: "meio linha cresce" }, faixas(casas, function (i) { return h("span", { class: "cresce", text: String(i + 1) }); })),
+      h("span", { class: "placar fim fixo", text: "🏁" })
+    ]));
     var animar = [];
-    lista.forEach(function (x, i) {
+    cada(lista, function (x, i) {
       var pos = Math.min(x.casas, casas), pct = pos / casas * 100;
       var antes = anterior ? anterior[x.nome] : undefined;
       var andou = antes !== undefined && x.casas > antes;
       var pctAntes = andou ? Math.min(antes, casas) / casas * 100 : pct;
       var chegou = !!x.chegouEm;
-      var corredor = h("div", { class: "corredor" + (andou ? " andou" : ""), style: "--p:" + pctAntes }, [
+      var corredor = h("div", { class: "corredor" + (andou ? " andou" : ""), style: posicao(pctAntes) }, [
         x === lider && !chegou ? h("span", { class: "coroa", text: "👑" }) : null,
         chegou ? h("span", { class: "coroa", text: ordemChegada[x.nome] === 1 ? "🏆" : "🏅" }) : null,
         foto(x),
-        andou ? h("span", { class: "mais", text: "+" + (x.casas - antes) }) : null,
+        andou ? h("span", { class: "mais", style: "color:" + x.cor, text: "+" + (x.casas - antes) }) : null
       ]);
       if (andou) animar.push({ el: corredor, p: pct });
-      raias.appendChild(h("div", { class: "raia" + (chegou ? " chegou" : "") + (x === lider ? " lider" : ""), style: "--cor:" + x.cor }, [
-        h("div", { class: "quem" }, [
+      var casasEl = h("div", { class: "casas linha" }, faixas(casas, function (k) {
+        return h("span", { class: "cresce", style: k < pos ? "background:" + rgba(x.cor, 0.14) : null });
+      }));
+      pista.appendChild(h("div", { class: "raia linha" + (chegou ? " chegou" : "") + (x === lider ? " lider" : "") }, [
+        h("div", { class: "quem fixo" }, [
           h("span", { class: "pos", text: chegou ? ordemChegada[x.nome] + "º" : x.casas ? (i + 1) + "º" : "–" }),
-          h("span", { class: "nome", text: x.nome }),
+          h("span", { class: "nome", text: x.nome })
         ]),
-        h("div", { class: "trilho" }, [
-          h("div", { class: "casas" }, Array.from({ length: casas }, function (_, k) { return h("span", { class: k < pos ? "feita" : null }); })),
-          h("div", { class: "rastro", style: "width:" + pct + "%" }),
+        h("div", { class: "trilho cresce" }, [
+          casasEl,
+          h("div", { class: "rastro", style: "width:" + pct + "%;max-width:96%;background:" + x.cor + ";background:linear-gradient(90deg," + rgba(x.cor, 0) + "," + x.cor + ");box-shadow:0 0 2vh " + rgba(x.cor, 0.6) }),
           h("div", { class: "chegada" }),
-          corredor,
+          corredor
         ]),
-        h("div", { class: "placar" }, [h("strong", { text: String(x.casas) }), h("small", { text: "/" + casas })]),
+        h("div", { class: "placar fixo" }, [h("strong", { text: String(x.casas) }), h("small", { text: "/" + casas })])
       ]));
     });
     tela.appendChild(pista);
 
-    var ult = (d.ultimos || []).slice(0, 4).map(function (u) { return primeiro(u.nome) + " " + hora(u.em); }).join("  ·  ");
+    var ult = [];
+    cada((d.ultimos || []).slice(0, 4), function (u) { ult.push(primeiro(u.nome) + " " + hora(quando(u.em))); });
     var passada = (d.semana_passada || [])[0];
-    tela.appendChild(h("div", { class: "rodape" }, [
-      h("span", { class: "status" + (falhas ? " off" : ""), id: "status", text: falhas ? "Reconectando…" : "Ao vivo" }),
-      h("span", { class: "ticker" }, [ult ? h("span", {}, ["Últimas: ", h("b", { text: ult })]) : "Nenhuma documentação ainda nesta semana — a largada é agora!"]),
-      passada ? h("span", {}, ["🏆 Semana passada: ", h("b", { text: primeiro(passada.nome) + " (" + passada.n + ")" })]) : null,
+    tela.appendChild(h("div", { class: "rodape linha" + (falhas ? " off" : "") }, [
+      h("span", { class: "status fixo", id: "status" }, [h("span", { class: "ponto" }), falhas ? "Reconectando…" : "Ao vivo"]),
+      h("span", { class: "cresce" }, [ult.length ? h("span", {}, ["Últimas: ", h("b", { text: ult.join("  ·  ") })]) : "Nenhuma documentação ainda nesta semana — a largada é agora!"]),
+      passada ? h("span", { class: "fixo" }, ["🏆 Semana passada: ", h("b", { text: primeiro(passada.nome) + " (" + passada.n + ")" })]) : null
     ]));
 
-    requestAnimationFrame(function () { requestAnimationFrame(function () {
-      animar.forEach(function (a) { a.el.style.setProperty("--p", a.p); });
-    }); });
+    setTimeout(function () { cada(animar, function (a) { a.el.style.cssText = posicao(a.p); }); }, 60);
 
-    // anúncios: quem andou (e quem cruzou a chegada) nesta leitura
-    if (anterior) lista.forEach(function (x) {
+    if (anterior) cada(lista, function (x) {
       var antes = anterior[x.nome];
       if (antes === undefined || x.casas <= antes) return;
-      var cruzou = antes < casas && x.casas >= casas;
-      filaAnuncio.push({ c: x, cruzou: cruzou, casas: casas, ordem: ordemChegada[x.nome] });
+      filaAnuncio.push({ c: x, cruzou: antes < casas && x.casas >= casas, casas: casas, ordem: ordemChegada[x.nome] });
     });
     anterior = {};
-    lista.forEach(function (x) { anterior[x.nome] = x.casas; });
+    cada(lista, function (x) { anterior[x.nome] = x.casas; });
     proximoAnuncio();
+  }
+  // posição da foto na pista: no começo encosta na largada, no fim encosta na chegada
+  function posicao(pct) {
+    var t = "translate(-" + pct + "%,-50%)";
+    return "left:" + (pct * 0.96) + "%;-webkit-transform:" + t + ";transform:" + t;
   }
 
   function proximoAnuncio() {
     if (anunciando || !filaAnuncio.length) return;
     anunciando = true;
     var a = filaAnuncio.shift(), x = a.c;
-    var camada = h("div", { class: "anuncio" + (a.cruzou ? " chegada" : ""), style: "--cor:" + x.cor }, [
-      h("div", { class: "anuncio-card" }, [
-        h("div", { class: "anuncio-selo", text: a.cruzou ? (a.ordem === 1 ? "🏆 CAMPEÃO DA SEMANA!" : "🏁 CRUZOU A CHEGADA!") : "📄 NOVA DOCUMENTAÇÃO!" }),
+    var camada = h("div", { class: "anuncio" }, [
+      h("div", { class: "anuncio-card", style: "border-color:" + (a.cruzou ? "#fbbf24" : x.cor) + ";box-shadow:0 0 10vh " + rgba(a.cruzou ? "#fbbf24" : x.cor, 0.5) }, [
+        h("div", { class: "anuncio-selo", style: "color:" + (a.cruzou ? "#fbbf24" : x.cor), text: a.cruzou ? (a.ordem === 1 ? "🏆 CAMPEÃO DA SEMANA!" : "🏁 CRUZOU A CHEGADA!") : "📄 NOVA DOCUMENTAÇÃO!" }),
         foto(x),
         h("div", { class: "anuncio-nome", text: x.nome }),
-        h("div", { class: "anuncio-txt", text: a.cruzou ? a.ordem + "º a completar " + a.casas + " documentações" : "avançou para a casa " + Math.min(x.casas, a.casas) + " de " + a.casas }),
-      ]),
+        h("div", { class: "anuncio-txt", text: a.cruzou ? a.ordem + "º a completar " + a.casas + " documentações" : "avançou para a casa " + Math.min(x.casas, a.casas) + " de " + a.casas })
+      ])
     ]);
     document.body.appendChild(camada);
     if (a.cruzou) confete(x.cor);
     tocar(a.cruzou);
     setTimeout(function () {
-      camada.classList.add("sai");
-      setTimeout(function () { camada.remove(); anunciando = false; setTimeout(proximoAnuncio, 400); }, 500);
+      camada.className += " sai";
+      setTimeout(function () { tirar(camada); anunciando = false; setTimeout(proximoAnuncio, 400); }, 500);
     }, a.cruzou ? 9000 : 5000);
   }
 
   function confete(cor) {
     var cores = [cor, "#fbbf24", "#f8fafc", "#22d3ee", "#f472b6", "#34d399"];
     var box = h("div", { class: "confete" });
-    for (var i = 0; i < 140; i++) box.appendChild(h("i", { style: "left:" + (Math.random() * 100) + "%;background:" + cores[i % cores.length] +
-      ";animation-duration:" + (2.8 + Math.random() * 2.4).toFixed(2) + "s;animation-delay:" + (Math.random() * 1.5).toFixed(2) + "s;--gira:" + Math.round(Math.random() * 900 - 450) + "deg" }));
+    for (var i = 0; i < 120; i++) {
+      var dur = (2.8 + Math.random() * 2.4).toFixed(2) + "s", atraso = (Math.random() * 1.5).toFixed(2) + "s";
+      box.appendChild(h("i", { style: "left:" + (Math.random() * 100) + "%;background:" + cores[i % cores.length] +
+        ";-webkit-animation-duration:" + dur + ";animation-duration:" + dur + ";-webkit-animation-delay:" + atraso + ";animation-delay:" + atraso }));
+    }
     document.body.appendChild(box);
-    setTimeout(function () { box.remove(); }, 7500);
+    setTimeout(function () { tirar(box); }, 7500);
   }
 
-  // som: a TV só toca depois de um toque/clique na página (regra dos navegadores)
-  var btnSom = document.getElementById("som");
+  // ---------- som: a TV só toca depois de um clique/OK na página (regra dos navegadores) ----------
   function ligarSom() {
     try {
-      if (!ctxSom) ctxSom = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctxSom.state === "suspended") ctxSom.resume();
-      btnSom.hidden = true;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC && !ctxSom) ctxSom = new AC();
+      if (ctxSom && ctxSom.state === "suspended" && ctxSom.resume) ctxSom.resume();
       tocar(false);
-    } catch (e) { btnSom.hidden = true; }
+    } catch (e) { /* sem som nesta TV */ }
+    btnSom.className = "som escondido";
   }
-  btnSom.addEventListener("click", ligarSom);
-  document.addEventListener("keydown", ligarSom, { once: true });
+  btnSom.onclick = ligarSom;
+  document.addEventListener("keydown", function (ev) { if (ctxSom) return; ligarSom(); }, false);
   function tocar(festa) {
-    if (!ctxSom || ctxSom.state !== "running") return;
-    var t0 = ctxSom.currentTime + 0.05;
-    var notas = festa ? [[523, 0, 0.16], [659, 0.16, 0.16], [784, 0.32, 0.16], [1047, 0.48, 0.5], [784, 1.0, 0.14], [1047, 1.14, 0.9]] : [[659, 0, 0.14], [880, 0.14, 0.3]];
-    notas.forEach(function (n) {
-      var o = ctxSom.createOscillator(), g = ctxSom.createGain();
-      o.type = "triangle"; o.frequency.value = n[0];
-      g.gain.setValueAtTime(0.0001, t0 + n[1]);
-      g.gain.exponentialRampToValueAtTime(0.3, t0 + n[1] + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
-      o.connect(g).connect(ctxSom.destination);
-      o.start(t0 + n[1]); o.stop(t0 + n[1] + n[2] + 0.05);
-    });
+    try {
+      if (!ctxSom || ctxSom.state !== "running") return;
+      var t0 = ctxSom.currentTime + 0.05;
+      var notas = festa ? [[523, 0, 0.16], [659, 0.16, 0.16], [784, 0.32, 0.16], [1047, 0.48, 0.5], [784, 1.0, 0.14], [1047, 1.14, 0.9]] : [[659, 0, 0.14], [880, 0.14, 0.3]];
+      cada(notas, function (n) {
+        var o = ctxSom.createOscillator(), g = ctxSom.createGain();
+        o.type = "triangle"; o.frequency.value = n[0];
+        g.gain.setValueAtTime(0.0001, t0 + n[1]);
+        g.gain.exponentialRampToValueAtTime(0.3, t0 + n[1] + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
+        o.connect(g); g.connect(ctxSom.destination);
+        o.start(t0 + n[1]); o.stop(t0 + n[1] + n[2] + 0.05);
+      });
+    } catch (e) { /* sem som */ }
   }
 
-  function mostrarAviso(txt) {
-    tela.innerHTML = "";
-    tela.appendChild(h("div", { class: "aviso", text: txt }));
-  }
+  function mostrarAviso(txt) { tela.innerHTML = ""; tela.appendChild(h("div", { class: "aviso", text: txt })); }
 
+  // ---------- dados (XMLHttpRequest: funciona em navegadores de TV antigos) ----------
   function buscar() {
     if (!CHAVE) { mostrarAviso("Este endereço precisa da chave da TV (?chave=...). Peça o link completo à gestão."); return; }
-    fetch(DADOS_URL + "?chave=" + encodeURIComponent(CHAVE) + "&t=" + Date.now(), { cache: "no-store" })
-      .then(function (r) {
-        if (r.status === 403) throw new Error("chave");
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then(function (j) {
-        if (!j || !Array.isArray(j.corredores)) throw new Error("resposta");
-        // virada da semana: a pista zerou, então não anuncia nada nesta leitura
-        if (dados && dados.semana_ini !== j.semana_ini) anterior = null;
-        dados = j;
-        falhas = 0;
-        desenhar();
-        if (!ctxSom) btnSom.hidden = false;
-      })
-      .catch(function (e) {
-        if (String(e.message) === "chave") { mostrarAviso("Chave da TV inválida. Peça o link atualizado à gestão."); return; }
+    var x = new XMLHttpRequest();
+    x.open("GET", DADOS_URL + "?chave=" + encodeURIComponent(CHAVE) + "&t=" + new Date().getTime(), true);
+    x.timeout = 20000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      if (x.status === 403) { mostrarAviso("Chave da TV inválida. Peça o link atualizado à gestão."); return; }
+      var j = null;
+      if (x.status === 200) { try { j = JSON.parse(x.responseText); } catch (e) { j = null; } }
+      if (!j || !j.corredores || !j.corredores.length) {
         falhas++;
         var st = document.getElementById("status");
-        if (st) { st.classList.add("off"); st.textContent = "Reconectando…"; }
-        if (!dados) mostrarAviso("Sem conexão com o sistema. Tentando de novo…");
-      });
+        if (st) st.parentNode.className = "rodape linha off";
+        if (!dados) mostrarAviso("Sem conexão com o sistema (código " + x.status + "). Tentando de novo…");
+        return;
+      }
+      if (dados && dados.semana_ini !== j.semana_ini) anterior = null; // virada da semana: a pista zerou
+      dados = j;
+      falhas = 0;
+      try { desenhar(); }
+      catch (e) { mostrarDiag("Erro ao desenhar: " + (e && e.message) + "\n" + navigator.userAgent); return; }
+      if (!ctxSom) btnSom.className = "som";
+    };
+    x.send();
   }
 
   buscar();
   setInterval(buscar, ATUALIZA_MS);
   setInterval(function () {
     var z = document.getElementById("zera");
-    if (z && dados) z.textContent = falta(new Date(dados.semana_fim).getTime() - Date.now());
+    if (z && dados) z.textContent = falta(quando(dados.semana_fim) - new Date().getTime());
   }, 30000);
   // recarrega a página de madrugada (pega versões novas e evita a TV travar depois de dias ligada)
   setInterval(function () {
-    var hLocal = new Date(Date.now() - OFF).getUTCHours();
-    if (hLocal === 4 && !anunciando) location.reload();
+    if (new Date(new Date().getTime() - OFF).getUTCHours() === 4 && !anunciando) location.reload();
   }, 50 * 60 * 1000);
 })();
 </script>
