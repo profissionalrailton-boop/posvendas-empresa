@@ -142,7 +142,27 @@
   window.onerror = function (msg, arq, linha, col) {
     mostrarDiag("Erro: " + msg + " (linha " + linha + ":" + col + ")\n" + navigator.userAgent);
   };
-  if (DIAG) mostrarDiag("Navegador: " + navigator.userAgent + "\nTela: " + window.innerWidth + "×" + window.innerHeight + " · pixel " + (window.devicePixelRatio || 1), true);
+  var ultimoPedido = "nenhum ainda";
+  function retangulo(el) { if (!el) return "—"; var r = el.getBoundingClientRect(); return Math.round(r.left) + "," + Math.round(r.top) + " " + Math.round(r.width) + "×" + Math.round(r.height); }
+  function atualizarDiag() {
+    var cs = window.getComputedStyle(tela);
+    var raia = document.querySelector(".raia");
+    var vv = window.visualViewport;
+    mostrarDiag("Navegador: " + navigator.userAgent +
+      "\nTela: " + window.innerWidth + "×" + window.innerHeight + " · pixel " + (window.devicePixelRatio || 1) + (vv ? " · visível " + Math.round(vv.width) + "×" + Math.round(vv.height) + " zoom " + vv.scale.toFixed(2) : "") +
+      "\nPedido: " + ultimoPedido +
+      "\nConteúdo: " + tela.children.length + " blocos · raias " + document.querySelectorAll(".raia").length + " · área " + retangulo(tela) + " · 1ª raia " + retangulo(raia) +
+      "\nEstilo: display " + cs.display + " · cor " + cs.color + " · opacidade " + cs.opacity + " · visível " + cs.visibility + " · rolagem " + window.scrollX + "," + window.scrollY, true);
+  }
+  if (DIAG) {
+    setTimeout(atualizarDiag, 0);
+    setInterval(atualizarDiag, 3000);
+    // faixa de teste: se ela não aparecer no topo, a TV não está mostrando o conteúdo normal da página
+    var faixa = document.createElement("div");
+    faixa.style.cssText = "position:relative;z-index:80;background:#dc2626;color:#fff;font-size:24px;padding:10px 16px;font-weight:bold";
+    faixa.textContent = "TESTE: se você vê esta faixa vermelha, a página está desenhando";
+    document.body.insertBefore(faixa, document.body.firstChild);
+  }
 
   // ---------- utilidades (ES5) ----------
   function cada(lista, fn) { for (var i = 0; i < lista.length; i++) fn(lista[i], i); }
@@ -360,6 +380,7 @@
     x.timeout = 20000;
     x.onreadystatechange = function () {
       if (x.readyState !== 4) return;
+      ultimoPedido = "código " + x.status + " às " + hora(new Date().getTime()) + " · " + (x.responseText || "").length + " letras";
       if (x.status === 403) { mostrarAviso("Chave da TV inválida. Peça o link atualizado à gestão."); return; }
       var j = null;
       if (x.status === 200) { try { j = JSON.parse(x.responseText); } catch (e) { j = null; } }
