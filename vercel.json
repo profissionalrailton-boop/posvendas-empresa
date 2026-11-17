@@ -1,16 +1,70 @@
 {
   "redirects": [
-    { "source": "/administrativo", "destination": "/administrativo/", "permanent": false },
-    { "source": "/financeiro", "destination": "/financeiro/", "permanent": false },
-    { "source": "/ranking", "destination": "/ranking/", "permanent": false },
-    { "source": "/posvendas", "destination": "/posvendas/", "permanent": false }
+    {
+      "source": "/administrativo",
+      "destination": "/administrativo/",
+      "permanent": false
+    },
+    {
+      "source": "/financeiro",
+      "destination": "/financeiro/",
+      "permanent": false
+    },
+    {
+      "source": "/ranking",
+      "destination": "/ranking/",
+      "permanent": false
+    },
+    {
+      "source": "/posvendas",
+      "destination": "/posvendas/",
+      "permanent": false
+    },
+    {
+      "source": "/tv",
+      "destination": "/tv/",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/administrativo/", "destination": "https://administrativo-empresa.vercel.app/" },
-    { "source": "/administrativo/:path*", "destination": "https://administrativo-empresa.vercel.app/:path*" },
-    { "source": "/financeiro/", "destination": "https://financeiro-empresa-sigma.vercel.app/" },
-    { "source": "/financeiro/:path*", "destination": "https://financeiro-empresa-sigma.vercel.app/:path*" },
-    { "source": "/ranking/", "destination": "https://ranking-campanha.vercel.app/" },
-    { "source": "/ranking/:path*", "destination": "https://ranking-campanha.vercel.app/:path*" }
+    {
+      "source": "/administrativo/",
+      "destination": "https://administrativo-empresa.vercel.app/"
+    },
+    {
+      "source": "/administrativo/:path*",
+      "destination": "https://administrativo-empresa.vercel.app/:path*"
+    },
+    {
+      "source": "/financeiro/",
+      "destination": "https://financeiro-empresa-sigma.vercel.app/"
+    },
+    {
+      "source": "/financeiro/:path*",
+      "destination": "https://financeiro-empresa-sigma.vercel.app/:path*"
+    },
+    {
+      "source": "/ranking/",
+      "destination": "https://ranking-campanha.vercel.app/"
+    },
+    {
+      "source": "/ranking/:path*",
+      "destination": "https://ranking-campanha.vercel.app/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/tv/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
   ]
 }
