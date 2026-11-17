@@ -16,7 +16,7 @@
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #07080d; color: #f8fafc;
     font-family: "Segoe UI", Roboto, Arial, Helvetica, sans-serif; }
   body { background: #07080d radial-gradient(ellipse at 100% 0, rgba(249, 115, 22, 0.16), rgba(7, 8, 13, 0) 55%); }
-  .tela { position: relative; height: 100%; padding: 2.2rem 3.92rem 2rem;
+  .cx-palco { position: relative; height: 100%; padding: 2.2rem 3.92rem 2rem;
     display: -webkit-box; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
   .linha { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
   .cresce { -webkit-flex: 1 1 0; flex: 1 1 0; min-width: 0; }
@@ -75,23 +75,23 @@
   .status { font-weight: 800; }
 
   /* anúncio de tela cheia */
-  .anuncio { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(4, 5, 10, 0.8); text-align: center;
+  .cx-destaque { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(4, 5, 10, 0.8); text-align: center;
     -webkit-animation: aparece 0.35s ease-out; animation: aparece 0.35s ease-out; }
-  .anuncio.sai { -webkit-animation: some 0.5s ease-in forwards; animation: some 0.5s ease-in forwards; }
-  .anuncio-card { display: inline-block; margin-top: 16rem; padding: 5rem 10.68rem; border-radius: 4rem; background: #121524; border: 0.3rem solid #94a3b8;
+  .cx-destaque.sai { -webkit-animation: some 0.5s ease-in forwards; animation: some 0.5s ease-in forwards; }
+  .cx-destaque-card { display: inline-block; margin-top: 16rem; padding: 5rem 10.68rem; border-radius: 4rem; background: #121524; border: 0.3rem solid #94a3b8;
     -webkit-animation: entra 0.6s ease-out; animation: entra 0.6s ease-out; }
-  .anuncio-card .foto { width: 22rem; height: 22rem; margin: 0 auto; border-width: 1rem; }
-  .anuncio-card .foto.sem { line-height: 20rem; font-size: 7rem; }
-  .anuncio-selo { font-size: 3.4rem; font-weight: 900; letter-spacing: 0.12em; margin-bottom: 2.4rem; }
-  .anuncio-nome { margin-top: 2.6rem; font-size: 7rem; font-weight: 900; }
-  .anuncio-txt { margin-top: 1rem; font-size: 3.4rem; font-weight: 700; color: #94a3b8; }
-  .confete { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 51; overflow: hidden; }
-  .confete i { position: absolute; top: -4rem; width: 1.2rem; height: 1.8rem; border-radius: 0.3rem; -webkit-animation: cai linear forwards; animation: cai linear forwards; }
+  .cx-destaque-card .foto { width: 22rem; height: 22rem; margin: 0 auto; border-width: 1rem; }
+  .cx-destaque-card .foto.sem { line-height: 20rem; font-size: 7rem; }
+  .cx-destaque-selo { font-size: 3.4rem; font-weight: 900; letter-spacing: 0.12em; margin-bottom: 2.4rem; }
+  .cx-destaque-nome { margin-top: 2.6rem; font-size: 7rem; font-weight: 900; }
+  .cx-destaque-txt { margin-top: 1rem; font-size: 3.4rem; font-weight: 700; color: #94a3b8; }
+  .cx-chuva { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 51; overflow: hidden; }
+  .cx-chuva i { position: absolute; top: -4rem; width: 1.2rem; height: 1.8rem; border-radius: 0.3rem; -webkit-animation: cai linear forwards; animation: cai linear forwards; }
 
   .som { position: fixed; right: 3.56rem; bottom: 2rem; z-index: 60; padding: 1rem 2.49rem; border-radius: 1rem; border: 1px solid rgba(255, 255, 255, 0.15); background: #1f2937; color: #f8fafc;
     font-size: 1.8rem; font-weight: 800; }
   .escondido { display: none !important; }
-  .aviso { margin: 30rem auto 0; text-align: center; font-size: 3rem; color: #cbd5e1; max-width: 124.6rem; line-height: 1.5; }
+  .cx-msg { margin: 30rem auto 0; text-align: center; font-size: 3rem; color: #cbd5e1; max-width: 124.6rem; line-height: 1.5; }
   .diag { position: fixed; left: 1.78rem; bottom: 1rem; z-index: 70; max-width: 124.6rem; padding: 1rem 1.78rem; border-radius: 1rem; background: rgba(127, 29, 29, 0.92); color: #fff;
     font-size: 1.6rem; line-height: 1.4; font-family: monospace; white-space: pre-wrap; }
   .diag.info { background: rgba(30, 41, 59, 0.92); }
@@ -111,8 +111,8 @@
 </style>
 </head>
 <body>
-<div class="tela" id="tela">
-  <div class="aviso" id="aviso">Carregando a corrida…</div>
+<div class="cx-palco" id="cx-palco">
+  <div class="cx-msg" id="cx-msg">Carregando a corrida…</div>
 </div>
 <button class="som escondido" id="som" type="button">🔊 Aperte OK para ligar o som</button>
 <script>
@@ -122,7 +122,7 @@
   var ATUALIZA_MS = 15000;
   var CORES = ["#f97316", "#22d3ee", "#a78bfa", "#34d399", "#f472b6", "#facc15", "#60a5fa", "#fb7185", "#2dd4bf", "#c084fc", "#fbbf24", "#4ade80", "#38bdf8", "#e879f9"];
   var OFF = 3 * 3600 * 1000; // Fortaleza = UTC-3
-  var tela = document.getElementById("tela");
+  var tela = document.getElementById("cx-palco");
   // Tamanhos em "rem" calculados aqui a partir do tamanho real da janela (algumas TVs calculam "vh"/"vw" de um jeito diferente).
   function escala() {
     var alt = window.innerHeight || document.documentElement.clientHeight || 540;
@@ -321,15 +321,16 @@
     if (anunciando || !filaAnuncio.length) return;
     anunciando = true;
     var a = filaAnuncio.shift(), x = a.c;
-    var camada = h("div", { class: "anuncio" }, [
-      h("div", { class: "anuncio-card", style: "border-color:" + (a.cruzou ? "#fbbf24" : x.cor) + ";box-shadow:0 0 10rem " + rgba(a.cruzou ? "#fbbf24" : x.cor, 0.5) }, [
-        h("div", { class: "anuncio-selo", style: "color:" + (a.cruzou ? "#fbbf24" : x.cor), text: a.cruzou ? (a.ordem === 1 ? "🏆 CAMPEÃO DA SEMANA!" : "🏁 CRUZOU A CHEGADA!") : "📄 NOVA DOCUMENTAÇÃO!" }),
+    var camada = h("div", { class: "cx-destaque" }, [
+      h("div", { class: "cx-destaque-card", style: "border-color:" + (a.cruzou ? "#fbbf24" : x.cor) + ";box-shadow:0 0 10rem " + rgba(a.cruzou ? "#fbbf24" : x.cor, 0.5) }, [
+        h("div", { class: "cx-destaque-selo", style: "color:" + (a.cruzou ? "#fbbf24" : x.cor), text: a.cruzou ? (a.ordem === 1 ? "🏆 CAMPEÃO DA SEMANA!" : "🏁 CRUZOU A CHEGADA!") : "📄 NOVA DOCUMENTAÇÃO!" }),
         foto(x),
-        h("div", { class: "anuncio-nome", text: x.nome }),
-        h("div", { class: "anuncio-txt", text: a.cruzou ? a.ordem + "º a completar " + a.casas + " documentações" : "avançou para a casa " + Math.min(x.casas, a.casas) + " de " + a.casas })
+        h("div", { class: "cx-destaque-nome", text: x.nome }),
+        h("div", { class: "cx-destaque-txt", text: a.cruzou ? a.ordem + "º a completar " + a.casas + " documentações" : "avançou para a casa " + Math.min(x.casas, a.casas) + " de " + a.casas })
       ])
     ]);
     document.body.appendChild(camada);
+    if (window.getComputedStyle(camada).display === "none") camada.style.setProperty("display", "block", "important");
     if (a.cruzou) confete(x.cor);
     tocar(a.cruzou);
     setTimeout(function () {
@@ -340,7 +341,7 @@
 
   function confete(cor) {
     var cores = [cor, "#fbbf24", "#f8fafc", "#22d3ee", "#f472b6", "#34d399"];
-    var box = h("div", { class: "confete" });
+    var box = h("div", { class: "cx-chuva" });
     for (var i = 0; i < 120; i++) {
       var dur = (2.8 + Math.random() * 2.4).toFixed(2) + "s", atraso = (Math.random() * 1.5).toFixed(2) + "s";
       box.appendChild(h("i", { style: "left:" + (Math.random() * 100) + "%;background:" + cores[i % cores.length] +
@@ -379,7 +380,23 @@
     } catch (e) { /* sem som */ }
   }
 
-  function mostrarAviso(txt) { tela.innerHTML = ""; tela.appendChild(h("div", { class: "aviso", text: txt })); }
+  // Navegadores de TV com bloqueador de anúncios às vezes escondem partes da página (display: none) pelo nome.
+  // Depois de desenhar, confere e força a aparecer.
+  function garantirVisivel() {
+    var alvos = [tela], achados = tela.querySelectorAll("div, span, img, strong, small, b, h1, p");
+    for (var i = 0; i < achados.length; i++) alvos.push(achados[i]);
+    for (var k = 0; k < alvos.length; k++) {
+      var el = alvos[k], cs = window.getComputedStyle(el);
+      if (cs.display === "none" && el.className.indexOf("escondido") < 0) {
+        var tag = el.tagName;
+        var certo = el === tela || /(linha|pista|cx-palco)/.test(el.className) ? "flex" : (tag === "SPAN" || tag === "B" || tag === "STRONG" || tag === "SMALL") ? "inline-block" : "block";
+        if (/(linha)/.test(el.className) || el === tela || /pista/.test(el.className)) certo = "flex";
+        el.style.setProperty("display", certo, "important");
+      }
+      if (cs.visibility === "hidden") el.style.setProperty("visibility", "visible", "important");
+    }
+  }
+  function mostrarAviso(txt) { tela.innerHTML = ""; tela.appendChild(h("div", { class: "cx-msg", text: txt })); }
 
   // ---------- dados (XMLHttpRequest: funciona em navegadores de TV antigos) ----------
   function buscar() {
@@ -403,7 +420,7 @@
       if (dados && dados.semana_ini !== j.semana_ini) anterior = null; // virada da semana: a pista zerou
       dados = j;
       falhas = 0;
-      try { desenhar(); }
+      try { desenhar(); garantirVisivel(); }
       catch (e) { mostrarDiag("Erro ao desenhar: " + (e && e.message) + "\n" + navigator.userAgent); return; }
       if (!ctxSom) btnSom.className = "som";
     };
