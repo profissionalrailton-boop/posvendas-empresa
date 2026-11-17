@@ -12,64 +12,65 @@
      Diagnóstico: acrescente &diag=1 ao endereço para ver o navegador e o tamanho da tela. -->
 <style>
   * { -webkit-box-sizing: border-box; box-sizing: border-box; }
+  html { font-size: 5.4px; }
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #07080d; color: #f8fafc;
     font-family: "Segoe UI", Roboto, Arial, Helvetica, sans-serif; }
   body { background: #07080d radial-gradient(ellipse at 100% 0, rgba(249, 115, 22, 0.16), rgba(7, 8, 13, 0) 55%); }
-  .tela { position: relative; height: 100%; height: 100vh; padding: 2.2vh 2.2vw 2vh;
+  .tela { position: relative; height: 100%; padding: 2.2rem 3.92rem 2rem;
     display: -webkit-box; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
   .linha { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
   .cresce { -webkit-flex: 1 1 0; flex: 1 1 0; min-width: 0; }
   .fixo { -webkit-flex: 0 0 auto; flex: 0 0 auto; }
 
   /* topo */
-  .topo { margin-bottom: 1.6vh; }
-  .topo img { height: 6vh; margin-right: 2vw; }
-  .titulo h1 { margin: 0; font-size: 4vh; font-weight: 900; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .titulo p { margin: 0.4vh 0 0; font-size: 1.9vh; color: #94a3b8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card { margin-left: 1vw; padding: 1.1vh 1.2vw; border-radius: 1.4vh; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); min-width: 11vw; }
-  .card small { display: block; font-size: 1.35vh; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
-  .card strong { display: block; margin-top: 0.3vh; font-size: 2.7vh; font-weight: 900; white-space: nowrap; }
+  .topo { margin-bottom: 1.6rem; }
+  .topo img { height: 6rem; margin-right: 3.56rem; }
+  .titulo h1 { margin: 0; font-size: 4rem; font-weight: 900; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .titulo p { margin: 0.4rem 0 0; font-size: 1.9rem; color: #94a3b8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card { margin-left: 1.78rem; padding: 1.1rem 2.14rem; border-radius: 1.4rem; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); min-width: 19.58rem; }
+  .card small { display: block; font-size: 1.35rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
+  .card strong { display: block; margin-top: 0.3rem; font-size: 2.7rem; font-weight: 900; white-space: nowrap; }
   .card.lider strong { color: #fbbf24; }
 
   /* pista */
-  .pista { -webkit-flex: 1 1 0; flex: 1 1 0; min-height: 0; padding: 1vh 1.2vw 1.2vh; border-radius: 2.2vh; background: #10121b; border: 1px solid rgba(255, 255, 255, 0.08);
+  .pista { -webkit-flex: 1 1 0; flex: 1 1 0; min-height: 0; padding: 1rem 2.14rem 1.2rem; border-radius: 2.2rem; background: #10121b; border: 1px solid rgba(255, 255, 255, 0.08);
     display: -webkit-box; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
-  .quem { width: 18vw; white-space: nowrap; }
-  .placar { width: 6vw; text-align: right; }
-  .cab { padding-bottom: 0.6vh; font-size: 1.4vh; font-weight: 800; letter-spacing: 0.1em; color: #94a3b8; }
-  .cab .meio { margin: 0 1.2vw; padding-right: 1.4vw; }
+  .quem { width: 32.04rem; white-space: nowrap; }
+  .placar { width: 10.68rem; text-align: right; }
+  .cab { padding-bottom: 0.6rem; font-size: 1.4rem; font-weight: 800; letter-spacing: 0.1em; color: #94a3b8; }
+  .cab .meio { margin: 0 2.14rem; padding-right: 2.49rem; }
   .cab .meio span { text-align: center; }
-  .cab .fim { font-size: 2.4vh; text-align: left; }
+  .cab .fim { font-size: 2.4rem; text-align: left; }
   .raia { -webkit-flex: 1 1 0; flex: 1 1 0; min-height: 0; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
-  .pos { display: inline-block; min-width: 3.6vh; height: 3.6vh; line-height: 3.6vh; padding: 0 0.5vh; margin-right: 0.8vw; border-radius: 1vh; text-align: center;
-    font-size: 1.9vh; font-weight: 900; color: #94a3b8; background: rgba(255, 255, 255, 0.06); vertical-align: middle; }
+  .pos { display: inline-block; min-width: 3.6rem; height: 3.6rem; line-height: 3.6rem; padding: 0 0.5rem; margin-right: 1.42rem; border-radius: 1rem; text-align: center;
+    font-size: 1.9rem; font-weight: 900; color: #94a3b8; background: rgba(255, 255, 255, 0.06); vertical-align: middle; }
   .raia.lider .pos { color: #1c1917; background: #fbbf24; }
   .raia.chegou .pos { color: #052e16; background: #4ade80; }
-  .nome { display: inline-block; max-width: 13.5vw; font-size: 2.3vh; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-  .trilho { position: relative; margin: 0 1.2vw; height: 72%; max-height: 7.5vh; border-radius: 1.4vh; background: rgba(255, 255, 255, 0.05); }
-  .casas { position: absolute; top: 0; bottom: 0; left: 0; right: 1.4vw; }
+  .nome { display: inline-block; max-width: 24.03rem; font-size: 2.3rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+  .trilho { position: relative; margin: 0 2.14rem; height: 72%; max-height: 7.5rem; border-radius: 1.4rem; background: rgba(255, 255, 255, 0.05); }
+  .casas { position: absolute; top: 0; bottom: 0; left: 0; right: 2.49rem; }
   .casas span { display: block; height: 100%; border-right: 1px solid rgba(255, 255, 255, 0.08); }
   .casas span:last-child { border-right: none; }
-  .rastro { position: absolute; left: 0; top: 50%; height: 0.8vh; margin-top: -0.4vh; border-radius: 1vh; -webkit-transition: width 1.6s ease-out; transition: width 1.6s ease-out; }
-  .chegada { position: absolute; right: 0; top: 0; bottom: 0; width: 1.4vw; border-radius: 0 1.4vh 1.4vh 0; opacity: 0.9;
+  .rastro { position: absolute; left: 0; top: 50%; height: 0.8rem; margin-top: -0.4rem; border-radius: 1rem; -webkit-transition: width 1.6s ease-out; transition: width 1.6s ease-out; }
+  .chegada { position: absolute; right: 0; top: 0; bottom: 0; width: 2.49rem; border-radius: 0 1.4rem 1.4rem 0; opacity: 0.9;
     background-color: #f8fafc;
     background-image: linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%), linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%);
-    background-size: 1vh 1vh; background-position: 0 0, 0.5vh 0.5vh; }
+    background-size: 1rem 1rem; background-position: 0 0, 0.5rem 0.5rem; }
   .corredor { position: absolute; top: 50%; z-index: 2; -webkit-transition: left 1.6s ease-out, -webkit-transform 1.6s ease-out; transition: left 1.6s ease-out, transform 1.6s ease-out; }
-  .foto { display: block; width: 5.4vh; height: 5.4vh; border-radius: 50%; border: 0.45vh solid #94a3b8; background: #1e293b; object-fit: cover; }
-  .foto.sem { line-height: 4.5vh; text-align: center; font-size: 2.1vh; font-weight: 900; color: #f8fafc; }
+  .foto { display: block; width: 5.4rem; height: 5.4rem; border-radius: 50%; border: 0.45rem solid #94a3b8; background: #1e293b; object-fit: cover; }
+  .foto.sem { line-height: 4.5rem; text-align: center; font-size: 2.1rem; font-weight: 900; color: #f8fafc; }
   .andou .foto { -webkit-animation: pulo 0.5s ease-in-out 4; animation: pulo 0.5s ease-in-out 4; }
-  .coroa { position: absolute; left: 50%; top: -2.4vh; width: 4vh; margin-left: -2vh; text-align: center; font-size: 2.6vh; }
-  .mais { position: absolute; left: 100%; top: -0.8vh; margin-left: 0.5vw; font-size: 2.4vh; font-weight: 900; -webkit-animation: sobe 3s ease-out forwards; animation: sobe 3s ease-out forwards; }
-  .raia.chegou .trilho { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.5), 0 0 3vh rgba(34, 197, 94, 0.2); }
-  .placar strong { font-size: 4vh; font-weight: 900; }
-  .placar small { font-size: 1.9vh; font-weight: 800; color: #94a3b8; }
+  .coroa { position: absolute; left: 50%; top: -2.4rem; width: 4rem; margin-left: -2rem; text-align: center; font-size: 2.6rem; }
+  .mais { position: absolute; left: 100%; top: -0.8rem; margin-left: 0.89rem; font-size: 2.4rem; font-weight: 900; -webkit-animation: sobe 3s ease-out forwards; animation: sobe 3s ease-out forwards; }
+  .raia.chegou .trilho { box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.5), 0 0 3rem rgba(34, 197, 94, 0.2); }
+  .placar strong { font-size: 4rem; font-weight: 900; }
+  .placar small { font-size: 1.9rem; font-weight: 800; color: #94a3b8; }
 
   /* rodapé */
-  .rodape { margin-top: 1.6vh; font-size: 1.8vh; color: #94a3b8; white-space: nowrap; overflow: hidden; }
+  .rodape { margin-top: 1.6rem; font-size: 1.8rem; color: #94a3b8; white-space: nowrap; overflow: hidden; }
   .rodape b { color: #f8fafc; }
-  .rodape .cresce { overflow: hidden; text-overflow: ellipsis; margin: 0 1.2vw; }
-  .ponto { display: inline-block; width: 1.1vh; height: 1.1vh; border-radius: 50%; background: #22c55e; margin-right: 0.5vw; vertical-align: middle; }
+  .rodape .cresce { overflow: hidden; text-overflow: ellipsis; margin: 0 2.14rem; }
+  .ponto { display: inline-block; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: #22c55e; margin-right: 0.89rem; vertical-align: middle; }
   .off .ponto { background: #f97316; }
   .status { font-weight: 800; }
 
@@ -77,36 +78,36 @@
   .anuncio { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(4, 5, 10, 0.8); text-align: center;
     -webkit-animation: aparece 0.35s ease-out; animation: aparece 0.35s ease-out; }
   .anuncio.sai { -webkit-animation: some 0.5s ease-in forwards; animation: some 0.5s ease-in forwards; }
-  .anuncio-card { display: inline-block; margin-top: 16vh; padding: 5vh 6vw; border-radius: 4vh; background: #121524; border: 0.3vh solid #94a3b8;
+  .anuncio-card { display: inline-block; margin-top: 16rem; padding: 5rem 10.68rem; border-radius: 4rem; background: #121524; border: 0.3rem solid #94a3b8;
     -webkit-animation: entra 0.6s ease-out; animation: entra 0.6s ease-out; }
-  .anuncio-card .foto { width: 22vh; height: 22vh; margin: 0 auto; border-width: 1vh; }
-  .anuncio-card .foto.sem { line-height: 20vh; font-size: 7vh; }
-  .anuncio-selo { font-size: 3.4vh; font-weight: 900; letter-spacing: 0.12em; margin-bottom: 2.4vh; }
-  .anuncio-nome { margin-top: 2.6vh; font-size: 7vh; font-weight: 900; }
-  .anuncio-txt { margin-top: 1vh; font-size: 3.4vh; font-weight: 700; color: #94a3b8; }
+  .anuncio-card .foto { width: 22rem; height: 22rem; margin: 0 auto; border-width: 1rem; }
+  .anuncio-card .foto.sem { line-height: 20rem; font-size: 7rem; }
+  .anuncio-selo { font-size: 3.4rem; font-weight: 900; letter-spacing: 0.12em; margin-bottom: 2.4rem; }
+  .anuncio-nome { margin-top: 2.6rem; font-size: 7rem; font-weight: 900; }
+  .anuncio-txt { margin-top: 1rem; font-size: 3.4rem; font-weight: 700; color: #94a3b8; }
   .confete { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 51; overflow: hidden; }
-  .confete i { position: absolute; top: -4vh; width: 1.2vh; height: 1.8vh; border-radius: 0.3vh; -webkit-animation: cai linear forwards; animation: cai linear forwards; }
+  .confete i { position: absolute; top: -4rem; width: 1.2rem; height: 1.8rem; border-radius: 0.3rem; -webkit-animation: cai linear forwards; animation: cai linear forwards; }
 
-  .som { position: fixed; right: 2vw; bottom: 2vh; z-index: 60; padding: 1vh 1.4vw; border-radius: 1vh; border: 1px solid rgba(255, 255, 255, 0.15); background: #1f2937; color: #f8fafc;
-    font-size: 1.8vh; font-weight: 800; }
+  .som { position: fixed; right: 3.56rem; bottom: 2rem; z-index: 60; padding: 1rem 2.49rem; border-radius: 1rem; border: 1px solid rgba(255, 255, 255, 0.15); background: #1f2937; color: #f8fafc;
+    font-size: 1.8rem; font-weight: 800; }
   .escondido { display: none !important; }
-  .aviso { margin: 30vh auto 0; text-align: center; font-size: 3vh; color: #cbd5e1; max-width: 70vw; line-height: 1.5; }
-  .diag { position: fixed; left: 1vw; bottom: 1vh; z-index: 70; max-width: 70vw; padding: 1vh 1vw; border-radius: 1vh; background: rgba(127, 29, 29, 0.92); color: #fff;
-    font-size: 1.6vh; line-height: 1.4; font-family: monospace; white-space: pre-wrap; }
+  .aviso { margin: 30rem auto 0; text-align: center; font-size: 3rem; color: #cbd5e1; max-width: 124.6rem; line-height: 1.5; }
+  .diag { position: fixed; left: 1.78rem; bottom: 1rem; z-index: 70; max-width: 124.6rem; padding: 1rem 1.78rem; border-radius: 1rem; background: rgba(127, 29, 29, 0.92); color: #fff;
+    font-size: 1.6rem; line-height: 1.4; font-family: monospace; white-space: pre-wrap; }
   .diag.info { background: rgba(30, 41, 59, 0.92); }
 
-  @-webkit-keyframes pulo { 0%, 100% { -webkit-transform: translateY(0); } 50% { -webkit-transform: translateY(-1.2vh); } }
-  @keyframes pulo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2vh); } }
-  @-webkit-keyframes sobe { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; -webkit-transform: translateY(-2.5vh); } }
-  @keyframes sobe { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-2.5vh); } }
+  @-webkit-keyframes pulo { 0%, 100% { -webkit-transform: translateY(0); } 50% { -webkit-transform: translateY(-1.2rem); } }
+  @keyframes pulo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2rem); } }
+  @-webkit-keyframes sobe { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; -webkit-transform: translateY(-2.5rem); } }
+  @keyframes sobe { 0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-2.5rem); } }
   @-webkit-keyframes aparece { from { opacity: 0; } to { opacity: 1; } }
   @keyframes aparece { from { opacity: 0; } to { opacity: 1; } }
   @-webkit-keyframes some { to { opacity: 0; } }
   @keyframes some { to { opacity: 0; } }
   @-webkit-keyframes entra { from { opacity: 0; -webkit-transform: scale(0.5); } to { opacity: 1; -webkit-transform: scale(1); } }
   @keyframes entra { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
-  @-webkit-keyframes cai { to { -webkit-transform: translateY(112vh) rotate(540deg); } }
-  @keyframes cai { to { transform: translateY(112vh) rotate(540deg); } }
+  @-webkit-keyframes cai { to { -webkit-transform: translateY(112rem) rotate(540deg); } }
+  @keyframes cai { to { transform: translateY(112rem) rotate(540deg); } }
 </style>
 </head>
 <body>
@@ -122,6 +123,14 @@
   var CORES = ["#f97316", "#22d3ee", "#a78bfa", "#34d399", "#f472b6", "#facc15", "#60a5fa", "#fb7185", "#2dd4bf", "#c084fc", "#fbbf24", "#4ade80", "#38bdf8", "#e879f9"];
   var OFF = 3 * 3600 * 1000; // Fortaleza = UTC-3
   var tela = document.getElementById("tela");
+  // Tamanhos em "rem" calculados aqui a partir do tamanho real da janela (algumas TVs calculam "vh"/"vw" de um jeito diferente).
+  function escala() {
+    var alt = window.innerHeight || document.documentElement.clientHeight || 540;
+    document.documentElement.style.fontSize = (alt / 100) + "px";
+    tela.style.height = alt + "px";
+  }
+  escala();
+  window.addEventListener("resize", escala, false);
   var btnSom = document.getElementById("som");
   var anterior = null, dados = null, falhas = 0, filaAnuncio = [], anunciando = false, ctxSom = null;
 
@@ -273,7 +282,7 @@
         ]),
         h("div", { class: "trilho cresce" }, [
           casasEl,
-          h("div", { class: "rastro", style: "width:" + pct + "%;max-width:96%;background:" + x.cor + ";background:linear-gradient(90deg," + rgba(x.cor, 0) + "," + x.cor + ");box-shadow:0 0 2vh " + rgba(x.cor, 0.6) }),
+          h("div", { class: "rastro", style: "width:" + pct + "%;max-width:96%;background:" + x.cor + ";background:linear-gradient(90deg," + rgba(x.cor, 0) + "," + x.cor + ");box-shadow:0 0 2rem " + rgba(x.cor, 0.6) }),
           h("div", { class: "chegada" }),
           corredor
         ]),
@@ -313,7 +322,7 @@
     anunciando = true;
     var a = filaAnuncio.shift(), x = a.c;
     var camada = h("div", { class: "anuncio" }, [
-      h("div", { class: "anuncio-card", style: "border-color:" + (a.cruzou ? "#fbbf24" : x.cor) + ";box-shadow:0 0 10vh " + rgba(a.cruzou ? "#fbbf24" : x.cor, 0.5) }, [
+      h("div", { class: "anuncio-card", style: "border-color:" + (a.cruzou ? "#fbbf24" : x.cor) + ";box-shadow:0 0 10rem " + rgba(a.cruzou ? "#fbbf24" : x.cor, 0.5) }, [
         h("div", { class: "anuncio-selo", style: "color:" + (a.cruzou ? "#fbbf24" : x.cor), text: a.cruzou ? (a.ordem === 1 ? "🏆 CAMPEÃO DA SEMANA!" : "🏁 CRUZOU A CHEGADA!") : "📄 NOVA DOCUMENTAÇÃO!" }),
         foto(x),
         h("div", { class: "anuncio-nome", text: x.nome }),
