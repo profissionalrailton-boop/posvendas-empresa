@@ -177,3 +177,4 @@ $$;
 
 -- 19/11/2026: doc_editar(p_id, p_cliente, p_telefone) para a gestão corrigir nome e celular (grava o celular em
 -- doc_corrida_detalhes, criando a linha se for documentação manual), e doc_lancar ganhou p_telefone. Aplicado no banco.
+-- 19/11/2026: doc_editar e doc_lancar ganharam p_valor (valor do bem, em doc_corrida_detalhes.valor). Aplicado no banco.

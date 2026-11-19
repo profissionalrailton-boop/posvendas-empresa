@@ -210,6 +210,23 @@ function dcModal(titulo, sub, corpo) {
   return fechar;
 }
 
+// campo de valor em reais: aceita "250000", "250.000" ou "250.000,00"; formata ao sair do campo
+function dcLerValor(txt) {
+  let s = String(txt || "").replace(/[^\d,.]/g, "");
+  if (!s) return null;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/\.\d{3}(\.|$)/.test(s)) s = s.replace(/\./g, "");
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+}
+function dcCampoValor(atual) {
+  const campo = el("input", { type: "text", class: "ap-input", maxlength: "20", placeholder: "R$ 0,00 (opcional)", autocomplete: "off", inputmode: "decimal" });
+  const fmt = (n) => "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (atual) campo.value = fmt(Number(atual));
+  campo.addEventListener("blur", () => { const n = dcLerValor(campo.value); if (n !== null) campo.value = fmt(n); });
+  return campo;
+}
+
 function dcModalLancar(vendedor) {
   let escolhido = vendedor || null;
   const grade = el("div", { class: "dc-escolha" });
@@ -223,6 +240,7 @@ function dcModalLancar(vendedor) {
   pintar();
   const cliente = el("input", { type: "text", class: "ap-input", maxlength: "120", placeholder: "Nome do cliente (opcional)", autocomplete: "off" });
   const telefone = el("input", { type: "tel", class: "ap-input", maxlength: "20", placeholder: "Celular do cliente (opcional)", autocomplete: "off", inputmode: "tel" });
+  const valor = dcCampoValor(null);
   const quando = el("input", { type: "datetime-local", class: "ap-input" });
   const agoraLocal = new Date(Date.now() - DC_OFFSET);
   quando.value = agoraLocal.toISOString().slice(0, 16);
@@ -232,6 +250,7 @@ function dcModalLancar(vendedor) {
     el("div", { class: "field" }, [grade]),
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Cliente"), cliente]),
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Celular"), telefone]),
+    el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Valor do bem"), valor]),
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Quando"), quando]),
     erro, ok,
   ]);
@@ -244,8 +263,10 @@ function dcModalLancar(vendedor) {
       if (t > Date.now() + 5 * 60000) { erro.textContent = "A data não pode ser no futuro."; erro.classList.remove("hidden"); return; }
       em = new Date(t).toISOString();
     }
+    const v = dcLerValor(valor.value);
+    if (valor.value.trim() && v === null) { erro.textContent = "Valor do bem inválido."; erro.classList.remove("hidden"); return; }
     ok.disabled = true;
-    const { error } = await sb.rpc("doc_lancar", { p_vendedor: escolhido, p_cliente: cliente.value.trim() || null, p_em: em, p_telefone: telefone.value.trim() || null });
+    const { error } = await sb.rpc("doc_lancar", { p_vendedor: escolhido, p_cliente: cliente.value.trim() || null, p_em: em, p_telefone: telefone.value.replace(/\D/g, "") || null, p_valor: v });
     if (error) { ok.disabled = false; erro.textContent = "Não foi possível lançar: " + error.message; erro.classList.remove("hidden"); return; }
     fechar();
     dcAcaoLocal = Date.now();

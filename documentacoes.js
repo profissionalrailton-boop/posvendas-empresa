@@ -140,7 +140,7 @@ function desenharDocumentacoes(raiz) {
       aberto ? el("ul", { class: "dd-docs" }, lista.slice().sort((a, b) => new Date(b.em) - new Date(a.em)).map((x) => el("li", {}, [
         el("div", { class: "dd-doc-info" }, [
           el("strong", {}, x.cliente || "Cliente sem nome"),
-          el("small", {}, [dcDataHora(x.em), x.telefone ? ddTel(x.telefone) : null, x.origem === "crm" ? "CRM" : "manual"].filter(Boolean).join(" · ")),
+          el("small", {}, [dcDataHora(x.em), x.telefone ? ddTel(x.telefone) : null, x.valor ? ddMoeda.format(x.valor) : null, x.origem === "crm" ? "CRM" : "manual"].filter(Boolean).join(" · ")),
         ]),
         x.venda_id
           ? el("span", { class: "dd-chip ok", title: `Venda de ${x.venda_cliente || ""} em ${ddDataCurta(x.venda_data)}${x.venda_valor ? " · " + ddMoeda.format(x.venda_valor) : ""}` },
@@ -195,11 +195,13 @@ function ddEditar(x) {
   nome.value = x.cliente || "";
   const tel = el("input", { type: "tel", class: "ap-input", maxlength: "20", placeholder: "(88) 99999-9999", autocomplete: "off", inputmode: "tel" });
   tel.value = x.telefone ? ddTel(x.telefone) : "";
+  const valor = dcCampoValor(x.valor);
   const erro = el("div", { class: "auth-error hidden" });
   const ok = el("button", { type: "button", class: "btn btn-primary btn-block" }, "Salvar");
   const fechar = dcModal("Editar documentação", `${x.vendedor ? x.vendedor + " · " : ""}${dcDataHora(x.em)}`, [
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Cliente"), nome]),
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Celular"), tel]),
+    el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Valor do bem"), valor]),
     el("p", { class: "atd-dica" }, "Com o nome completo e o celular, o sistema encontra sozinho a venda desse cliente no administrativo e calcula o tempo até o fechamento."),
     erro, ok,
   ]);
@@ -208,8 +210,10 @@ function ddEditar(x) {
     erro.classList.add("hidden");
     const digitos = tel.value.replace(/\D/g, "");
     if (tel.value.trim() && digitos.length < 10) { erro.textContent = "Celular incompleto: use DDD + número."; erro.classList.remove("hidden"); return; }
+    const v = dcLerValor(valor.value);
+    if (valor.value.trim() && v === null) { erro.textContent = "Valor do bem inválido."; erro.classList.remove("hidden"); return; }
     ok.disabled = true;
-    const { error } = await sb.rpc("doc_editar", { p_id: x.id, p_cliente: nome.value.trim() || null, p_telefone: digitos || null });
+    const { error } = await sb.rpc("doc_editar", { p_id: x.id, p_cliente: nome.value.trim() || null, p_telefone: digitos || null, p_valor: v });
     if (error) { ok.disabled = false; erro.textContent = "Não foi possível salvar: " + error.message; erro.classList.remove("hidden"); return; }
     fechar();
     ddAcaoLocal = Date.now();
