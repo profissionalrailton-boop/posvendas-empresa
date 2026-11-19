@@ -37,7 +37,8 @@ async function carregarCorrida() {
   const desde = new Date(dcInicioSemana(Date.now()) - 5 * DC_SEMANA).toISOString();
   const [c, l, f, v] = await Promise.all([
     sb.from("doc_corrida_config").select("casas").eq("id", 1).maybeSingle(),
-    sb.from("doc_corrida").select("id, vendedor, cliente, em, origem").gte("em", desde).order("em").range(0, 4999),
+    // só as documentações com vendedor contam (as que chegam do CRM sem vendedor esperam o vínculo em Negócios › Documentações)
+    sb.from("doc_corrida").select("id, vendedor, cliente, em, origem").not("vendedor", "is", null).gte("em", desde).order("em").range(0, 4999),
     sb.from("vendedor_fotos").select("vendedor, foto_url"),
     sb.from("administrativo_vendedores").select("nome, ativo").order("nome"),
   ]);
@@ -308,7 +309,12 @@ function dcAoVivo() {
   if (dcCanal) return;
   const mud = (tabela) => ({ event: "*", schema: "public", table: tabela });
   dcCanal = sb.channel("corrida-documentacao")
-    .on("postgres_changes", mud("doc_corrida"), (msg) => { if (msg.eventType === "INSERT") dcAvisar(msg.new); dcMudou(); })
+    .on("postgres_changes", mud("doc_corrida"), (msg) => {
+      // nova com vendedor (lançamento manual) ou vinculada agora (veio do CRM sem vendedor)
+      const n = msg.new;
+      if (n && n.vendedor && (msg.eventType === "INSERT" || (msg.eventType === "UPDATE" && !(dcDados && dcDados.lancamentos.some((x) => x.id === n.id))))) dcAvisar(n);
+      dcMudou();
+    })
     .on("postgres_changes", mud("doc_corrida_config"), dcMudou)
     .subscribe((status) => {
       dcAoVivoOk = status === "SUBSCRIBED";

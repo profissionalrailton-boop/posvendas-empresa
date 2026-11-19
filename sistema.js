@@ -14,6 +14,7 @@ const ICONES = {
   apresentacao: ic('<rect x="2.5" y="3.5" width="15" height="10" rx="1.5"/><path d="M10 13.5v3M6.5 17h7M8.5 6.8v3.9L12 8.75z"/>'),
   quadrosonhos: ic('<path d="M10 2.8l2.1 4.3 4.7.7-3.4 3.3.8 4.7L10 13.6l-4.2 2.2.8-4.7-3.4-3.3 4.7-.7z"/>'),
   aposta: ic('<path d="M6 8.5V6a2 2 0 0 1 2-2h4.5a2.5 2.5 0 0 1 2.5 2.5V11a4 4 0 0 1-4 4H9a3 3 0 0 1-3-3V8.5z"/><path d="M6 8.5h5.5M9 4v4.5M8 15v2.5h5V15"/>'),
+  negocios: ic('<rect x="2.5" y="6" width="15" height="10.5" rx="1.5"/><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6M2.5 10.5h15M9 10.5v1.5h2v-1.5"/>'),
   corrida: ic('<path d="M4.5 17.5V3"/><path d="M4.5 3.5h10l-2 3 2 3h-10"/><path d="M7.5 3.5v6M10.5 3.5v6"/>'),
   roubapremio: ic('<rect x="3" y="8" width="14" height="9.5" rx="1.5"/><path d="M2.5 5.5h15V8h-15zM10 5.5v12M10 5.5C8.5 2.5 5.5 2.8 6 4.6c.3 1 2.4.9 4 .9M10 5.5c1.5-3 4.5-2.7 4-.9-.3 1-2.4.9-4 .9"/>'),
   minhaequipe: ic('<circle cx="7" cy="7" r="2.6"/><circle cx="13.5" cy="7.5" r="2.2"/><path d="M2.5 16.5c.4-2.8 2.2-4.5 4.5-4.5s4.1 1.7 4.5 4.5M11.8 12.3c.5-.2 1.1-.3 1.7-.3 2 0 3.5 1.4 3.9 4"/>'),
@@ -98,11 +99,16 @@ const GRUPOS = [
     itens: [{ aba: "roubapremio", label: "Rouba prêmio" }],
   },
   {
-    // Corrida da documentação (página desta tela — ver corrida.js): cada documentação avança uma casa; zera no domingo.
+    // Negócios (páginas desta tela): Corrida da documentação (corrida.js — todos veem; cada documentação avança uma casa,
+    // zera no domingo) e Documentações (documentacoes.js — só gestão: as que chegam do CRM sem vendedor são vinculadas aqui,
+    // e o tempo até o fechamento é cruzado com as vendas do administrativo). Cada item tem o próprio painel.
     // Todos veem; só a gestão lança (trava no banco, sql/034).
-    app: "corrida", titulo: "Corrida da documentação", exige: "qualquer", unico: true, nativo: true, semMetas: true,
+    app: "negocios", titulo: "Negócios", exige: "qualquer", nativo: true, semMetas: true,
     container: "sx-corrida", carregar: () => carregarCorrida(),
-    itens: [{ aba: "corrida", label: "Corrida da documentação" }],
+    itens: [
+      { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },
+      { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
+    ],
   },
   {
     app: "administrativo", titulo: "Administrativo", url: "/administrativo/", exige: "adm",
@@ -322,6 +328,7 @@ function itensPermitidos(grupo) {
   if (grupo.exige === "atendimentos" && !(perms.pos === "vendedor" || perms.sup || perms.fin)) return [];
   return grupo.itens.filter((it) => {
     if (it.exige === "comissao" && !perms.comissao) return false;
+    if (it.exige === "gestao" && !(perms.fin || perms.adm)) return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;
     return true;
   });
@@ -409,11 +416,15 @@ function abrir(app, aba) {
   if (!permitido(app, aba)) return;
   const g = GRUPOS.find((x) => x.app === app);
   // páginas desta própria tela (Painel geral, Minha área): sem iframe
-  document.querySelectorAll(".sx-painel").forEach((p) => p.classList.toggle("hidden", !g.nativo || p.id !== g.container));
+  // item com painel próprio (ex.: Negócios › Documentações) usa o container/carregar dele; senão, o do grupo
+  const itemNativo = g.nativo ? g.itens.find((x) => x.aba === aba) : null;
+  const container = (itemNativo && itemNativo.container) || g.container;
+  const carregar = (itemNativo && itemNativo.carregar) || g.carregar;
+  document.querySelectorAll(".sx-painel").forEach((p) => p.classList.toggle("hidden", !g.nativo || p.id !== container));
   if (g.nativo) {
     Object.values(frames).forEach((x) => x.el.classList.add("hidden"));
     document.getElementById("sx-carregando").classList.add("hidden");
-    if (!document.getElementById(g.container).childElementCount) g.carregar();
+    if (!document.getElementById(container).childElementCount) carregar();
     atual = { app, aba };
     marcarAtivo();
     fecharMenuCelular();

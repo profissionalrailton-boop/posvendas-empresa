@@ -1256,3 +1256,58 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
   .dc-cab-casas { font-size: 9px; }
   .dc-mais-btn { margin-left: 6px; }
 }
+
+/* ---------- Negócios › Documentações (documentacoes.js) ---------- */
+.sx-painel.dd-raiz { max-width: none; }
+.dd-raiz.tema-viagem .px-topo h1::after, .dd-raiz.tema-halloween .px-topo h1::after { content: " 📄"; }
+.dd-topo-acoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.dd-bloco { margin-bottom: 16px; padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.dd-bloco-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.dd-bloco-cab small { font-size: 12px; color: var(--text-muted); }
+.dd-h2 { margin: 0; font-size: 15px; font-weight: 800; color: var(--text); }
+.dd-espera:not(.tem) { padding: 12px 16px; }
+.dd-espera:not(.tem) .dd-bloco-cab { margin-bottom: 0; }
+.dd-espera.tem { border-color: var(--warning); background: linear-gradient(135deg, var(--warning-bg), var(--surface) 60%); }
+.dd-espera-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; }
+.dd-espera-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.dd-espera-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dd-espera-info strong { font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-espera-info small { font-size: 12px; color: var(--text-muted); }
+.dd-espera-info .dd-quando { color: var(--warning); font-weight: 600; }
+.dd-espera-acoes { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+.dd-periodo { display: inline-flex; gap: 4px; padding: 4px; margin: 2px 0 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
+.dd-periodo-bt { padding: 6px 12px; border-radius: 9px; border: none; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 700; cursor: pointer; }
+.dd-periodo-bt.sel { background: var(--surface-2); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); }
+
+.dd-vendedores { display: flex; flex-direction: column; gap: 6px; }
+.dd-vend { border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); overflow: hidden; }
+.dd-vend.vazio { opacity: 0.6; }
+.dd-vend.aberto { border-color: #f97316; }
+.dd-vend-cab { width: 100%; display: grid; grid-template-columns: 38px minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)) 18px; align-items: center; gap: 12px; padding: 9px 12px;
+  border: none; background: transparent; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.dd-vend-cab[disabled] { cursor: default; }
+.dd-vend-foto { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.dd-vend-foto.pf-sem-foto { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; background: var(--surface); }
+.dd-vend-nome, .dd-vend-num { display: flex; flex-direction: column; min-width: 0; }
+.dd-vend-nome strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-vend-nome small, .dd-vend-num small { font-size: 11.5px; color: var(--text-muted); }
+.dd-vend-num strong { font-size: 15px; font-weight: 800; }
+.dd-seta { color: var(--text-muted); font-size: 13px; }
+.dd-docs { list-style: none; margin: 0; padding: 4px 12px 10px; border-top: 1px solid var(--border); background: var(--surface); }
+.dd-docs li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.dd-docs li:last-child { border-bottom: none; }
+.dd-doc-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.dd-doc-info strong { font-size: 13.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-doc-info small { font-size: 12px; color: var(--text-muted); }
+.dd-chip { flex-shrink: 0; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.dd-chip.ok { background: var(--success-bg); color: var(--success); }
+.dd-chip.aberta { background: var(--surface-2); color: var(--text-muted); }
+.dd-chip.parada { background: var(--danger-bg); color: var(--danger-text); }
+
+@media (max-width: 760px) {
+  .dd-espera-lista { grid-template-columns: 1fr; }
+  .dd-vend-cab { grid-template-columns: 34px minmax(0, 1fr) auto 14px; }
+  .dd-vend-cab .dd-vend-num.conv, .dd-vend-cab .dd-vend-num.abertas { display: none; }
+  .dd-docs li { flex-wrap: wrap; }
+}
