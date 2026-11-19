@@ -222,6 +222,7 @@ function dcModalLancar(vendedor) {
   };
   pintar();
   const cliente = el("input", { type: "text", class: "ap-input", maxlength: "120", placeholder: "Nome do cliente (opcional)", autocomplete: "off" });
+  const telefone = el("input", { type: "tel", class: "ap-input", maxlength: "20", placeholder: "Celular do cliente (opcional)", autocomplete: "off", inputmode: "tel" });
   const quando = el("input", { type: "datetime-local", class: "ap-input" });
   const agoraLocal = new Date(Date.now() - DC_OFFSET);
   quando.value = agoraLocal.toISOString().slice(0, 16);
@@ -230,6 +231,7 @@ function dcModalLancar(vendedor) {
   const fechar = dcModal("Lançar documentação", "Quem pegou a documentação?", [
     el("div", { class: "field" }, [grade]),
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Cliente"), cliente]),
+    el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Celular"), telefone]),
     el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Quando"), quando]),
     erro, ok,
   ]);
@@ -243,7 +245,7 @@ function dcModalLancar(vendedor) {
       em = new Date(t).toISOString();
     }
     ok.disabled = true;
-    const { error } = await sb.rpc("doc_lancar", { p_vendedor: escolhido, p_cliente: cliente.value.trim() || null, p_em: em });
+    const { error } = await sb.rpc("doc_lancar", { p_vendedor: escolhido, p_cliente: cliente.value.trim() || null, p_em: em, p_telefone: telefone.value.trim() || null });
     if (error) { ok.disabled = false; erro.textContent = "Não foi possível lançar: " + error.message; erro.classList.remove("hidden"); return; }
     fechar();
     dcAcaoLocal = Date.now();

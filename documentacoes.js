@@ -101,6 +101,7 @@ function desenharDocumentacoes(raiz) {
     ]),
     el("div", { class: "dd-espera-acoes" }, [
       el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => ddVincular(x) }, "Vincular vendedor"),
+      el("button", { type: "button", class: "icon-btn", title: "Editar nome e celular", "aria-label": `Editar ${x.cliente || "documentação"}`, onclick: () => ddEditar(x) }, "✏️"),
       el("button", { type: "button", class: "icon-btn", title: "Descartar", "aria-label": `Descartar documentação de ${x.cliente || "cliente"}`, onclick: () => ddDescartar(x) }, "🗑"),
     ]),
   ]))));
@@ -145,6 +146,7 @@ function desenharDocumentacoes(raiz) {
           ? el("span", { class: "dd-chip ok", title: `Venda de ${x.venda_cliente || ""} em ${ddDataCurta(x.venda_data)}${x.venda_valor ? " · " + ddMoeda.format(x.venda_valor) : ""}` },
             `✓ Fechou ${x.dias === 0 ? "no mesmo dia" : "em " + ddDias(x.dias)} · ${ddDataCurta(x.venda_data)}`)
           : el("span", { class: "dd-chip " + (ddDiasAte(x.em) >= 15 ? "parada" : "aberta") }, `Em aberto há ${ddDias(ddDiasAte(x.em))}`),
+        el("button", { type: "button", class: "icon-btn", title: "Editar nome e celular", "aria-label": `Editar ${x.cliente || "documentação"}`, onclick: () => ddEditar(x) }, "✏️"),
         el("button", { type: "button", class: "icon-btn", title: "Desvincular (volta para Aguardando vendedor)", "aria-label": `Desvincular ${x.cliente || "documentação"}`, onclick: () => ddDesvincular(x) }, "↩"),
       ]))) : null,
     ]);
@@ -185,6 +187,33 @@ function ddVincular(x) {
     ddAcaoLocal = Date.now();
     dcAcaoLocal = Date.now();
     showToast(`🏃 ${dcPrimeiro(escolhido)} avançou uma casa na corrida!`);
+    carregarDocumentacoes();
+  });
+}
+function ddEditar(x) {
+  const nome = el("input", { type: "text", class: "ap-input", maxlength: "120", placeholder: "Nome do cliente", autocomplete: "off" });
+  nome.value = x.cliente || "";
+  const tel = el("input", { type: "tel", class: "ap-input", maxlength: "20", placeholder: "(88) 99999-9999", autocomplete: "off", inputmode: "tel" });
+  tel.value = x.telefone ? ddTel(x.telefone) : "";
+  const erro = el("div", { class: "auth-error hidden" });
+  const ok = el("button", { type: "button", class: "btn btn-primary btn-block" }, "Salvar");
+  const fechar = dcModal("Editar documentação", `${x.vendedor ? x.vendedor + " · " : ""}${dcDataHora(x.em)}`, [
+    el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Cliente"), nome]),
+    el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Celular"), tel]),
+    el("p", { class: "atd-dica" }, "Com o nome completo e o celular, o sistema encontra sozinho a venda desse cliente no administrativo e calcula o tempo até o fechamento."),
+    erro, ok,
+  ]);
+  setTimeout(() => nome.focus(), 50);
+  ok.addEventListener("click", async () => {
+    erro.classList.add("hidden");
+    const digitos = tel.value.replace(/\D/g, "");
+    if (tel.value.trim() && digitos.length < 10) { erro.textContent = "Celular incompleto: use DDD + número."; erro.classList.remove("hidden"); return; }
+    ok.disabled = true;
+    const { error } = await sb.rpc("doc_editar", { p_id: x.id, p_cliente: nome.value.trim() || null, p_telefone: digitos || null });
+    if (error) { ok.disabled = false; erro.textContent = "Não foi possível salvar: " + error.message; erro.classList.remove("hidden"); return; }
+    fechar();
+    ddAcaoLocal = Date.now();
+    showToast("Documentação atualizada.");
     carregarDocumentacoes();
   });
 }

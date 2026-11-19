@@ -174,3 +174,6 @@ $$;
 -- 19/11/2026: formato real da integração do Convex CRM ({"cliente","telefone","tipo_bem","valor_bem","id_negocio","_meta"}).
 -- doc_n8n_receber passou a ler cliente/tipo_bem/valor_bem/id_negocio (mantendo os nomes antigos como alternativa)
 -- e a ignorar o envio de teste da tela de integração (_meta.integrationPreview = true). Versão aplicada no banco.
+
+-- 19/11/2026: doc_editar(p_id, p_cliente, p_telefone) para a gestão corrigir nome e celular (grava o celular em
+-- doc_corrida_detalhes, criando a linha se for documentação manual), e doc_lancar ganhou p_telefone. Aplicado no banco.
