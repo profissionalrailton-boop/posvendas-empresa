@@ -170,3 +170,7 @@ select jsonb_build_object(
     from (select * from ant order by n desc limit 3) a)
 );
 $$;
+
+-- 19/11/2026: formato real da integração do Convex CRM ({"cliente","telefone","tipo_bem","valor_bem","id_negocio","_meta"}).
+-- doc_n8n_receber passou a ler cliente/tipo_bem/valor_bem/id_negocio (mantendo os nomes antigos como alternativa)
+-- e a ignorar o envio de teste da tela de integração (_meta.integrationPreview = true). Versão aplicada no banco.
