@@ -1311,3 +1311,5 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
   .dd-vend-cab .dd-vend-num.conv, .dd-vend-cab .dd-vend-num.abertas { display: none; }
   .dd-docs li { flex-wrap: wrap; }
 }
+.dd-espera-info .dd-repetido { color: var(--danger-text); font-weight: 700; }
+.dc-escolha-item.bloqueado { opacity: 0.4; cursor: not-allowed; }

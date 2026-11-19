@@ -98,6 +98,9 @@ function desenharDocumentacoes(raiz) {
         x.telefone ? "📞 " + ddTel(x.telefone) : null,
       ].filter(Boolean).join(" · ")),
       el("small", { class: "dd-quando" }, `Recebida ${dcDataHora(x.em)}${ddDiasAte(x.em) ? ` · há ${ddDias(ddDiasAte(x.em))}` : ""}${x.origem === "crm" ? " · CRM" : ""}`),
+      x.ja_contado_para && x.ja_contado_para.length
+        ? el("small", { class: "dd-repetido" }, `🔁 Este negócio já contou para ${x.ja_contado_para.join(", ")}. Vincule só se for outro vendedor; se não, descarte.`)
+        : null,
     ]),
     el("div", { class: "dd-espera-acoes" }, [
       el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => ddVincular(x) }, "Vincular vendedor"),
@@ -165,9 +168,13 @@ function ddVincular(x) {
   const grade = el("div", { class: "dc-escolha" });
   const pintar = () => {
     grade.innerHTML = "";
-    ddDados.vendedores.forEach((n) => grade.appendChild(el("button", { type: "button", class: "dc-escolha-item" + (n === escolhido ? " sel" : ""), onclick: () => { escolhido = n; pintar(); } }, [
+    // mesmo negócio já contado para um vendedor: ele não pode receber de novo (outro vendedor pode)
+    const jaContado = new Set(x.ja_contado_para || []);
+    ddDados.vendedores.forEach((n) => grade.appendChild(el("button", { type: "button", class: "dc-escolha-item" + (n === escolhido ? " sel" : "") + (jaContado.has(n) ? " bloqueado" : ""),
+      disabled: jaContado.has(n) ? "disabled" : null, title: jaContado.has(n) ? "Este negócio já foi contado para " + n : null,
+      onclick: () => { escolhido = n; pintar(); } }, [
       avatarPerfil(n, ddDados.fotos.get(n), "dc-escolha-foto"),
-      el("span", {}, dcPrimeiro(n)),
+      el("span", {}, jaContado.has(n) ? "já contou" : dcPrimeiro(n)),
     ])));
   };
   pintar();

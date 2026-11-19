@@ -180,3 +180,6 @@ $$;
 -- 19/11/2026: doc_editar e doc_lancar ganharam p_valor (valor do bem, em doc_corrida_detalhes.valor). Aplicado no banco.
 -- 19/11/2026: o CRM manda id_negocio vazio; o ID real vem em _meta.negocioId. doc_n8n_receber passou a usá-lo
 -- (evita a mesma documentação entrar duas vezes) e as 4 já recebidas foram preenchidas. Aplicado no banco.
+-- 19/11/2026: o mesmo negócio pode contar de novo para OUTRO vendedor. Trocado o unique(negocio_id) por
+-- unique(negocio_id, vendedor); o webhook só ignora repetição enquanto a anterior ainda espera vendedor; doc_vincular
+-- recusa o mesmo vendedor; doc_documentacoes devolve negocio_id e ja_contado_para. Aplicado no banco.
