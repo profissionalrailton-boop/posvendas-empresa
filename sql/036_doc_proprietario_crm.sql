@@ -22,7 +22,7 @@ insert into public.doc_crm_proprietarios (crm_id, vendedor) values
   (94,   'Tatielly David'),
   (97,   'Yarine Santos'),
   (399,  'Inigly Silva'),
-  (564,  'Reinaldo Galdino'),
+  (564,  'Reynaldo Galdino'),
   (865,  'Cibelly Almeida'),
   (1434, 'Walisson Souza'),
   (1435, 'Diego Ferreira'),
