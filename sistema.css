@@ -1313,3 +1313,12 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 }
 .dd-espera-info .dd-repetido { color: var(--danger-text); font-weight: 700; }
 .dc-escolha-item.bloqueado { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- Negócios › Relatório semanal (relatorio.js + relatorio/modelo.js) ---------- */
+.sx-painel.rs-raiz { max-width: none; }
+.rs-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.rs-semana { display: inline-flex; align-items: center; gap: 8px; padding: 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.rs-semana span { font-size: 13px; font-weight: 700; color: var(--text); padding: 0 6px; white-space: nowrap; }
+.rs-semana .btn[disabled] { opacity: 0.4; cursor: default; }
+.rs-palco { position: relative; width: 100%; overflow: hidden; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+.rs-escala { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }

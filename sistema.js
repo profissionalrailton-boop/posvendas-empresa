@@ -108,6 +108,7 @@ const GRUPOS = [
     itens: [
       { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },
       { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
+      { aba: "relatorio-semanal", label: "Relatório semanal", exige: "gestao", container: "sx-relatorio", carregar: () => carregarRelatorio() },
     ],
   },
   {
