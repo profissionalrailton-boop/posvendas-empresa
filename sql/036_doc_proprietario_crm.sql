@@ -26,7 +26,7 @@ insert into public.doc_crm_proprietarios (crm_id, vendedor) values
   (865,  'Cibelly Almeida'),
   (1434, 'Walisson Souza'),
   (1435, 'Diego Ferreira'),
-  (1766, 'Sislandia Oliveira')
+  (1766, 'Sislândia Oliveira')
 on conflict (crm_id) do update set vendedor = excluded.vendedor;
 
 -- Resolve o proprietário (ID ou nome) para o nome do vendedor cadastrado. Null se não reconhecer.
