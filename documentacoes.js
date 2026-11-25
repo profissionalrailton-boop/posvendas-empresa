@@ -22,7 +22,13 @@ function ddInicioMes(deslocamento) {
   const local = new Date(Date.now() - DC_OFFSET);
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + deslocamento, 1) + DC_OFFSET;
 }
+// início do dia em Fortaleza (UTC-3), em ms
+function ddInicioDia() {
+  const local = new Date(Date.now() - DC_OFFSET);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) + DC_OFFSET;
+}
 function ddFaixaPeriodo() {
+  if (ddPeriodo === "hoje") return [ddInicioDia(), Infinity];
   if (ddPeriodo === "mes") return [ddInicioMes(0), Infinity];
   if (ddPeriodo === "passado") return [ddInicioMes(-1), ddInicioMes(0)];
   if (ddPeriodo === "90") return [Date.now() - 90 * 86400000, Infinity];
@@ -111,7 +117,7 @@ function desenharDocumentacoes(raiz) {
   raiz.appendChild(bloco);
 
   // período + números
-  const periodos = [["mes", "Este mês"], ["passado", "Mês passado"], ["90", "Últimos 90 dias"], ["tudo", "Tudo"]];
+  const periodos = [["hoje", "Hoje"], ["mes", "Este mês"], ["passado", "Mês passado"], ["90", "Últimos 90 dias"], ["tudo", "Tudo"]];
   raiz.appendChild(el("div", { class: "dd-periodo", role: "tablist", "aria-label": "Período" }, periodos.map(([k, t]) =>
     el("button", { type: "button", role: "tab", "aria-selected": String(ddPeriodo === k), class: "dd-periodo-bt" + (ddPeriodo === k ? " sel" : ""), onclick: () => { ddPeriodo = k; desenharDocumentacoes(raiz); } }, t))));
   raiz.appendChild(el("div", { class: "dc-kpis" }, [
