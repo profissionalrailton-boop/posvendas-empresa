@@ -65,7 +65,7 @@ const GRUPOS = [
     itens: [
       { aba: "inicio", label: "Início", caminho: "/" },
       { aba: "embracon", label: "Radar Embracon", caminho: "/busca-credito" },
-      { aba: "ancora", label: "Radar Âncora", caminho: "/radar-ancora" },
+      { aba: "ancora", label: "Radar Âncora", caminho: "/busca-ancora" },
       { aba: "simulador", label: "Simular financiamento", caminho: "/simulador-financiamento" },
       { aba: "cartas", label: "Cartas contempladas", caminho: "/cartas-contempladas" },
       { aba: "propostas", label: "Propostas selecionadas", caminho: "/propostas-selecionadas" },
