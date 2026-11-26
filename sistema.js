@@ -595,6 +595,14 @@ function mostrarAvisoLembrete(m, app = "posvendas") {
 // Para anunciar outra, é só acrescentar um item com um id novo.
 const NOVIDADES = [
   {
+    id: "extensao-ancora-1.9.0",
+    // quem usa o Radar (acesso ao pós-vendas)
+    para: (p) => !!p.pos,
+    titulo: "Atualize a extensão do Radar (versão 1.9.0)",
+    texto: "A Âncora mudou o portal para portal-parceiro.ancoraconsorcios.com.br e a extensão antiga não encontra mais a aba. Baixe a versão 1.9.0, extraia o zip, abra chrome://extensions (Modo do desenvolvedor ligado), remova a \"Infinity Convert+ Bridge\" antiga e clique em \"Carregar sem compactação\" escolhendo a pasta extraída. Depois abra o portal-parceiro da Âncora logado e recarregue o Radar.",
+    acao: { label: "Baixar extensão 1.9.0", href: "/downloads/infinity-convertmais-bridge-v1.9.0.zip" },
+  },
+  {
     id: "simulador-financiamento-2026-11",
     // vendedores e supervisores; a diretoria (NOVIDADES_PREVIA) também vê, para conferir
     para: (p) => p.pos === "vendedor" || p.sup || NOVIDADES_PREVIA.includes(p.email),
@@ -625,7 +633,8 @@ function mostrarNovidades() {
       el("div", { class: "pv-strong" }, n.titulo),
       el("div", { class: "pv-muted" }, n.texto),
       el("div", { class: "pv-alerta-acoes" }, [
-        n.acao && permitido(n.acao.app, n.acao.aba) ? el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { fechar(); abrir(n.acao.app, n.acao.aba); } }, n.acao.label) : null,
+        n.acao && n.acao.href ? el("a", { class: "btn btn-primary btn-sm", href: n.acao.href, download: "" }, n.acao.label)
+          : n.acao && permitido(n.acao.app, n.acao.aba) ? el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { fechar(); abrir(n.acao.app, n.acao.aba); } }, n.acao.label) : null,
         el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: fechar }, "Entendi"),
       ]),
     ]);
