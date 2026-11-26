@@ -1322,3 +1322,16 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .rs-semana .btn[disabled] { opacity: 0.4; cursor: default; }
 .rs-palco { position: relative; width: 100%; overflow: hidden; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
 .rs-escala { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+
+/* Documentações: previsão de fechamento */
+.dd-chip-prev { border: none; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
+.dd-chip-prev:hover { filter: brightness(1.15); }
+.dd-chip-prev:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.dd-chip.prevista { background: var(--warning-bg); color: var(--warning); }
+.dd-chip.desistiu { background: var(--surface-2); color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.dd-prev-painel { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; margin-top: 2px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.dd-prev-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dd-prev-linha .atd-rot { margin: 0 4px 0 0; }
+.dd-prev-data { padding: 6px 10px; font-size: 14px; }
+.dd-prev-quando { font-size: 11.5px; color: var(--text-muted); }
+.dd-docs li { flex-wrap: wrap; }

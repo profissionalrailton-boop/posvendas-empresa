@@ -7,6 +7,7 @@ let ddDados = null;
 let ddCanal = null, ddRecarga = null, ddAcaoLocal = 0;
 let ddPeriodo = "mes";
 let ddAberto = null; // vendedor com a lista aberta
+let ddPrevAberta = null; // documentação com o painel de previsão aberto
 
 const ddMoeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const ddDias = (n) => (n === 0 ? "no mesmo dia" : n === 1 ? "1 dia" : `${n} dias`);
@@ -135,7 +136,7 @@ function desenharDocumentacoes(raiz) {
   const grade = el("div", { class: "dd-vendedores" });
   linhas.forEach(({ nome, lista, r }) => {
     const aberto = ddAberto === nome;
-    const abertas = lista.filter((x) => !x.venda_id);
+    const abertas = lista.filter((x) => !x.venda_id && !x.desistiu);
     const card = el("div", { class: "dd-vend" + (aberto ? " aberto" : "") + (r.total ? "" : " vazio") }, [
       el("button", { type: "button", class: "dd-vend-cab", "aria-expanded": String(aberto), disabled: r.total ? null : "disabled",
         onclick: () => { ddAberto = aberto ? null : nome; desenharDocumentacoes(raiz); } }, [
@@ -154,9 +155,10 @@ function desenharDocumentacoes(raiz) {
         x.venda_id
           ? el("span", { class: "dd-chip ok", title: `Venda de ${x.venda_cliente || ""} em ${ddDataCurta(x.venda_data)}${x.venda_valor ? " · " + ddMoeda.format(x.venda_valor) : ""}` },
             `✓ Fechou ${x.dias === 0 ? "no mesmo dia" : "em " + ddDias(x.dias)} · ${ddDataCurta(x.venda_data)}`)
-          : el("span", { class: "dd-chip " + (ddDiasAte(x.em) >= 15 ? "parada" : "aberta") }, `Em aberto há ${ddDias(ddDiasAte(x.em))}`),
+          : ddChipPrevisao(x, raiz),
         el("button", { type: "button", class: "icon-btn", title: "Editar nome e celular", "aria-label": `Editar ${x.cliente || "documentação"}`, onclick: () => ddEditar(x) }, "✏️"),
         el("button", { type: "button", class: "icon-btn", title: "Desvincular (volta para Aguardando vendedor)", "aria-label": `Desvincular ${x.cliente || "documentação"}`, onclick: () => ddDesvincular(x) }, "↩"),
+        !x.venda_id && ddPrevAberta === x.id ? ddPainelPrevisao(x, raiz) : null,
       ]))) : null,
     ]);
     grade.appendChild(card);
@@ -166,6 +168,57 @@ function desenharDocumentacoes(raiz) {
     grade,
   ]));
   raiz.appendChild(el("p", { class: "atd-rodape" }, "🔎 O fechamento é a primeira venda do mesmo vendedor no administrativo, a partir da data da documentação, com o mesmo telefone ou o mesmo nome do cliente. Documentação em aberto há 15 dias ou mais aparece em vermelho."));
+}
+
+// ---------- previsão de fechamento (o que o vendedor disse) ----------
+function ddHojeIso() {
+  const d = new Date(Date.now() - DC_OFFSET);
+  return d.toISOString().slice(0, 10);
+}
+const ddDiaMes = (iso) => { const [, m, d] = String(iso).slice(0, 10).split("-"); return `${d}/${m}`; };
+
+function ddChipPrevisao(x, raiz) {
+  const hoje = ddHojeIso();
+  let cls, txt, dica;
+  if (x.desistiu) { cls = "desistiu"; txt = "🚫 Cliente desistiu"; dica = "Marcado como desistência"; }
+  else if (x.previsao) {
+    if (x.previsao < hoje) { cls = "parada"; txt = `⚠ Previsão era ${ddDiaMes(x.previsao)}`; dica = "A data prevista passou e a venda não apareceu no administrativo"; }
+    else { cls = "prevista"; txt = x.previsao === hoje ? "📅 Previsto para hoje" : `📅 Previsto ${ddDiaMes(x.previsao)}`; dica = "Previsão de fechamento informada pelo vendedor"; }
+  } else { cls = ddDiasAte(x.em) >= 15 ? "parada" : "aberta"; txt = `Em aberto há ${ddDias(ddDiasAte(x.em))}`; dica = "Sem previsão de fechamento — toque para marcar"; }
+  const aberto = ddPrevAberta === x.id;
+  return el("button", { type: "button", class: `dd-chip dd-chip-prev ${cls}`, title: dica, "aria-expanded": String(aberto),
+    "aria-label": `Previsão de fechamento de ${x.cliente || "cliente"}: ${txt}`,
+    onclick: () => { ddPrevAberta = aberto ? null : x.id; desenharDocumentacoes(raiz); } }, `${txt} ${aberto ? "▴" : "▾"}`);
+}
+
+function ddPainelPrevisao(x, raiz) {
+  const data = el("input", { type: "date", class: "ap-input dd-prev-data", value: x.previsao || "", "aria-label": "Data prevista para o fechamento" });
+  const salvar = async (p_data, p_desistiu, msg) => {
+    painel.querySelectorAll("button, input").forEach((b) => (b.disabled = true));
+    const { error } = await sb.rpc("doc_previsao", { p_id: x.id, p_data, p_desistiu });
+    if (error) { showToast("Não foi possível salvar a previsão: " + error.message); painel.querySelectorAll("button, input").forEach((b) => (b.disabled = false)); return; }
+    ddPrevAberta = null;
+    ddAcaoLocal = Date.now();
+    showToast(msg);
+    carregarDocumentacoes();
+  };
+  const painel = el("div", { class: "dd-prev-painel" }, [
+    el("div", { class: "dd-prev-linha" }, [
+      el("label", { class: "atd-rot" }, "Previsão de fechamento"),
+      data,
+      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => {
+        if (!data.value) { showToast("Escolha a data que o vendedor previu."); data.focus(); return; }
+        salvar(data.value, false, `Previsão marcada para ${ddDiaMes(data.value)}.`);
+      } }, "Salvar data"),
+      el("button", { type: "button", class: "btn btn-secondary btn-sm dd-prev-desistiu", disabled: x.desistiu ? "disabled" : null,
+        onclick: () => salvar(null, true, `${x.cliente || "Cliente"} marcado como desistência.`) }, "🚫 Cliente desistiu"),
+      x.previsao || x.desistiu
+        ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => salvar(null, false, "Previsão removida.") }, "Limpar")
+        : null,
+    ]),
+    x.previsao_em ? el("small", { class: "dd-prev-quando" }, `Marcado em ${dcDataHora(x.previsao_em)}`) : null,
+  ]);
+  return painel;
 }
 
 // ---------- ações ----------
