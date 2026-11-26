@@ -116,6 +116,7 @@ function desenharDocumentacoes(raiz) {
     ]),
   ]))));
   raiz.appendChild(bloco);
+  raiz.appendChild(ddBlocoPrevisao(docs, raiz));
 
   // período + números
   const periodos = [["hoje", "Hoje"], ["mes", "Este mês"], ["passado", "Mês passado"], ["90", "Últimos 90 dias"], ["tudo", "Tudo"]];
@@ -189,6 +190,50 @@ function ddChipPrevisao(x, raiz) {
   return el("button", { type: "button", class: `dd-chip dd-chip-prev ${cls}`, title: dica, "aria-expanded": String(aberto),
     "aria-label": `Previsão de fechamento de ${x.cliente || "cliente"}: ${txt}`,
     onclick: () => { ddPrevAberta = aberto ? null : x.id; desenharDocumentacoes(raiz); } }, `${txt} ${aberto ? "▴" : "▾"}`);
+}
+
+// card "Previsão de vendas · próximos 3 dias" (hoje, amanhã e depois de amanhã), independe do filtro de período
+function ddBlocoPrevisao(docs, raiz) {
+  const hoje = ddHojeIso();
+  const dias = [0, 1, 2].map((n) => { const d = new Date(hoje + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); });
+  const semana = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const rotulo = (iso, i) => i === 0 ? "Hoje" : i === 1 ? "Amanhã" : `${semana[new Date(iso + "T12:00:00Z").getUTCDay()]}, ${ddDiaMes(iso)}`;
+  const abertas = docs.filter((x) => x.vendedor && !x.venda_id && !x.desistiu && x.previsao);
+  const prox = abertas.filter((x) => x.previsao >= dias[0] && x.previsao <= dias[2]);
+  const vencidas = abertas.filter((x) => x.previsao < hoje);
+  const soma = (l) => l.reduce((a, x) => a + (Number(x.valor) || 0), 0);
+  const total = soma(prox);
+
+  const colunas = el("div", { class: "dd-prev-dias" }, dias.map((iso, i) => {
+    const doDia = prox.filter((x) => x.previsao === iso).sort((a, b) => (Number(b.valor) || 0) - (Number(a.valor) || 0));
+    return el("div", { class: "dd-prev-dia" + (doDia.length ? "" : " vazio") }, [
+      el("div", { class: "dd-prev-dia-cab" }, [
+        el("strong", {}, rotulo(iso, i)),
+        el("small", {}, doDia.length ? `${doDia.length} · ${ddMoeda.format(soma(doDia))}` : "nenhuma"),
+      ]),
+      doDia.length
+        ? el("ul", { class: "dd-prev-lista" }, doDia.map((x) => el("li", {}, [
+            avatarPerfil(x.vendedor, ddDados.fotos.get(x.vendedor), "dd-prev-foto"),
+            el("div", {}, [el("strong", {}, x.cliente || "Cliente sem nome"), el("small", {}, [dcPrimeiro(x.vendedor), x.valor ? ddMoeda.format(x.valor) : null].filter(Boolean).join(" · "))]),
+          ])))
+        : el("p", { class: "dd-prev-nada" }, "Sem previsão para este dia"),
+    ]);
+  }));
+
+  return el("section", { class: "dd-bloco dd-prev-bloco" }, [
+    el("div", { class: "dd-bloco-cab" }, [
+      el("h2", { class: "dd-h2" }, "📅 Previsão de vendas · próximos 3 dias"),
+      el("small", {}, "Pela data que o vendedor informou em cada documentação"),
+    ]),
+    el("div", { class: "dd-prev-resumo" }, [
+      el("div", {}, [el("strong", {}, String(prox.length)), el("small", {}, prox.length === 1 ? "cliente previsto" : "clientes previstos")]),
+      el("div", {}, [el("strong", {}, total ? ddMoeda.format(total) : "—"), el("small", {}, "em valor de bem")]),
+      vencidas.length
+        ? el("div", { class: "alerta" }, [el("strong", {}, String(vencidas.length)), el("small", {}, vencidas.length === 1 ? "previsão vencida sem venda" : "previsões vencidas sem venda")])
+        : null,
+    ]),
+    colunas,
+  ]);
 }
 
 function ddPainelPrevisao(x, raiz) {

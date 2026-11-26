@@ -1335,3 +1335,24 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .dd-prev-data { padding: 6px 10px; font-size: 14px; }
 .dd-prev-quando { font-size: 11.5px; color: var(--text-muted); }
 .dd-docs li { flex-wrap: wrap; }
+.dd-prev-resumo { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.dd-prev-resumo > div { display: flex; flex-direction: column; padding: 8px 14px; border-radius: 12px; background: var(--surface-2); min-width: 140px; }
+.dd-prev-resumo strong { font-size: 20px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.dd-prev-resumo small { font-size: 12px; color: var(--text-muted); }
+.dd-prev-resumo .alerta { background: var(--danger-bg); }
+.dd-prev-resumo .alerta strong, .dd-prev-resumo .alerta small { color: var(--danger-text); }
+.dd-prev-dias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.dd-prev-dia { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); min-width: 0; }
+.dd-prev-dia.vazio { opacity: 0.65; }
+.dd-prev-dia-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.dd-prev-dia-cab strong { font-size: 14px; color: var(--text); }
+.dd-prev-dia-cab small { font-size: 12px; color: var(--warning); font-weight: 700; white-space: nowrap; }
+.dd-prev-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dd-prev-lista li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dd-prev-lista li > div { display: flex; flex-direction: column; min-width: 0; }
+.dd-prev-lista strong { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-prev-lista small { font-size: 11.5px; color: var(--text-muted); }
+.dd-prev-foto { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.dd-prev-foto.pf-sem-foto { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; background: var(--surface); }
+.dd-prev-nada { margin: 0; font-size: 12px; color: var(--text-muted); }
+@media (max-width: 760px) { .dd-prev-dias { grid-template-columns: 1fr; } }
