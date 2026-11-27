@@ -218,6 +218,7 @@ function desenharPipeline(raiz) {
       const card = pp.cards.find((x) => x.id === id);
       if (!card || card.etapa === etapa.id) return;
       if (etapa.id === "reciclagem") ppModalPerdeu(card); // pede o motivo
+      else if (etapa.id === "agendamento") ppModalAgendar(card); // pede data, hora e tipo da reunião
       else ppMover(card, etapa.id);
     });
     quadro.appendChild(col);
@@ -346,6 +347,7 @@ function ppFormCard(x, aoSalvar) {
     if (!nome.value.trim()) { erro.textContent = "Coloque o nome do cliente."; erro.classList.remove("hidden"); nome.focus(); return; }
     const v = dcLerValor(valor.value);
     if (valor.value.trim() && v === null) { erro.textContent = "Valor do crédito inválido."; erro.classList.remove("hidden"); return; }
+    if (etapa.value === "agendamento" && c.etapa !== "agendamento") { erro.textContent = "Para agendar, mude a etapa pelo seletor “Etapa” do card ou arraste para Agendamento (pede data e hora)."; erro.classList.remove("hidden"); return; }
     if (etapa.value === "reciclagem" && c.etapa !== "reciclagem") { erro.textContent = "Para mandar para a reciclagem use o botão “Perdeu” (pede o motivo)."; erro.classList.remove("hidden"); return; }
     const dados = {
       nome: nome.value.trim(), telefone: ppTelDigitos(tel.value) || null, tipo_bem: tipo.value || null, valor_credito: v,
@@ -409,6 +411,7 @@ function ppAbrirCard(c) {
   etapa.value = c.etapa;
   etapa.addEventListener("change", async () => {
     if (etapa.value === "reciclagem") { fechar(); ppModalPerdeu(c); return; }
+    if (etapa.value === "agendamento") { fechar(); ppModalAgendar(c); return; }
     if (await ppMover(c, etapa.value)) { fechar(); } else etapa.value = c.etapa;
   });
 
@@ -423,6 +426,7 @@ function ppAbrirCard(c) {
       el("label", { class: "atd-rot" }, "Etiquetas"),
       etqs.length ? el("div", { class: "pp-etqs" }, etqs.map((t) => el("span", { class: "pp-etq", style: `--etq:${t.cor}` }, t.nome))) : el("small", { class: "pv-muted" }, "Nenhuma — use Editar"),
     ]),
+    ppCaixaReuniao(c, () => fechar()),
     c.doc_id ? el("div", { class: "pp-cm-caixa" }, [el("label", { class: "atd-rot" }, "Documentação"), el("span", { class: "dd-chip ok" }, "📄 Lançada na Corrida")]) : null,
     c.vendedor ? el("div", { class: "pp-cm-caixa pp-cm-vend" }, [avatarPerfil(c.vendedor, pp.fotos.get(c.vendedor), "pp-foto"), el("span", {}, c.vendedor)]) : null,
     c.etapa === "reciclagem" && c.perdido_motivo ? el("div", { class: "pp-cm-caixa" }, [el("label", { class: "atd-rot" }, "Motivo da perda"), el("span", { class: "dd-chip pp-rec-motivo" }, c.perdido_motivo), c.perdido_obs ? el("small", { class: "pv-muted" }, c.perdido_obs) : null]) : null,
@@ -715,3 +719,92 @@ async function ppModalDistribuicao() {
     el("div", { class: "pp-dist-wrap" }, tabela),
   ]);
 }
+
+// ---------- agenda de reuniões (sql/047) ----------
+const PP_TIPO_REUNIAO = { presencial: "🤝 Presencial", online: "💻 Online" };
+// card indo para Agendamento (ou "Remarcar"): data, hora e tipo da reunião → pipe_agendar
+function ppModalAgendar(c, aoSalvar) {
+  const amanha = new Date(Date.now() - DC_OFFSET + 86400000).toISOString().slice(0, 10);
+  const atual = c.reuniao_em && c.etapa === "agendamento" ? ppParaLocal(c.reuniao_em) : "";
+  const data = el("input", { type: "date", class: "ap-input", value: atual ? atual.slice(0, 10) : amanha, "aria-label": "Data da reunião" });
+  const hora = el("input", { type: "time", class: "ap-input", value: atual ? atual.slice(11, 16) : "09:00", step: "300", "aria-label": "Hora da reunião" });
+  let tipo = null;
+  const tipos = el("div", { class: "pp-ag-tipos" });
+  const pintar = () => {
+    tipos.innerHTML = "";
+    Object.entries(PP_TIPO_REUNIAO).forEach(([k, t]) => tipos.appendChild(el("button", { type: "button", class: "pp-ag-tipo" + (tipo === k ? " sel" : ""), "aria-pressed": String(tipo === k), onclick: () => { tipo = k; pintar(); } }, t)));
+  };
+  pintar();
+  const obs = el("input", { type: "text", class: "ap-input", maxlength: "200", placeholder: "Local, link ou observação (opcional)" });
+  const erro = el("div", { class: "auth-error hidden" });
+  const ok = el("button", { type: "button", class: "btn btn-primary btn-block" }, "📅 Agendar reunião");
+  const fechar = dcModal(`Agendar reunião · ${c.nome}`, c.etapa === "agendamento" ? "Remarcar: a reunião anterior fica registrada como remarcada" : "O card vai para Agendamento", [
+    el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Tipo da reunião"), tipos]),
+    el("div", { class: "pp-ag-quando" }, [
+      el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Data"), data]),
+      el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Hora"), hora]),
+    ]),
+    el("div", { class: "field" }, [obs]),
+    erro, ok,
+  ]);
+  ok.addEventListener("click", async () => {
+    erro.classList.add("hidden");
+    if (!tipo) { erro.textContent = "Escolha Reunião Presencial ou Online."; erro.classList.remove("hidden"); return; }
+    if (!data.value || !hora.value) { erro.textContent = "Escolha a data e a hora."; erro.classList.remove("hidden"); return; }
+    const quando = ppDeLocal(`${data.value}T${hora.value}`);
+    ok.disabled = true;
+    const { error } = await sb.rpc("pipe_agendar", { p_card: c.id, p_quando: quando, p_tipo: tipo, p_obs: obs.value });
+    if (error) { ok.disabled = false; erro.textContent = "Não foi possível agendar: " + error.message; erro.classList.remove("hidden"); return; }
+    fechar();
+    Object.assign(c, { etapa: "agendamento", reuniao_em: quando, etapa_desde: new Date().toISOString(), atividade_em: new Date().toISOString() });
+    showToast(`📅 Reunião ${tipo} marcada: ${dcDataHora(quando)}`);
+    ppPedirNotificacao();
+    const raiz = document.getElementById("sx-pipeline");
+    if (raiz && pp) desenharPipeline(raiz);
+    if (aoSalvar) aoSalvar();
+  });
+}
+
+// caixa "Reunião" no card aberto
+function ppCaixaReuniao(c, fecharCard) {
+  if (c.etapa !== "agendamento" && !c.reuniao_em) return null;
+  const quando = c.reuniao_em ? dcDataHora(c.reuniao_em) : "sem data";
+  const passou = c.reuniao_em && new Date(c.reuniao_em).getTime() < Date.now();
+  return el("div", { class: "pp-cm-caixa" }, [
+    el("label", { class: "atd-rot" }, "Reunião"),
+    el("span", { class: "dd-chip " + (c.etapa === "agendamento" ? (passou ? "parada" : "prevista") : "ok") }, `📅 ${quando}`),
+    c.etapa === "agendamento" ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => { fecharCard(); ppModalAgendar(c); } }, "Remarcar") : null,
+  ]);
+}
+
+// lembrete: avisa o vendedor 15 minutos antes da reunião (aba aberta em qualquer tela do sistema)
+const ppAvisados = new Set();
+function ppPedirNotificacao() {
+  try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* sem notificação */ }
+}
+async function ppChecarLembretes() {
+  if (typeof logado === "undefined" || !logado || !perms) return;
+  if (!ppAcesso || ppAcesso.email !== perms.email) {
+    const { data, error } = await sb.rpc("pipe_meu_acesso");
+    if (error) return;
+    ppAcesso = { ...data, email: perms.email };
+  }
+  if (!ppAcesso.vendedor) return; // o dono não recebe lembrete de todos
+  const agora = Date.now();
+  const { data, error } = await sb.from("pipe_reunioes").select("id, cliente, quando, tipo, obs")
+    .eq("status", "agendada").eq("vendedor", ppAcesso.vendedor)
+    .gte("quando", new Date(agora - 5 * 60000).toISOString()).lte("quando", new Date(agora + 15 * 60000).toISOString());
+  if (error || !data) return;
+  data.forEach((r) => {
+    const chave = "pp-lembrete-" + r.id;
+    if (ppAvisados.has(r.id)) return;
+    try { if (localStorage.getItem(chave)) { ppAvisados.add(r.id); return; } localStorage.setItem(chave, "1"); } catch (e) { /* segue */ }
+    ppAvisados.add(r.id);
+    const min = Math.max(0, Math.round((new Date(r.quando).getTime() - agora) / 60000));
+    const txt = `${r.tipo === "online" ? "💻" : "🤝"} Reunião ${r.tipo} com ${r.cliente || "cliente"} ${min ? `em ${min} min` : "agora"}${r.obs ? " · " + r.obs : ""}`;
+    showToast(txt);
+    try { if ("Notification" in window && Notification.permission === "granted") new Notification("Infinity · Reunião", { body: txt }); } catch (e) { /* sem notificação */ }
+  });
+}
+setInterval(ppChecarLembretes, 60000);
+setTimeout(ppChecarLembretes, 8000);

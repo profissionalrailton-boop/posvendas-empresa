@@ -53,6 +53,8 @@ const GRUPOS = [
     itens: [
       // Pipeline (pipeline.js): dono vê tudo; vendedor liberado (pipe_liberados) vê só os dele; os outros veem "em breve"
       { aba: "pipeline", label: "Pipeline", container: "sx-pipeline", carregar: () => carregarPipeline() },
+      // Reuniões (reunioes.js): agenda e conversão das reuniões marcadas no Pipeline
+      { aba: "reunioes", label: "Reuniões", container: "sx-reunioes", carregar: () => carregarReunioes() },
       { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
       { aba: "minhasdocs", label: "Documentações", exige: "vendedor", container: "sx-minhas-docs", carregar: () => carregarMinhasDocs() },
       { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },

@@ -1582,3 +1582,36 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .pp-dist tfoot td { font-weight: 700; color: var(--text-muted); border-bottom: none; }
 .pp-dist .pp-dist-zero { color: var(--warning); }
 .modal-box:has(.pp-dist) { width: min(760px, 96vw); max-width: none; }
+/* Pipeline: agendar reunião */
+.pp-ag-tipos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pp-ag-tipo { padding: 14px 10px; border-radius: 12px; border: 2px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.pp-ag-tipo.sel { border-color: var(--primary); background: rgba(139, 92, 246, 0.16); }
+.pp-ag-quando { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.pp-ag-quando .ap-input { width: 100%; box-sizing: border-box; }
+/* Negócios › Reuniões */
+.rn-lista { list-style: none; margin: 0; padding: 0 12px 8px; }
+.rn-lista li { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.rn-lista li:last-child { border-bottom: none; }
+.rn-quando { display: flex; flex-direction: column; min-width: 86px; }
+.rn-quando strong { font-size: 13.5px; color: var(--text); }
+.rn-quando small { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rn-tipo { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.rn-tipo.presencial { background: rgba(16, 185, 129, 0.14); color: var(--success); }
+.rn-tipo.online { background: rgba(59, 130, 246, 0.16); color: #60a5fa; }
+.rn-info { flex: 1; min-width: 140px; display: flex; flex-direction: column; }
+.rn-info strong { font-size: 14px; color: var(--text); }
+.rn-info small { font-size: 12px; color: var(--text-muted); }
+.rn-atrasada { opacity: 0.85; }
+.rn-aviso { width: 100%; padding-left: 98px; color: var(--warning); font-size: 12px; }
+.rn-cab-atraso { border-top: 1px solid var(--border); }
+.rn-tipos-resumo { margin: -4px 0 14px; font-size: 13px; color: var(--text-muted); white-space: pre-wrap; }
+.rn-tabela-wrap { overflow-x: auto; padding: 0 12px 10px; }
+.rn-tabela { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rn-tabela th, .rn-tabela td { padding: 9px 8px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; color: var(--text); font-variant-numeric: tabular-nums; }
+.rn-tabela th { font-size: 12px; color: var(--text-muted); font-weight: 700; }
+.rn-tabela th:first-child, .rn-tabela td:first-child { text-align: left; }
+.rn-barra { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.rn-barra-fundo { width: 90px; height: 7px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.rn-barra-cheia { display: block; height: 100%; background: var(--primary); border-radius: 99px; }
+@media (max-width: 720px) { .rn-aviso { padding-left: 0; } }
+.sx-painel.rn-raiz { max-width: none; }
