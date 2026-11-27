@@ -108,6 +108,9 @@ const GRUPOS = [
     itens: [
       { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },
       { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
+      { aba: "minhasdocs", label: "Minhas documentações", exige: "vendedor", container: "sx-minhas-docs", carregar: () => carregarMinhasDocs() },
+      // Pipeline (pipeline.js): em teste — só PIPE_LIBERADO vê o quadro; os outros veem "em breve"
+      { aba: "pipeline", label: "Pipeline", container: "sx-pipeline", carregar: () => carregarPipeline() },
       { aba: "relatorio-semanal", label: "Relatório semanal", exige: "gestao", container: "sx-relatorio", carregar: () => carregarRelatorio() },
     ],
   },
@@ -330,6 +333,7 @@ function itensPermitidos(grupo) {
   return grupo.itens.filter((it) => {
     if (it.exige === "comissao" && !perms.comissao) return false;
     if (it.exige === "gestao" && !(perms.fin || perms.adm)) return false;
+    if (it.exige === "vendedor" && perms.pos !== "vendedor") return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;
     return true;
   });
