@@ -1532,3 +1532,43 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 @media (max-width: 720px) {
   .pp-col { height: auto; min-height: 200px; max-height: 70vh; }
 }
+
+/* Pipeline: card aberto largo (estilo CRM) — faixa no topo, ações à esquerda, comentários no meio */
+.modal-box.pp-cm { width: min(980px, 96vw); max-width: none; padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: 92vh; }
+.pp-cm-cab { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: linear-gradient(120deg, #4f46e5, #2563eb); color: #fff; flex-wrap: wrap; }
+.pp-cm-bem { width: 52px; height: 52px; border-radius: 12px; background: rgba(255, 255, 255, 0.18); display: flex; align-items: center; justify-content: center; font-size: 28px; flex: none; }
+.pp-cm-titulo { flex: 1 1 260px; min-width: 0; }
+.pp-cm-nome { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.pp-cm-nome strong { font-size: 20px; font-weight: 800; overflow-wrap: anywhere; }
+.pp-cm-etapa-txt { font-size: 12.5px; font-weight: 700; opacity: 0.85; letter-spacing: 0.03em; }
+.pp-cm-sub { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; font-size: 13px; opacity: 0.95; }
+.pp-cm-sub a { color: #fff; text-decoration: none; font-weight: 600; }
+.pp-cm-datas { display: flex; flex-direction: column; gap: 3px; font-size: 12px; opacity: 0.95; align-items: flex-start; }
+.pp-cm-datas .pp-selo { background: rgba(255, 255, 255, 0.92); }
+.pp-cm-valor { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pp-cm-fechar { width: 34px; height: 34px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 16px; cursor: pointer; flex: none; }
+.pp-cm-fechar:hover { background: rgba(255, 255, 255, 0.25); }
+.pp-cm-corpo { display: grid; grid-template-columns: 220px 1fr; gap: 14px; padding: 14px 18px; overflow: hidden; flex: 1; min-height: 0; }
+.pp-cm-esq { display: flex; flex-direction: column; gap: 7px; overflow-y: auto; min-height: 0; }
+.pp-cm-acao { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: left; }
+.pp-cm-acao:hover { border-color: var(--primary); }
+.pp-cm-acao.sel { border-color: var(--primary); background: rgba(139, 92, 246, 0.16); }
+.pp-cm-acao.lig { background: rgba(59, 130, 246, 0.12); }
+.pp-cm-acao.zap { background: rgba(34, 197, 94, 0.12); }
+.pp-cm-caixa { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; display: flex; flex-direction: column; gap: 6px; }
+.pp-cm-caixa .atd-rot { margin: 0; }
+.pp-cm-etapa { width: 100%; box-sizing: border-box; font-size: 13.5px; padding: 7px 9px; }
+.pp-cm-vend { flex-direction: row; align-items: center; font-size: 13px; color: var(--text); }
+.pp-cm-centro { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; overflow-y: auto; min-height: 320px; }
+.pp-cm-centro .pp-coment { margin-top: 0; }
+.pp-cm-centro .pp-coment-lista { max-height: none; }
+.pp-cm-centro .pp-hist { border: none; padding: 0; margin: 0; }
+.pp-cm-centro .pp-hist-lista { max-height: none; }
+.pp-cm-rodape { display: flex; gap: 10px; padding: 12px 18px 16px; border-top: 1px solid var(--border); align-items: center; }
+.pp-cm-rodape .btn { flex: 1; }
+@media (max-width: 720px) {
+  .pp-cm-corpo { grid-template-columns: 1fr; overflow-y: auto; }
+  .pp-cm-esq { overflow: visible; }
+  .pp-cm-centro { min-height: 240px; overflow: visible; }
+  .pp-cm-valor { font-size: 18px; }
+}

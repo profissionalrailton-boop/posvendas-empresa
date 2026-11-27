@@ -281,7 +281,8 @@ async function ppMover(card, etapa, extra = {}) {
 }
 
 // ---------- card (novo / abrir) ----------
-function ppModalCard(x) {
+// formulário do card (novo lead e "Editar" do card aberto). aoSalvar(dados) roda depois de gravar.
+function ppFormCard(x, aoSalvar) {
   const novo = !x;
   const c = x || { nome: "", etapa: "oportunidade", vendedor: !ppDono() ? ppAcesso.vendedor : ppFiltro.vendedor && ppFiltro.vendedor !== "—" ? ppFiltro.vendedor : "" };
   const campo = (tipo, valor, attrs = {}) => el("input", { type: tipo, class: "ap-input", value: valor ?? "", autocomplete: "off", ...attrs });
@@ -313,29 +314,9 @@ function ppModalCard(x) {
       onclick: () => { etqSel.has(t.id) ? etqSel.delete(t.id) : etqSel.add(t.id); pintarEtq(); } }, (etqSel.has(t.id) ? "✓ " : "") + t.nome)));
   };
   pintarEtq();
-
-  const linksContato = !novo && c.telefone ? el("div", { class: "pp-contato" }, [
-    el("a", { class: "btn btn-secondary btn-sm", href: `tel:${ppTelDigitos(c.telefone)}` }, "📞 Ligar"),
-    el("a", { class: "btn btn-secondary btn-sm", href: ppWhats(c.telefone), target: "_blank", rel: "noopener" }, "💬 WhatsApp"),
-  ]) : null;
-
   const salvar = el("button", { type: "button", class: "btn btn-primary btn-block" }, novo ? "＋ Criar lead" : "Salvar alterações");
-  const coment = novo ? null : el("div", { class: "pp-coment" }, el("small", { class: "pv-muted" }, "Carregando comentários…"));
-  const hist = novo ? null : el("details", { class: "pp-hist" }, [el("summary", {}, "Histórico"), el("small", { class: "pv-muted" }, "Carregando…")]);
 
-  const acoesFim = novo ? null : el("div", { class: "pp-fim" }, [
-    c.etapa !== "reciclagem" ? el("button", { type: "button", class: "btn pp-perdeu", onclick: () => { fechar(); ppModalPerdeu(c); } }, "✕ Perdeu") : null,
-    c.etapa !== "fechado" ? el("button", { type: "button", class: "btn pp-ganhou", onclick: async () => { fechar(); await ppMover(c, "fechado"); } }, "✓ Ganhou") : null,
-    !ppDono() ? null : el("button", { type: "button", class: "icon-btn", title: "Excluir card", "aria-label": `Excluir ${c.nome}`, onclick: async () => {
-      if (!confirm(`Excluir o card de ${c.nome}? Os comentários e o histórico também somem.`)) return;
-      const { error } = await sb.from("pipe_cards").delete().eq("id", c.id);
-      if (error) { showToast("Não foi possível excluir: " + error.message); return; }
-      fechar(); showToast("Card excluído."); carregarPipeline();
-    } }, "🗑"),
-  ]);
-
-  const fechar = dcModal(novo ? "Novo lead" : c.nome, novo ? "Nome e telefone já bastam para começar" : `${PIPE_NOME_ETAPA[c.etapa]}${c.etapa === "reciclagem" && c.perdido_motivo ? " · " + c.perdido_motivo : ""} · desde ${dcDataHora(c.etapa_desde)}`, [
-    linksContato,
+  const form = el("div", { class: "pp-form-card" }, [
     el("div", { class: "pp-form" }, [
       el("div", { class: "field pp-span2" }, [el("label", { class: "atd-rot" }, "Nome"), nome]),
       el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Telefone"), tel]),
@@ -357,7 +338,6 @@ function ppModalCard(x) {
       ]),
     ]),
     erro, salvar,
-    coment, hist, acoesFim,
   ]);
 
   salvar.addEventListener("click", async () => {
@@ -381,13 +361,109 @@ function ppModalCard(x) {
     const add = [...etqSel].filter((e) => !antes.has(e)), del = [...antes].filter((e) => !etqSel.has(e));
     if (add.length) await sb.from("pipe_card_etiquetas").insert(add.map((etiqueta_id) => ({ card_id: id, etiqueta_id })));
     if (del.length) await sb.from("pipe_card_etiquetas").delete().eq("card_id", id).in("etiqueta_id", del);
-    fechar();
     showToast(novo ? `Lead ${dados.nome} criado.` : "Card salvo.");
-    carregarPipeline();
+    aoSalvar(dados);
+  });
+  form.focar = () => setTimeout(() => nome.focus(), 50);
+  return form;
+}
+
+function ppModalCard(x) {
+  if (x) { ppAbrirCard(x); return; }
+  let fechar = null;
+  const form = ppFormCard(null, () => { fechar(); carregarPipeline(); });
+  fechar = dcModal("Novo lead", "Nome e telefone já bastam para começar", [form]);
+  form.focar();
+}
+
+// card aberto (estilo CRM): faixa com os dados no topo, ações e etiquetas à esquerda, comentários no meio
+function ppAbrirCard(c) {
+  const fundo = el("div", { class: "modal-overlay" });
+  const fechar = () => fundo.remove();
+  fundo.addEventListener("click", (e) => { if (e.target === fundo) fechar(); });
+  const ids = pp.cardEtiq.get(c.id) || new Set();
+  const etqs = pp.etiquetas.filter((t) => ids.has(t.id));
+
+  // centro: comentários (padrão), editar, histórico
+  const coment = el("div", { class: "pp-coment pp-cm-coment" }, el("small", { class: "pv-muted" }, "Carregando comentários…"));
+  const hist = el("details", { class: "pp-hist", open: "" }, [el("summary", {}, "Histórico"), el("small", { class: "pv-muted" }, "Carregando…")]);
+  const centro = el("section", { class: "pp-cm-centro" });
+  let vista = "coment";
+  const botoesVista = {};
+  const mostrar = (v) => {
+    vista = v;
+    centro.innerHTML = "";
+    if (v === "coment") centro.appendChild(coment);
+    if (v === "hist") centro.appendChild(hist);
+    if (v === "editar") centro.appendChild(ppFormCard(c, () => { fechar(); carregarPipeline(); }));
+    Object.entries(botoesVista).forEach(([k, b]) => b.classList.toggle("sel", k === v));
+  };
+
+  const acao = (k, ic, txt, onclick, cls) => {
+    const b = el("button", { type: "button", class: "pp-cm-acao " + (cls || ""), onclick }, [el("span", { "aria-hidden": "true" }, ic), txt]);
+    if (k) botoesVista[k] = b;
+    return b;
+  };
+  const etapa = el("select", { class: "ap-input pp-cm-etapa", "aria-label": "Mudar etapa" }, PIPE_ETAPAS.map((e) => el("option", { value: e.id }, e.nome)));
+  etapa.value = c.etapa;
+  etapa.addEventListener("change", async () => {
+    if (etapa.value === "reciclagem") { fechar(); ppModalPerdeu(c); return; }
+    if (await ppMover(c, etapa.value)) { fechar(); } else etapa.value = c.etapa;
   });
 
-  if (!novo) ppCarregarConversa(c, coment, hist);
-  else setTimeout(() => nome.focus(), 50);
+  const esquerda = el("aside", { class: "pp-cm-esq" }, [
+    acao("coment", "💬", `Comentários${pp.comentarios.get(c.id) ? ` (${pp.comentarios.get(c.id)})` : ""}`, () => mostrar("coment")),
+    acao("editar", "✏️", "Editar", () => mostrar("editar")),
+    c.telefone ? el("a", { class: "pp-cm-acao lig", href: `tel:${ppTelDigitos(c.telefone)}` }, [el("span", { "aria-hidden": "true" }, "📞"), "Ligar"]) : null,
+    c.telefone ? el("a", { class: "pp-cm-acao zap", href: ppWhats(c.telefone), target: "_blank", rel: "noopener" }, [el("span", { "aria-hidden": "true" }, "🟢"), "WhatsApp"]) : null,
+    acao("hist", "🕘", "Histórico", () => mostrar("hist")),
+    el("div", { class: "pp-cm-caixa" }, [el("label", { class: "atd-rot" }, "Etapa"), etapa]),
+    el("div", { class: "pp-cm-caixa" }, [
+      el("label", { class: "atd-rot" }, "Etiquetas"),
+      etqs.length ? el("div", { class: "pp-etqs" }, etqs.map((t) => el("span", { class: "pp-etq", style: `--etq:${t.cor}` }, t.nome))) : el("small", { class: "pv-muted" }, "Nenhuma — use Editar"),
+    ]),
+    c.vendedor ? el("div", { class: "pp-cm-caixa pp-cm-vend" }, [avatarPerfil(c.vendedor, pp.fotos.get(c.vendedor), "pp-foto"), el("span", {}, c.vendedor)]) : null,
+    c.etapa === "reciclagem" && c.perdido_motivo ? el("div", { class: "pp-cm-caixa" }, [el("label", { class: "atd-rot" }, "Motivo da perda"), el("span", { class: "dd-chip pp-rec-motivo" }, c.perdido_motivo), c.perdido_obs ? el("small", { class: "pv-muted" }, c.perdido_obs) : null]) : null,
+  ]);
+
+  const cab = el("header", { class: "pp-cm-cab" }, [
+    el("div", { class: "pp-cm-bem", "aria-hidden": "true" }, ppEmojiBem(c.tipo_bem)),
+    el("div", { class: "pp-cm-titulo" }, [
+      el("div", { class: "pp-cm-nome" }, [el("strong", {}, c.nome), el("span", { class: "pp-cm-etapa-txt" }, "• " + PIPE_NOME_ETAPA[c.etapa].toUpperCase())]),
+      el("div", { class: "pp-cm-sub" }, [
+        c.tipo_bem ? el("span", {}, c.tipo_bem) : null,
+        c.telefone ? el("a", { href: `tel:${ppTelDigitos(c.telefone)}` }, `📞 ${ddTel(c.telefone)}`) : null,
+        c.cidade ? el("span", {}, `${c.cidade}${c.estado ? "/" + c.estado : ""}`) : null,
+      ]),
+    ]),
+    el("div", { class: "pp-cm-datas" }, [
+      el("span", { title: "Criado em" }, `🗓 ${dcDataHora(c.criado_em)}`),
+      el("span", { title: "Na etapa desde" }, `⏱ ${dcDataHora(c.etapa_desde)}`),
+      ppSeloParado(c),
+    ]),
+    el("div", { class: "pp-cm-valor" }, ppMoeda.format(Number(c.valor_credito) || 0)),
+    el("button", { type: "button", class: "pp-cm-fechar", "aria-label": "Fechar", onclick: fechar }, "✕"),
+  ]);
+
+  const rodape = el("footer", { class: "pp-cm-rodape" }, [
+    c.etapa !== "reciclagem" ? el("button", { type: "button", class: "btn pp-perdeu", onclick: () => { fechar(); ppModalPerdeu(c); } }, "✕ Perdeu") : null,
+    c.etapa !== "fechado" ? el("button", { type: "button", class: "btn pp-ganhou", onclick: async () => { fechar(); await ppMover(c, "fechado"); } }, "✓ Ganhou") : null,
+    ppDono() ? el("button", { type: "button", class: "icon-btn", title: "Excluir card", "aria-label": `Excluir ${c.nome}`, onclick: async () => {
+      if (!confirm(`Excluir o card de ${c.nome}? Os comentários e o histórico também somem.`)) return;
+      const { error } = await sb.from("pipe_cards").delete().eq("id", c.id);
+      if (error) { showToast("Não foi possível excluir: " + error.message); return; }
+      fechar(); showToast("Card excluído."); carregarPipeline();
+    } }, "🗑") : null,
+  ]);
+
+  fundo.appendChild(el("div", { class: "modal-box pp-cm", role: "dialog", "aria-label": c.nome }, [
+    cab,
+    el("div", { class: "pp-cm-corpo" }, [esquerda, centro]),
+    rodape,
+  ]));
+  document.body.appendChild(fundo);
+  mostrar("coment");
+  ppCarregarConversa(c, coment, hist);
 }
 
 async function ppCarregarConversa(c, coment, hist) {
