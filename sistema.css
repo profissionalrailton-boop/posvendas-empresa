@@ -1643,3 +1643,7 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .pdf-campos .ap-input { width: 100%; box-sizing: border-box; }
 .pdf-anexo { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
 .pdf-anexo:hover { border-color: var(--primary); }
+/* Pipeline: filtro de vendedor ao lado das abas, com digitação */
+.pp-vistas { display: flex; align-items: center; flex-wrap: wrap; }
+.pp-vend-wrap { display: inline-flex; margin-left: 6px; }
+.pp-vistas .pp-sel-vend { min-width: 230px; padding: 7px 10px; font-size: 13.5px; }

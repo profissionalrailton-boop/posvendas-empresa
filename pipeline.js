@@ -162,10 +162,31 @@ function ppPainelFiltros(raiz) {
 
 // filtro de vendedor fica fora do botão Filtros
 function ppSelVendedor(raiz) {
-  const s = el("select", { class: "ap-input pp-filtro pp-sel-vend", "aria-label": "Filtrar por vendedor", onchange: (e) => { ppFiltro.vendedor = e.target.value; desenharPipeline(raiz); } },
-    [["", "Todos os vendedores"], ...pp.vendedores.map((n) => [n, n]), ...(pp.antigos || []).map((n) => [n, n + " (saiu)"]), ["—", "Sem vendedor"]].map(([v, t]) => el("option", { value: v }, t)));
-  s.value = ppFiltro.vendedor;
-  return s;
+  // campo de digitar com sugestões: digita parte do nome e escolhe; vazio = todos
+  const opcoes = [...pp.vendedores.map((n) => [n, n]), ...(pp.antigos || []).map((n) => [n, n + " (saiu)"]), ["—", "Sem vendedor"]];
+  const rotuloDe = (v) => (opcoes.find(([val]) => val === v) || [null, ""])[1];
+  const lista = el("datalist", { id: "pp-vend-lista" }, opcoes.map(([, t]) => el("option", { value: t })));
+  const campo = el("input", { type: "search", class: "ap-input pp-filtro pp-sel-vend", list: "pp-vend-lista", placeholder: "🔎 Todos os vendedores",
+    value: rotuloDe(ppFiltro.vendedor), "aria-label": "Filtrar por vendedor (digite o nome)", autocomplete: "off" });
+  const aplicar = () => {
+    const txt = campo.value.trim().toLowerCase();
+    let v = "";
+    if (txt) {
+      const exato = opcoes.find(([, t]) => t.toLowerCase() === txt);
+      const parcial = opcoes.filter(([, t]) => t.toLowerCase().includes(txt));
+      v = exato ? exato[0] : parcial.length === 1 ? parcial[0][0] : null;
+      if (v === null) return; // ainda ambíguo: espera escolher
+    }
+    if (v === ppFiltro.vendedor) return;
+    ppFiltro.vendedor = v;
+    desenharPipeline(raiz);
+    const novo = raiz.querySelector(".pp-sel-vend");
+    if (novo && txt) novo.blur();
+  };
+  campo.addEventListener("change", aplicar);
+  campo.addEventListener("input", () => { if (!campo.value) aplicar(); else if (opcoes.some(([, t]) => t.toLowerCase() === campo.value.trim().toLowerCase())) aplicar(); });
+  campo.addEventListener("keydown", (e) => { if (e.key === "Enter") aplicar(); });
+  return el("span", { class: "pp-vend-wrap" }, [campo, lista]);
 }
 
 function desenharPipeline(raiz) {
@@ -188,8 +209,8 @@ function desenharPipeline(raiz) {
       ["quadro", `Quadro (${pp.cards.length})`],
       ppDono() ? ["reciclagem", "↪ Distribuir leads"] : null,
     ].filter(Boolean).map(([k, t]) => el("button", { type: "button", role: "tab", "aria-selected": String(ppVista === k), class: "dd-periodo-bt" + (ppVista === k ? " sel" : ""),
-      onclick: () => { ppVista = k; ppRecSel.clear(); desenharPipeline(raiz); } }, t))),
-    el("div", { class: "pp-barra-dir" }, [ppDono() ? ppSelVendedor(raiz) : null,
+      onclick: () => { ppVista = k; ppRecSel.clear(); desenharPipeline(raiz); } }, t)).concat(ppDono() ? [ppSelVendedor(raiz)] : [])),
+    el("div", { class: "pp-barra-dir" }, [
     el("button", { type: "button", class: "btn btn-secondary btn-sm pp-bt-filtros" + (nFiltros ? " ativo" : ""), "aria-expanded": String(ppFiltrosAberto),
       onclick: () => { ppFiltrosAberto = !ppFiltrosAberto; desenharPipeline(raiz); } }, `⚙ Filtros${nFiltros ? ` (${nFiltros})` : ""}`)]),
   ]));
