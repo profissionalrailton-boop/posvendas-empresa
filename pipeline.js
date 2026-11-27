@@ -675,7 +675,8 @@ function ppAoVivo() {
 }
 
 // ---------- distribuição dos leads novos (n8n → pipe_n8n_lead): quem entra no rodízio de cada tipo do bem ----------
-const PIPE_TIPOS_DIST = ["Imóvel", "Automóvel", "Moto", "Pesados", "Outro"];
+const PIPE_TIPOS_DIST = ["Imóvel", "Automóvel", "Moto", "Caminhão", "Máquina", "Outro"]; // Caminhão e Máquina viram "Pesados" no card
+const PIPE_EMOJI_DIST = { "Caminhão": "🚚", "Máquina": "🚜" };
 async function ppModalDistribuicao() {
   const [d, l] = await Promise.all([
     sb.from("pipe_distribuicao").select("tipo, vendedor"),
@@ -687,7 +688,7 @@ async function ppModalDistribuicao() {
   const tabela = el("table", { class: "pp-dist" });
   const pintar = () => {
     tabela.innerHTML = "";
-    tabela.appendChild(el("thead", {}, el("tr", {}, [el("th", {}, "Vendedor"), ...PIPE_TIPOS_DIST.map((t) => el("th", {}, [el("span", { "aria-hidden": "true" }, ppEmojiBem(t) + " "), t]))])));
+    tabela.appendChild(el("thead", {}, el("tr", {}, [el("th", {}, "Vendedor"), ...PIPE_TIPOS_DIST.map((t) => el("th", {}, [el("span", { "aria-hidden": "true" }, (PIPE_EMOJI_DIST[t] || ppEmojiBem(t)) + " "), t]))])));
     tabela.appendChild(el("tbody", {}, vendedores.map((v) => el("tr", {}, [
       el("td", {}, el("span", { class: "pp-card-vend" }, [avatarPerfil(v, pp.fotos.get(v), "pp-foto"), v])),
       ...PIPE_TIPOS_DIST.map((t) => {
