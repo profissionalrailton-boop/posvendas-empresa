@@ -12,7 +12,7 @@ const PIPE_ETAPAS = [
   { id: "fechado", nome: "Fechado", dica: "Venda feita" },
 ];
 const PIPE_NOME_ETAPA = { reciclagem: "Reciclagem", ...Object.fromEntries(PIPE_ETAPAS.map((e) => [e.id, e.nome])) };
-const PIPE_MOTIVOS = ["Não respondeu / sumiu", "Sem dinheiro / renda", "Achou a parcela alta", "Só pesquisando", "Comprou com outro", "Nome restrito / reprovado", "Desistiu do bem", "Outro"];
+const PIPE_MOTIVOS = ["Não respondeu às 3 tentativas", "Sumiu sem proposta", "Sumiu com proposta", "Curioso", "Já comprou", "Sem entrada", "Não quer consórcio", "Quer à vista", "Número errado", "Outro"]; // mesmos do Convex
 const PIPE_TIPOS = ["Imóvel", "Automóvel", "Moto", "Pesados", "Serviços", "Outro"];
 const PIPE_CORES = ["#111827", "#dc2626", "#ea580c", "#ca8a04", "#65a30d", "#059669", "#0891b2", "#2563eb", "#7c3aed", "#db2777"];
 
@@ -61,6 +61,8 @@ async function carregarPipeline() {
     fotos: new Map(f.data.map((x) => [x.vendedor, x.foto_url])),
     vendedores: v.data.filter((x) => x.ativo !== false && !DC_FORA.includes(x.nome)).map((x) => x.nome),
   };
+  // quem tem card mas não é vendedor ativo (veio do Convex, já saiu): aparece no filtro para redistribuir
+  pp.antigos = [...new Set(c.data.map((x) => x.vendedor).filter((n) => n && !pp.vendedores.includes(n)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   desenharPipeline(raiz);
 }
 
@@ -124,7 +126,7 @@ function ppPainelFiltros(raiz) {
   return el("div", { class: "pp-filtros-painel" }, [
     el("div", { class: "pp-filtros-grade" }, [
       campo("Buscar", busca),
-      campo("Vendedor", sel(f.vendedor, [["", "Todos"], ...pp.vendedores.map((n) => [n, n]), ["—", "Sem vendedor"]], (v) => (f.vendedor = v), "Vendedor")),
+      campo("Vendedor", sel(f.vendedor, [["", "Todos"], ...pp.vendedores.map((n) => [n, n]), ...(pp.antigos || []).map((n) => [n, n + " (saiu)"]), ["—", "Sem vendedor"]], (v) => (f.vendedor = v), "Vendedor")),
       campo("Etiqueta", sel(f.etiqueta, [["", "Todas"], ...pp.etiquetas.map((e) => [String(e.id), e.nome])], (v) => (f.etiqueta = v), "Etiqueta")),
       campo("Parado há", sel(f.paradoMin, [["", "Qualquer tempo"], ["1", "1 dia ou mais"], ["3", "3 dias ou mais"], ["7", "7 dias ou mais"], ["15", "15 dias ou mais"], ["30", "30 dias ou mais"]], (v) => (f.paradoMin = v), "Dias parado")),
       campo("Criado de", data(f.criadoDe, (v) => (f.criadoDe = v), "Criado a partir de")),
