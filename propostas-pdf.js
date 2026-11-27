@@ -1,24 +1,31 @@
-// Proposta comercial em PDF (modelo img/proposta-modelo.webp, 1086×1448).
+// Proposta comercial em PDF (modelos img/proposta-modelo*.webp, 1086×1448: imóvel, carro e pesados — mesmo layout).
 // O modelo é recortado em cabeçalho + bloco de cada proposta + rodapé: com 1 proposta sai só o bloco 1,
 // com 2 os blocos 1 e 2, e assim por diante (máx. 3). Os valores são escritos por cima, no canvas,
 // e o canvas vira um PDF de uma página (jsPDF). Quem chama: recebimento das propostas do Radar (sistema.js).
-const PDF_MODELO = "img/proposta-modelo.webp";
+// modelo pelo tipo do bem. admin = área do texto "Empresa Administradora" (no de pesados ele fica mais à direita por causa
+// dos dois ícones); tipoNoModelo = o modelo já traz "Tipo do Bem: …" escrito, então é coberto antes de escrever o certo.
+const PDF_MODELOS = {
+  imovel: { src: "img/proposta-modelo.webp", admin: { x: 172, w: 170, tx: 175, max: 165 } },
+  carro: { src: "img/proposta-modelo-carro.webp", admin: { x: 172, w: 170, tx: 175, max: 165 }, tipoNoModelo: true },
+  pesados: { src: "img/proposta-modelo-pesados.webp", admin: { x: 216, w: 136, tx: 219, max: 130 }, tipoNoModelo: true },
+};
+const pdfModeloDo = (tipoBem) => (tipoBem === "Automóvel" || tipoBem === "Moto" ? "carro" : tipoBem === "Pesados" ? "pesados" : "imovel");
 const PDF_LARG = 1086;
 const PDF_CAB = 355;           // cabeçalho: 0..355
 const PDF_BLOCO = 272;         // bloco N: 355 + (N-1)*272
 const PDF_RODAPE = 1171;       // rodapé: 1171..1448
 const PDF_ALT_RODAPE = 1448 - PDF_RODAPE;
-let pdfModeloImg = null;
+const pdfModeloImg = {};
 
-function pdfCarregarModelo() {
-  if (pdfModeloImg) return pdfModeloImg;
-  pdfModeloImg = new Promise((ok, falha) => {
+function pdfCarregarModelo(chave) {
+  if (pdfModeloImg[chave]) return pdfModeloImg[chave];
+  pdfModeloImg[chave] = new Promise((ok, falha) => {
     const img = new Image();
     img.onload = () => ok(img);
-    img.onerror = () => { pdfModeloImg = null; falha(new Error("Não foi possível abrir o modelo da proposta.")); };
-    img.src = PDF_MODELO + "?v=1";
+    img.onerror = () => { delete pdfModeloImg[chave]; falha(new Error("Não foi possível abrir o modelo da proposta.")); };
+    img.src = PDF_MODELOS[chave].src + "?v=1";
   });
-  return pdfModeloImg;
+  return pdfModeloImg[chave];
 }
 
 let pdfJsPromise = null;
@@ -86,7 +93,9 @@ function pdfCobrir(g, x, y, w, h, raio = 0) {
 }
 
 async function pdfMontarCanvas(dados) {
-  const img = await pdfCarregarModelo();
+  const chave = pdfModeloDo(dados.tipoBem);
+  const modelo = PDF_MODELOS[chave];
+  const img = await pdfCarregarModelo(chave);
   const propostas = (dados.propostas || []).slice(0, 3).map(pdfNormalizarProposta);
   const n = Math.max(1, propostas.length);
   const alt = PDF_CAB + n * PDF_BLOCO + PDF_ALT_RODAPE;
@@ -113,14 +122,16 @@ async function pdfMontarCanvas(dados) {
   v(dados.telefone, 270, 291, 250);
   v(dados.cpf, 220, 316, 300);
   v(dados.protocolo, 790, 248, 250);
+  if (modelo.tipoNoModelo) amostra(806, 262, 120, 24, 0);
   v(dados.tipoBem, 808, 274, 230);
   v(dados.dataCriacao, 842, 300, 200);
 
   propostas.forEach((p, i) => {
     const t = PDF_CAB + i * PDF_BLOCO; // topo do bloco
     // administradora no lugar de "Empresa Administradora"
-    amostra(172, t + 82, 170, 52, 0);
-    pdfTexto(g, p.administradora, 175, t + 108, { tam: 21, peso: 800, cor: "#ffffff", larguraMax: 165 });
+    const ad = modelo.admin;
+    amostra(ad.x, t + 82, ad.w, 52, 0);
+    pdfTexto(g, p.administradora, ad.tx, t + 108, { tam: 21, peso: 800, cor: "#ffffff", larguraMax: ad.max });
     // valor do crédito (caixa dourada vazia)
     pdfTexto(g, pdfMoeda(p.credito), 207, t + 217, { tam: 24, peso: 800, cor: "#f3c969", alinhar: "center", larguraMax: 270 });
     // entrada / parcela / prazo: valor embaixo do rótulo
