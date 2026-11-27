@@ -34,6 +34,17 @@ const ppDono = () => !!(ppAcesso && ppAcesso.dono);
 const ppParaLocal = (iso) => (iso ? new Date(new Date(iso).getTime() - DC_OFFSET).toISOString().slice(0, 16) : "");
 const ppDeLocal = (v) => (v ? new Date(new Date(v + ":00Z").getTime() + DC_OFFSET).toISOString() : null);
 
+// o banco devolve no máximo 1000 linhas por consulta: busca de 1000 em 1000 até acabar
+async function ppTudo(consulta) {
+  const tudo = [];
+  for (let ini = 0; ; ini += 1000) {
+    const { data, error } = await consulta().range(ini, ini + 999);
+    if (error) return { data: null, error };
+    tudo.push(...data);
+    if (data.length < 1000) return { data: tudo, error: null };
+  }
+}
+
 async function carregarPipeline() {
   const raiz = document.getElementById("sx-pipeline");
   if (ppAcesso && ppAcesso.email !== perms.email) ppAcesso = null; // trocou de usuário sem recarregar
@@ -47,12 +58,12 @@ async function carregarPipeline() {
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo o pipeline…"));
   if (!ppFiltro) ppFiltro = ppFiltrosVazios();
   const [c, e, ce, f, v, cm] = await Promise.all([
-    sb.from("pipe_cards").select("*").order("posicao").range(0, 9999),
+    ppTudo(() => sb.from("pipe_cards").select("*").order("id")),
     sb.from("pipe_etiquetas").select("*").order("nome"),
-    sb.from("pipe_card_etiquetas").select("card_id, etiqueta_id").range(0, 49999),
+    ppTudo(() => sb.from("pipe_card_etiquetas").select("card_id, etiqueta_id").order("card_id").order("etiqueta_id")),
     sb.from("vendedor_fotos").select("vendedor, foto_url"),
     sb.from("administrativo_vendedores").select("nome, ativo").order("nome"),
-    sb.from("pipe_comentarios").select("card_id").range(0, 49999),
+    ppTudo(() => sb.from("pipe_comentarios").select("card_id").order("id")),
   ]);
   const erro = [c, e, ce, f, v, cm].find((r) => r.error);
   if (erro) { raiz.innerHTML = ""; raiz.appendChild(el("div", { class: "empty-state" }, "Não foi possível abrir o pipeline: " + erro.error.message)); return; }
