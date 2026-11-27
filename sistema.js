@@ -488,6 +488,12 @@ async function iniciar() {
     history.replaceState(null, "", location.pathname + location.search);
     if (dados) { receberApresentacao(dados); return; }
   }
+  // Radar aberto fora do sistema: #proposta-pdf=<dados> no endereço
+  if (location.hash.startsWith("#proposta-pdf=")) {
+    const dados = lerDadosDoEndereco(location.hash.slice("#proposta-pdf=".length));
+    history.replaceState(null, "", location.pathname + location.search);
+    if (dados) setTimeout(() => receberPropostaPdf(dados), 600);
+  }
   const [app, aba] = paginaInicial(liberados);
   abrir(app, aba);
   setTimeout(mostrarNovidades, 1500);
@@ -662,6 +668,8 @@ window.addEventListener("message", (e) => {
   const m = e.data || {};
   if (m.tipo === "infinity-pedir-permissoes") avisarRadarPermissoes();
   if (m.tipo === "infinity-apresentacao" && perms && perms.apresentacao && m.dados) receberApresentacao(m.dados);
+  // Propostas selecionadas → PDF no modelo da Infinity, anexado ao card do Pipeline (propostas-pdf.js)
+  if (m.tipo === "infinity-proposta-pdf" && perms && m.dados) receberPropostaPdf(m.dados);
 });
 function lerDadosDoEndereco(txt) {
   try {

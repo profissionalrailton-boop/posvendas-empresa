@@ -1625,3 +1625,21 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .pp-coment-cab strong { font-size: 13px; color: var(--text); }
 .pp-coment-cab small { font-size: 11px; color: var(--text-faint); }
 .pp-coment-lista li.pp-coment-item p { margin: 2px 0 0; }
+
+/* Proposta comercial em PDF (propostas-pdf.js) */
+.pdf-resumo { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pdf-resumo li { display: flex; flex-direction: column; padding: 8px 11px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.pdf-resumo strong { font-size: 13.5px; color: var(--text); }
+.pdf-resumo span { font-size: 12.5px; color: var(--text-muted); }
+.pdf-busca-lista { list-style: none; margin: 6px 0 0; padding: 0; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.pdf-busca-item { width: 100%; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 9px; text-align: left; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; cursor: pointer; }
+.pdf-busca-item:hover { border-color: var(--primary); }
+.pdf-busca-item span { grid-row: span 2; font-size: 20px; align-self: center; }
+.pdf-busca-item strong { font-size: 13.5px; }
+.pdf-busca-item small { font-size: 12px; color: var(--text-muted); }
+.pdf-escolhido { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 9px 11px; border-radius: 10px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); font-size: 13px; color: var(--text); }
+.pdf-escolhido.hidden { display: none; }
+.pdf-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.pdf-campos .ap-input { width: 100%; box-sizing: border-box; }
+.pdf-anexo { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
+.pdf-anexo:hover { border-color: var(--primary); }

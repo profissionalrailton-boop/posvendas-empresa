@@ -427,6 +427,7 @@ function ppAbrirCard(c) {
       etqs.length ? el("div", { class: "pp-etqs" }, etqs.map((t) => el("span", { class: "pp-etq", style: `--etq:${t.cor}` }, t.nome))) : el("small", { class: "pv-muted" }, "Nenhuma — use Editar"),
     ]),
     ppCaixaReuniao(c, () => fechar()),
+    (() => { const cx = el("div", { class: "pp-cm-caixa" }, [el("label", { class: "atd-rot" }, "Propostas em PDF"), el("small", { class: "pv-muted" }, "Carregando…")]); pdfCaixaAnexos(cx, c.id); return cx; })(),
     c.doc_id ? el("div", { class: "pp-cm-caixa" }, [el("label", { class: "atd-rot" }, "Documentação"), el("span", { class: "dd-chip ok" }, "📄 Lançada na Corrida")]) : null,
     c.vendedor ? el("div", { class: "pp-cm-caixa pp-cm-vend" }, [avatarPerfil(c.vendedor, pp.fotos.get(c.vendedor), "pp-foto"), el("span", {}, c.vendedor)]) : null,
     c.etapa === "reciclagem" && c.perdido_motivo ? el("div", { class: "pp-cm-caixa" }, [el("label", { class: "atd-rot" }, "Motivo da perda"), el("span", { class: "dd-chip pp-rec-motivo" }, c.perdido_motivo), c.perdido_obs ? el("small", { class: "pv-muted" }, c.perdido_obs) : null]) : null,
