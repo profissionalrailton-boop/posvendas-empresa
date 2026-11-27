@@ -431,7 +431,7 @@ function atdPilula() {
   const naAba = raiz && !raiz.classList.contains("hidden");
   if (!atdRec || naAba) { if (p) p.remove(); return; }
   if (!p) {
-    p = el("button", { type: "button", id: "atd-pilula", class: "atd-pilula", onclick: () => abrir("meusatendimentos", "meusatendimentos") });
+    p = el("button", { type: "button", id: "atd-pilula", class: "atd-pilula", onclick: () => abrir("negocios", "meusatendimentos") });
     document.body.appendChild(p);
   }
   // só uma bolinha vermelha (piscando enquanto grava); o tempo aparece ao passar o mouse

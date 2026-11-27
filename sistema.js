@@ -51,20 +51,17 @@ const GRUPOS = [
     app: "negocios", titulo: "Negócios", exige: "qualquer", nativo: true, semMetas: true,
     container: "sx-corrida", carregar: () => carregarCorrida(),
     itens: [
-      { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },
-      { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
-      { aba: "minhasdocs", label: "Minhas documentações", exige: "vendedor", container: "sx-minhas-docs", carregar: () => carregarMinhasDocs() },
-      // Pipeline (pipeline.js): em teste — só PIPE_LIBERADO vê o quadro; os outros veem "em breve"
+      // Pipeline (pipeline.js): dono vê tudo; vendedor liberado (pipe_liberados) vê só os dele; os outros veem "em breve"
       { aba: "pipeline", label: "Pipeline", container: "sx-pipeline", carregar: () => carregarPipeline() },
+      { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
+      { aba: "minhasdocs", label: "Documentações", exige: "vendedor", container: "sx-minhas-docs", carregar: () => carregarMinhasDocs() },
+      { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },
+      // Meus atendimentos (atendimentos.js): vendedor vê os dele; supervisor, a equipe; diretoria, todos (sql/025)
+      { aba: "meusatendimentos", label: "Meus atendimentos", exige: "atendimentos", container: "sx-meus-atendimentos", carregar: () => carregarMeusAtendimentos() },
+      // Rouba prêmio (rouba-premio.js): todos veem; só o Railton edita (sql/021)
+      { aba: "roubapremio", label: "Rouba prêmio", container: "sx-rouba-premio", carregar: () => carregarRoubaPremio() },
       { aba: "relatorio-semanal", label: "Relatório semanal", exige: "gestao", container: "sx-relatorio", carregar: () => carregarRelatorio() },
     ],
-  },
-  {
-    // Meus atendimentos (página desta tela — ver atendimentos.js): o vendedor grava/envia o áudio de atendimentos
-    // e fechamentos para análise. Vendedor vê os dele; supervisor, a equipe; diretoria, todos (trava no banco, sql/025).
-    app: "meusatendimentos", titulo: "Meus atendimentos", exige: "atendimentos", unico: true, nativo: true, semMetas: true,
-    container: "sx-meus-atendimentos", carregar: () => carregarMeusAtendimentos(),
-    itens: [{ aba: "meusatendimentos", label: "Meus atendimentos" }],
   },
   {
     // página única (sem subitens), pública: aparece para todo mundo que tem algum acesso.
@@ -106,13 +103,6 @@ const GRUPOS = [
     app: "aposta", titulo: "Aposta", exige: "qualquer", unico: true, nativo: true, semMetas: true,
     container: "sx-aposta", carregar: () => carregarAposta(),
     itens: [{ aba: "aposta", label: "Aposta" }],
-  },
-  {
-    // Rouba prêmio (página desta tela — ver rouba-premio.js): metas a bater e prêmios para pegar/roubar.
-    // Todos veem; só o Railton edita (trava no banco, sql/021).
-    app: "roubapremio", titulo: "Rouba prêmio", exige: "qualquer", unico: true, nativo: true, semMetas: true,
-    container: "sx-rouba-premio", carregar: () => carregarRoubaPremio(),
-    itens: [{ aba: "roubapremio", label: "Rouba prêmio" }],
   },
   {
     app: "administrativo", titulo: "Administrativo", url: "/administrativo/", exige: "adm",
@@ -334,6 +324,7 @@ function itensPermitidos(grupo) {
     if (it.exige === "comissao" && !perms.comissao) return false;
     if (it.exige === "gestao" && !(perms.fin || perms.adm)) return false;
     if (it.exige === "vendedor" && perms.pos !== "vendedor") return false;
+    if (it.exige === "atendimentos" && !(perms.pos === "vendedor" || perms.sup || perms.fin)) return false;
     if (it.soPosVendas && perms.pos !== "completo") return false;
     return true;
   });
