@@ -483,10 +483,17 @@ async function ppCarregarConversa(c, coment, hist) {
   const pintar = (itens) => {
     lista.innerHTML = "";
     if (!itens.length) lista.appendChild(el("li", { class: "pv-muted" }, "Nenhum comentário ainda."));
-    itens.forEach((m) => lista.appendChild(el("li", {}, [
-      el("small", {}, `${m.autor.split("@")[0]} · ${dcDataHora(m.em)}`),
-      el("p", {}, m.texto),
-    ])));
+    itens.forEach((m) => {
+      const nome = m.autor_nome || String(m.autor || "").split("@")[0];
+      const robo = !String(m.autor || "").includes("@");
+      lista.appendChild(el("li", { class: "pp-coment-item" }, [
+        robo ? el("div", { class: "pp-coment-foto pf-sem-foto pp-coment-robo", "aria-hidden": "true" }, "🤖") : avatarPerfil(nome, pp.fotos.get(nome), "pp-coment-foto"),
+        el("div", { class: "pp-coment-corpo" }, [
+          el("div", { class: "pp-coment-cab" }, [el("strong", {}, nome.replace(" 🤖", "")), el("small", {}, dcDataHora(m.em))]),
+          el("p", {}, m.texto),
+        ]),
+      ]));
+    });
   };
   let itens = cm.data || [];
   pintar(itens);
