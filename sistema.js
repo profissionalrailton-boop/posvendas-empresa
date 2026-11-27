@@ -64,7 +64,7 @@ const GRUPOS = [
     semProtocolo: true, permitir: "clipboard-read; clipboard-write",
     itens: [
       { aba: "inicio", label: "Início", caminho: "/" },
-      { aba: "embracon", label: "Radar Embracon", caminho: "/busca-credito" },
+      { aba: "embracon", label: "Radar Embracon", caminho: "/radar-embracon" },
       { aba: "ancora", label: "Radar Âncora", caminho: "/busca-ancora" },
       { aba: "simulador", label: "Simular financiamento", caminho: "/simulador-financiamento" },
       { aba: "cartas", label: "Cartas contempladas", caminho: "/cartas-contempladas" },
