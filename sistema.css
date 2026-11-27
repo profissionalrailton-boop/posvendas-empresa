@@ -1572,3 +1572,13 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
   .pp-cm-centro { min-height: 240px; overflow: visible; }
   .pp-cm-valor { font-size: 18px; }
 }
+/* Pipeline: distribuição de leads novos */
+.pp-dist-wrap { overflow-x: auto; }
+.pp-dist { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pp-dist th, .pp-dist td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
+.pp-dist th:first-child, .pp-dist td:first-child { text-align: left; }
+.pp-dist th { font-size: 12px; color: var(--text-muted); font-weight: 700; }
+.pp-dist input { width: 17px; height: 17px; cursor: pointer; accent-color: var(--primary); }
+.pp-dist tfoot td { font-weight: 700; color: var(--text-muted); border-bottom: none; }
+.pp-dist .pp-dist-zero { color: var(--warning); }
+.modal-box:has(.pp-dist) { width: min(760px, 96vw); max-width: none; }

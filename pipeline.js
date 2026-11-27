@@ -176,6 +176,7 @@ function desenharPipeline(raiz) {
       el("p", { class: "px-sub" }, ppDono() ? "Arraste o card para mudar de etapa." : "Seus clientes, etapa por etapa. Arraste o card para mudar de etapa."),
     ]),
     el("div", { class: "pp-topo-acoes" }, [
+      ppDono() ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: ppModalDistribuicao }, "🔀 Distribuição") : null,
       ppDono() ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: ppModalEtiquetas }, "🏷 Etiquetas") : null,
       el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => ppModalCard(null) }, "＋ Novo lead"),
     ]),
@@ -671,4 +672,44 @@ function ppAoVivo() {
       }, 800);
     })
     .subscribe();
+}
+
+// ---------- distribuição dos leads novos (n8n → pipe_n8n_lead): quem entra no rodízio de cada tipo do bem ----------
+const PIPE_TIPOS_DIST = ["Imóvel", "Automóvel", "Moto", "Pesados", "Outro"];
+async function ppModalDistribuicao() {
+  const [d, l] = await Promise.all([
+    sb.from("pipe_distribuicao").select("tipo, vendedor"),
+    sb.from("pipe_liberados").select("vendedor").order("vendedor"),
+  ]);
+  if (d.error || l.error) { showToast("Não foi possível abrir a distribuição: " + (d.error || l.error).message); return; }
+  const marcado = new Set(d.data.map((x) => `${x.tipo}|${x.vendedor}`));
+  const vendedores = l.data.map((x) => x.vendedor);
+  const tabela = el("table", { class: "pp-dist" });
+  const pintar = () => {
+    tabela.innerHTML = "";
+    tabela.appendChild(el("thead", {}, el("tr", {}, [el("th", {}, "Vendedor"), ...PIPE_TIPOS_DIST.map((t) => el("th", {}, [el("span", { "aria-hidden": "true" }, ppEmojiBem(t) + " "), t]))])));
+    tabela.appendChild(el("tbody", {}, vendedores.map((v) => el("tr", {}, [
+      el("td", {}, el("span", { class: "pp-card-vend" }, [avatarPerfil(v, pp.fotos.get(v), "pp-foto"), v])),
+      ...PIPE_TIPOS_DIST.map((t) => {
+        const k = `${t}|${v}`;
+        return el("td", {}, el("input", { type: "checkbox", checked: marcado.has(k) ? "" : null, "aria-label": `${v} recebe ${t}`, onchange: async (e) => {
+          const liga = e.target.checked;
+          e.target.disabled = true;
+          const r = liga ? await sb.from("pipe_distribuicao").insert({ tipo: t, vendedor: v }) : await sb.from("pipe_distribuicao").delete().eq("tipo", t).eq("vendedor", v);
+          e.target.disabled = false;
+          if (r.error) { e.target.checked = !liga; showToast("Não foi possível salvar: " + r.error.message); return; }
+          liga ? marcado.add(k) : marcado.delete(k);
+          pintar();
+        } }));
+      }),
+    ]))));
+    tabela.appendChild(el("tfoot", {}, el("tr", {}, [el("td", {}, "Recebem"), ...PIPE_TIPOS_DIST.map((t) => {
+      const n = vendedores.filter((v) => marcado.has(`${t}|${v}`)).length;
+      return el("td", { class: n ? "" : "pp-dist-zero" }, n ? String(n) : "todos");
+    })])));
+  };
+  pintar();
+  dcModal("Distribuição de leads novos", "Leads que chegam do SDR, follow-up, Instagram e formulário caem em rodízio entre os marcados de cada tipo. Se ninguém estiver marcado, o rodízio é entre todos.", [
+    el("div", { class: "pp-dist-wrap" }, tabela),
+  ]);
 }
