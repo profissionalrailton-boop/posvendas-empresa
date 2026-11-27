@@ -1,7 +1,6 @@
 // Negócios › Pipeline — quadro de negócios (substituto do quadro do CRM). Banco: sql/041_pipeline.sql.
-// Fase de teste: só PIPE_LIBERADO vê o quadro (o banco também trava em private.pipe_acesso); os outros veem "em breve".
+// Acesso (sql/043): o dono vê tudo; vendedor em pipe_liberados vê/mexe só nos próprios cards; os outros veem "em breve".
 // Etapas na ordem do funil (Reciclagem é a 1ª coluna: leads para retrabalho). A aba Distribuir marca vários e redistribui em lote.
-const PIPE_LIBERADO = ["profissionalrailton@gmail.com"];
 const PIPE_ETAPAS = [
   { id: "reciclagem", nome: "Reciclagem", dica: "Leads para retrabalho" },
   { id: "oportunidade", nome: "Oportunidade", dica: "Lead novo" },
@@ -28,7 +27,8 @@ const ppMoeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "B
 const ppDiasDesde = (iso) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 const ppTelDigitos = (t) => String(t || "").replace(/\D/g, "");
 const ppWhats = (t) => { const d = ppTelDigitos(t); return d ? `https://wa.me/${d.length <= 11 ? "55" + d : d}` : null; };
-const ppLiberado = () => !!(perms && PIPE_LIBERADO.includes(perms.email));
+let ppAcesso = null;           // { dono: bool, vendedor: nome | null } — vem do banco (pipe_meu_acesso)
+const ppDono = () => !!(ppAcesso && ppAcesso.dono);
 
 // datetime-local (horário de Fortaleza) <-> ISO
 const ppParaLocal = (iso) => (iso ? new Date(new Date(iso).getTime() - DC_OFFSET).toISOString().slice(0, 16) : "");
@@ -36,7 +36,13 @@ const ppDeLocal = (v) => (v ? new Date(new Date(v + ":00Z").getTime() + DC_OFFSE
 
 async function carregarPipeline() {
   const raiz = document.getElementById("sx-pipeline");
-  if (!ppLiberado()) { desenharPipelineEmBreve(raiz); return; }
+  if (ppAcesso && ppAcesso.email !== perms.email) ppAcesso = null; // trocou de usuário sem recarregar
+  if (!ppAcesso) {
+    const { data, error } = await sb.rpc("pipe_meu_acesso");
+    ppAcesso = { ...(error ? { dono: false, vendedor: null } : data), email: perms.email };
+  }
+  if (!ppAcesso.dono && !ppAcesso.vendedor) { desenharPipelineEmBreve(raiz); return; }
+  if (!ppDono()) ppVista = "quadro";
   ppAoVivo();
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo o pipeline…"));
   if (!ppFiltro) ppFiltro = ppFiltrosVazios();
@@ -156,10 +162,10 @@ function desenharPipeline(raiz) {
   raiz.appendChild(el("div", { class: "px-topo pp-topo" }, [
     el("div", {}, [
       el("h1", {}, "Pipeline"),
-      el("p", { class: "px-sub" }, "Arraste o card para mudar de etapa. 🔒 Em teste: só você vê."),
+      el("p", { class: "px-sub" }, ppDono() ? "Arraste o card para mudar de etapa." : "Seus clientes, etapa por etapa. Arraste o card para mudar de etapa."),
     ]),
     el("div", { class: "pp-topo-acoes" }, [
-      el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: ppModalEtiquetas }, "🏷 Etiquetas"),
+      ppDono() ? el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: ppModalEtiquetas }, "🏷 Etiquetas") : null,
       el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => ppModalCard(null) }, "＋ Novo lead"),
     ]),
   ]));
@@ -168,10 +174,10 @@ function desenharPipeline(raiz) {
   raiz.appendChild(el("div", { class: "pp-barra" }, [
     el("div", { class: "dd-periodo pp-vistas", role: "tablist", "aria-label": "Visão" }, [
       ["quadro", `Quadro (${pp.cards.length})`],
-      ["reciclagem", "↪ Distribuir leads"],
-    ].map(([k, t]) => el("button", { type: "button", role: "tab", "aria-selected": String(ppVista === k), class: "dd-periodo-bt" + (ppVista === k ? " sel" : ""),
+      ppDono() ? ["reciclagem", "↪ Distribuir leads"] : null,
+    ].filter(Boolean).map(([k, t]) => el("button", { type: "button", role: "tab", "aria-selected": String(ppVista === k), class: "dd-periodo-bt" + (ppVista === k ? " sel" : ""),
       onclick: () => { ppVista = k; ppRecSel.clear(); desenharPipeline(raiz); } }, t))),
-    el("div", { class: "pp-barra-dir" }, [ppSelVendedor(raiz),
+    el("div", { class: "pp-barra-dir" }, [ppDono() ? ppSelVendedor(raiz) : null,
     el("button", { type: "button", class: "btn btn-secondary btn-sm pp-bt-filtros" + (nFiltros ? " ativo" : ""), "aria-expanded": String(ppFiltrosAberto),
       onclick: () => { ppFiltrosAberto = !ppFiltrosAberto; desenharPipeline(raiz); } }, `⚙ Filtros${nFiltros ? ` (${nFiltros})` : ""}`)]),
   ]));
@@ -266,7 +272,7 @@ async function ppMover(card, etapa, extra = {}) {
 // ---------- card (novo / abrir) ----------
 function ppModalCard(x) {
   const novo = !x;
-  const c = x || { nome: "", etapa: "oportunidade", vendedor: ppFiltro.vendedor && ppFiltro.vendedor !== "—" ? ppFiltro.vendedor : "" };
+  const c = x || { nome: "", etapa: "oportunidade", vendedor: !ppDono() ? ppAcesso.vendedor : ppFiltro.vendedor && ppFiltro.vendedor !== "—" ? ppFiltro.vendedor : "" };
   const campo = (tipo, valor, attrs = {}) => el("input", { type: tipo, class: "ap-input", value: valor ?? "", autocomplete: "off", ...attrs });
   const nome = campo("text", c.nome, { maxlength: "120", placeholder: "Nome do cliente" });
   const tel = campo("tel", c.telefone, { maxlength: "20", placeholder: "(88) 99999-9999", inputmode: "tel" });
@@ -309,7 +315,7 @@ function ppModalCard(x) {
   const acoesFim = novo ? null : el("div", { class: "pp-fim" }, [
     c.etapa !== "reciclagem" ? el("button", { type: "button", class: "btn pp-perdeu", onclick: () => { fechar(); ppModalPerdeu(c); } }, "✕ Perdeu") : null,
     c.etapa !== "fechado" ? el("button", { type: "button", class: "btn pp-ganhou", onclick: async () => { fechar(); await ppMover(c, "fechado"); } }, "✓ Ganhou") : null,
-    el("button", { type: "button", class: "icon-btn", title: "Excluir card", "aria-label": `Excluir ${c.nome}`, onclick: async () => {
+    !ppDono() ? null : el("button", { type: "button", class: "icon-btn", title: "Excluir card", "aria-label": `Excluir ${c.nome}`, onclick: async () => {
       if (!confirm(`Excluir o card de ${c.nome}? Os comentários e o histórico também somem.`)) return;
       const { error } = await sb.from("pipe_cards").delete().eq("id", c.id);
       if (error) { showToast("Não foi possível excluir: " + error.message); return; }
@@ -324,7 +330,7 @@ function ppModalCard(x) {
       el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Telefone"), tel]),
       el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Tipo do bem"), tipo]),
       el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Valor do crédito"), valor]),
-      el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Vendedor"), vend]),
+      ppDono() ? el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Vendedor"), vend]) : null,
       el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Etapa"), etapa]),
       el("div", { class: "field" }, [el("label", { class: "atd-rot" }, "Reunião"), reuniao]),
     ]),

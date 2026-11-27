@@ -44,6 +44,22 @@ const GRUPOS = [
     itens: [{ aba: "minhaarea", label: "Minha área" }],
   },
   {
+    // Negócios (páginas desta tela): Corrida da documentação (corrida.js — todos veem; cada documentação avança uma casa,
+    // zera no domingo) e Documentações (documentacoes.js — só gestão: as que chegam do CRM sem vendedor são vinculadas aqui,
+    // e o tempo até o fechamento é cruzado com as vendas do administrativo). Cada item tem o próprio painel.
+    // Todos veem; só a gestão lança (trava no banco, sql/034).
+    app: "negocios", titulo: "Negócios", exige: "qualquer", nativo: true, semMetas: true,
+    container: "sx-corrida", carregar: () => carregarCorrida(),
+    itens: [
+      { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },
+      { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
+      { aba: "minhasdocs", label: "Minhas documentações", exige: "vendedor", container: "sx-minhas-docs", carregar: () => carregarMinhasDocs() },
+      // Pipeline (pipeline.js): em teste — só PIPE_LIBERADO vê o quadro; os outros veem "em breve"
+      { aba: "pipeline", label: "Pipeline", container: "sx-pipeline", carregar: () => carregarPipeline() },
+      { aba: "relatorio-semanal", label: "Relatório semanal", exige: "gestao", container: "sx-relatorio", carregar: () => carregarRelatorio() },
+    ],
+  },
+  {
     // Meus atendimentos (página desta tela — ver atendimentos.js): o vendedor grava/envia o áudio de atendimentos
     // e fechamentos para análise. Vendedor vê os dele; supervisor, a equipe; diretoria, todos (trava no banco, sql/025).
     app: "meusatendimentos", titulo: "Meus atendimentos", exige: "atendimentos", unico: true, nativo: true, semMetas: true,
@@ -97,22 +113,6 @@ const GRUPOS = [
     app: "roubapremio", titulo: "Rouba prêmio", exige: "qualquer", unico: true, nativo: true, semMetas: true,
     container: "sx-rouba-premio", carregar: () => carregarRoubaPremio(),
     itens: [{ aba: "roubapremio", label: "Rouba prêmio" }],
-  },
-  {
-    // Negócios (páginas desta tela): Corrida da documentação (corrida.js — todos veem; cada documentação avança uma casa,
-    // zera no domingo) e Documentações (documentacoes.js — só gestão: as que chegam do CRM sem vendedor são vinculadas aqui,
-    // e o tempo até o fechamento é cruzado com as vendas do administrativo). Cada item tem o próprio painel.
-    // Todos veem; só a gestão lança (trava no banco, sql/034).
-    app: "negocios", titulo: "Negócios", exige: "qualquer", nativo: true, semMetas: true,
-    container: "sx-corrida", carregar: () => carregarCorrida(),
-    itens: [
-      { aba: "corrida", label: "Corrida da documentação", container: "sx-corrida", carregar: () => carregarCorrida() },
-      { aba: "documentacoes", label: "Documentações", exige: "gestao", container: "sx-documentacoes", carregar: () => carregarDocumentacoes() },
-      { aba: "minhasdocs", label: "Minhas documentações", exige: "vendedor", container: "sx-minhas-docs", carregar: () => carregarMinhasDocs() },
-      // Pipeline (pipeline.js): em teste — só PIPE_LIBERADO vê o quadro; os outros veem "em breve"
-      { aba: "pipeline", label: "Pipeline", container: "sx-pipeline", carregar: () => carregarPipeline() },
-      { aba: "relatorio-semanal", label: "Relatório semanal", exige: "gestao", container: "sx-relatorio", carregar: () => carregarRelatorio() },
-    ],
   },
   {
     app: "administrativo", titulo: "Administrativo", url: "/administrativo/", exige: "adm",
