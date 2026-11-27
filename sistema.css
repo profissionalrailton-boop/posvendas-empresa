@@ -1501,3 +1501,7 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 @media (max-width: 720px) {
   .pp-quadro { grid-auto-columns: 88%; }
 }
+/* Pipeline v3: Reciclagem como 1ª coluna, filtro de vendedor fora do botão Filtros */
+.pp-col-reciclagem { --pp-cor: #94a3b8; }
+.pp-barra-dir { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pp-sel-vend { min-width: 200px; }

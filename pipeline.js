@@ -1,8 +1,9 @@
 // Negócios › Pipeline — quadro de negócios (substituto do quadro do CRM). Banco: sql/041_pipeline.sql.
 // Fase de teste: só PIPE_LIBERADO vê o quadro (o banco também trava em private.pipe_acesso); os outros veem "em breve".
-// Etapas na ordem do funil; a Reciclagem fica numa aba própria (perdidos com motivo → redistribuir em lote).
+// Etapas na ordem do funil (Reciclagem é a 1ª coluna: leads para retrabalho). A aba Distribuir marca vários e redistribui em lote.
 const PIPE_LIBERADO = ["profissionalrailton@gmail.com"];
 const PIPE_ETAPAS = [
+  { id: "reciclagem", nome: "Reciclagem", dica: "Leads para retrabalho" },
   { id: "oportunidade", nome: "Oportunidade", dica: "Lead novo" },
   { id: "contato", nome: "1º contato", dica: "Conseguiu falar com o lead" },
   { id: "agendamento", nome: "Agendamento", dica: "Reunião marcada" },
@@ -86,7 +87,7 @@ function ppFiltrosVazios() {
 // quantos filtros estão ligados (para o número no botão Filtros)
 function ppQtdFiltros() {
   const f = ppFiltro;
-  let n = [f.vendedor, f.etiqueta, f.busca.trim(), f.criadoDe, f.criadoAte, f.paradoMin].filter(Boolean).length;
+  let n = [f.etiqueta, f.busca.trim(), f.criadoDe, f.criadoAte, f.paradoMin].filter(Boolean).length;
   if (ppVista === "reciclagem") n += (f.status !== "perdidos" ? 1 : 0) + (f.etapas.size ? 1 : 0) + (f.motivos.size ? 1 : 0);
   return n;
 }
@@ -126,16 +127,15 @@ function ppPainelFiltros(raiz) {
   return el("div", { class: "pp-filtros-painel" }, [
     el("div", { class: "pp-filtros-grade" }, [
       campo("Buscar", busca),
-      campo("Vendedor", sel(f.vendedor, [["", "Todos"], ...pp.vendedores.map((n) => [n, n]), ...(pp.antigos || []).map((n) => [n, n + " (saiu)"]), ["—", "Sem vendedor"]], (v) => (f.vendedor = v), "Vendedor")),
       campo("Etiqueta", sel(f.etiqueta, [["", "Todas"], ...pp.etiquetas.map((e) => [String(e.id), e.nome])], (v) => (f.etiqueta = v), "Etiqueta")),
       campo("Parado há", sel(f.paradoMin, [["", "Qualquer tempo"], ["1", "1 dia ou mais"], ["3", "3 dias ou mais"], ["7", "7 dias ou mais"], ["15", "15 dias ou mais"], ["30", "30 dias ou mais"]], (v) => (f.paradoMin = v), "Dias parado")),
       campo("Criado de", data(f.criadoDe, (v) => (f.criadoDe = v), "Criado a partir de")),
       campo("Criado até", data(f.criadoAte, (v) => (f.criadoAte = v), "Criado até")),
     ]),
-    rec ? campo("Situação", el("div", { class: "pp-motivos" }, [["perdidos", "♻ Perdidos"], ["ativos", "🟢 Ativos"], ["todos", "Todos"]].map(([v, txt]) =>
+    rec ? campo("Situação", el("div", { class: "pp-motivos" }, [["perdidos", "♻ Reciclagem"], ["ativos", "Outras etapas"], ["todos", "Todas as etapas"]].map(([v, txt]) =>
       el("button", { type: "button", class: "pp-motivo" + (f.status === v ? " sel" : ""), "aria-pressed": String(f.status === v), onclick: () => { f.status = v; redesenhar(); } }, txt)))) : null,
-    rec && f.status !== "perdidos" ? campo("Etapa no funil (ativos)", chips(PIPE_ETAPAS.filter((e) => e.id !== "fechado").map((e) => [e.id, e.nome]), f.etapas)) : null,
-    rec && f.status !== "ativos" && motivosExistentes.length ? campo("Motivo da perda", chips(motivosExistentes.map((m) => [m, m]), f.motivos)) : null,
+    rec && f.status !== "perdidos" ? campo("Etapa no funil", chips(PIPE_ETAPAS.filter((e) => e.id !== "fechado" && e.id !== "reciclagem").map((e) => [e.id, e.nome]), f.etapas)) : null,
+    rec && f.status !== "ativos" && motivosExistentes.length ? campo("Motivo (reciclagem)", chips(motivosExistentes.map((m) => [m, m]), f.motivos)) : null,
     el("div", { class: "pp-filtros-pe" }, [
       el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => { ppFiltro = ppFiltrosVazios(); redesenhar(); } }, "Limpar filtros"),
       el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { ppFiltrosAberto = false; redesenhar(); } }, "Fechar"),
@@ -143,8 +143,15 @@ function ppPainelFiltros(raiz) {
   ]);
 }
 
+// filtro de vendedor fica fora do botão Filtros
+function ppSelVendedor(raiz) {
+  const s = el("select", { class: "ap-input pp-filtro pp-sel-vend", "aria-label": "Filtrar por vendedor", onchange: (e) => { ppFiltro.vendedor = e.target.value; desenharPipeline(raiz); } },
+    [["", "Todos os vendedores"], ...pp.vendedores.map((n) => [n, n]), ...(pp.antigos || []).map((n) => [n, n + " (saiu)"]), ["—", "Sem vendedor"]].map(([v, t]) => el("option", { value: v }, t)));
+  s.value = ppFiltro.vendedor;
+  return s;
+}
+
 function desenharPipeline(raiz) {
-  const nRec = pp.cards.filter((x) => x.etapa === "reciclagem").length;
   raiz.innerHTML = "";
   raiz.appendChild(el("div", { class: "px-topo pp-topo" }, [
     el("div", {}, [
@@ -160,12 +167,13 @@ function desenharPipeline(raiz) {
   const nFiltros = ppQtdFiltros();
   raiz.appendChild(el("div", { class: "pp-barra" }, [
     el("div", { class: "dd-periodo pp-vistas", role: "tablist", "aria-label": "Visão" }, [
-      ["quadro", `Quadro (${pp.cards.length - nRec})`],
-      ["reciclagem", `♻ Reciclagem (${nRec})`],
+      ["quadro", `Quadro (${pp.cards.length})`],
+      ["reciclagem", "↪ Distribuir leads"],
     ].map(([k, t]) => el("button", { type: "button", role: "tab", "aria-selected": String(ppVista === k), class: "dd-periodo-bt" + (ppVista === k ? " sel" : ""),
       onclick: () => { ppVista = k; ppRecSel.clear(); desenharPipeline(raiz); } }, t))),
+    el("div", { class: "pp-barra-dir" }, [ppSelVendedor(raiz),
     el("button", { type: "button", class: "btn btn-secondary btn-sm pp-bt-filtros" + (nFiltros ? " ativo" : ""), "aria-expanded": String(ppFiltrosAberto),
-      onclick: () => { ppFiltrosAberto = !ppFiltrosAberto; desenharPipeline(raiz); } }, `⚙ Filtros${nFiltros ? ` (${nFiltros})` : ""}`),
+      onclick: () => { ppFiltrosAberto = !ppFiltrosAberto; desenharPipeline(raiz); } }, `⚙ Filtros${nFiltros ? ` (${nFiltros})` : ""}`)]),
   ]));
   if (ppFiltrosAberto) raiz.appendChild(ppPainelFiltros(raiz));
 
@@ -173,7 +181,7 @@ function desenharPipeline(raiz) {
 
   const quadro = el("div", { class: "pp-quadro" });
   PIPE_ETAPAS.forEach((etapa) => {
-    const lista = ppVisiveis(pp.cards.filter((x) => x.etapa === etapa.id));
+    const lista = ppVisiveis(pp.cards.filter((x) => x.etapa === etapa.id)).sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em)); // mais novos em cima
     const soma = lista.reduce((a, x) => a + (Number(x.valor_credito) || 0), 0);
     const corpo = el("div", { class: "pp-col-corpo" }, lista.length ? lista.map((x) => ppCartao(x)) : [el("p", { class: "pp-col-vazia" }, "Solte um card aqui")]);
     const col = el("section", { class: `pp-col pp-col-${etapa.id}`, "aria-label": etapa.nome }, [
@@ -190,7 +198,9 @@ function desenharPipeline(raiz) {
       col.classList.remove("alvo");
       const id = Number(e.dataTransfer.getData("text/plain"));
       const card = pp.cards.find((x) => x.id === id);
-      if (card && card.etapa !== etapa.id) ppMover(card, etapa.id);
+      if (!card || card.etapa === etapa.id) return;
+      if (etapa.id === "reciclagem") ppModalPerdeu(card); // pede o motivo
+      else ppMover(card, etapa.id);
     });
     quadro.appendChild(col);
   });
@@ -266,7 +276,7 @@ function ppModalCard(x) {
   const vend = el("select", { class: "ap-input" }, [el("option", { value: "" }, "Sem vendedor"), ...pp.vendedores.map((n) => el("option", { value: n }, n))]);
   if (c.vendedor && !pp.vendedores.includes(c.vendedor)) vend.appendChild(el("option", { value: c.vendedor }, c.vendedor));
   vend.value = c.vendedor || "";
-  const etapa = el("select", { class: "ap-input" }, [...PIPE_ETAPAS, { id: "reciclagem", nome: "Reciclagem" }].map((e) => el("option", { value: e.id }, e.nome)));
+  const etapa = el("select", { class: "ap-input" }, PIPE_ETAPAS.map((e) => el("option", { value: e.id }, e.nome)));
   etapa.value = c.etapa;
   const reuniao = campo("datetime-local", ppParaLocal(c.reuniao_em));
   const email = campo("email", c.email, { maxlength: "120", placeholder: "email@exemplo.com" });
@@ -437,7 +447,7 @@ function ppReciclagem(raiz) {
   [...ppRecSel].forEach((id) => { if (!lista.some((x) => x.id === id)) ppRecSel.delete(id); });
   const wrap = el("section", { class: "dd-bloco pp-rec" });
 
-  const rotulo = f.status === "ativos" ? "leads ativos" : f.status === "todos" ? "leads (ativos e perdidos)" : "leads perdidos";
+  const rotulo = f.status === "ativos" ? "leads de outras etapas" : f.status === "todos" ? "leads" : "leads na reciclagem";
   const todos = lista.length && lista.every((x) => ppRecSel.has(x.id));
   wrap.appendChild(el("div", { class: "pp-rec-barra" }, [
     el("label", { class: "pp-check" }, [
@@ -449,7 +459,7 @@ function ppReciclagem(raiz) {
 
   if (!lista.length) {
     wrap.appendChild(el("p", { class: "px-vazio" }, f.status === "perdidos" && !base.length
-      ? "Nenhum lead na reciclagem. Quando o vendedor marcar “Perdeu”, o lead aparece aqui. Para redistribuir leads ativos, abra Filtros › Situação › Ativos."
+      ? "Nenhum lead na reciclagem. Para redistribuir leads de outras etapas, abra Filtros › Situação › Outras etapas."
       : "Nenhum lead com esses filtros."));
     return wrap;
   }
@@ -485,8 +495,8 @@ function ppModalRedistribuir(raiz) {
   };
   pintar();
   const explica = [
-    nPerd ? `${nPerd} perdido(s) voltam para Oportunidade` : null,
-    nAtiv ? `${nAtiv} ativo(s) continuam na mesma etapa, só troca o vendedor` : null,
+    nPerd ? `${nPerd} da reciclagem vão para Oportunidade` : null,
+    nAtiv ? `${nAtiv} de outras etapas continuam onde estão, só troca o vendedor` : null,
   ].filter(Boolean).join(" · ");
   const erro = el("div", { class: "auth-error hidden" });
   const ok = el("button", { type: "button", class: "btn btn-primary btn-block" }, "↪ Redistribuir");
