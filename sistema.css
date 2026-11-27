@@ -1454,3 +1454,50 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
   .pp-rec-lista li { flex-wrap: wrap; }
   .pp-rec-quem { width: 100%; padding-left: 28px; }
 }
+
+/* Pipeline v2: cards maiores, emoji do bem, selo de dias parado, painel de Filtros */
+.pp-quadro { grid-auto-columns: minmax(300px, 1fr); gap: 12px; }
+.pp-col { max-height: calc(100vh - 230px); }
+.pp-col-cab strong { font-size: 14.5px; }
+.pp-col-corpo { padding: 10px; gap: 10px; }
+.pp-card { padding: 12px 13px; gap: 7px; border-radius: 12px; }
+.pp-card-cab { display: flex; align-items: center; gap: 8px; }
+.pp-card-bem { font-size: 24px; line-height: 1; }
+.pp-card-tel { margin-left: auto; font-size: 12.5px; color: #60a5fa; text-decoration: none; white-space: nowrap; }
+.pp-card-tel:hover { text-decoration: underline; }
+.pp-card-nome { font-size: 15px; font-weight: 700; }
+.pp-card-info { font-size: 12px; }
+.pp-card-meio { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; }
+.pp-card-valor { font-size: 14.5px; font-weight: 800; }
+.pp-card-valor.zero { color: var(--text-faint); }
+.pp-card-rodape { margin-top: 4px; }
+.pp-card-acoes { display: flex; gap: 6px; }
+.pp-acao { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-width: 30px; height: 28px; padding: 0 6px; border-radius: 8px; font-size: 14px; text-decoration: none; border: 1px solid var(--border); background: var(--surface); }
+.pp-acao.lig { background: rgba(59, 130, 246, 0.14); border-color: rgba(59, 130, 246, 0.3); }
+.pp-acao.zap { background: rgba(34, 197, 94, 0.14); border-color: rgba(34, 197, 94, 0.3); }
+.pp-acao.com b { font-size: 11px; color: var(--text); }
+.pp-acao:hover { filter: brightness(1.2); }
+.pp-card-vend { font-size: 12px; }
+.pp-foto { width: 22px; height: 22px; }
+.pp-selo { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 8px; border-radius: 6px; white-space: nowrap; border: 1px solid transparent; }
+.pp-selo.novo { color: #059669; background: rgba(16, 185, 129, 0.14); border-color: rgba(16, 185, 129, 0.35); }
+.pp-selo.morno { color: #b45309; background: rgba(245, 158, 11, 0.16); border-color: rgba(245, 158, 11, 0.4); }
+.pp-selo.parado { color: #dc2626; background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.4); }
+.pp-selo.ok { color: #059669; background: rgba(16, 185, 129, 0.14); }
+:root:not([data-theme="light"]) .pp-selo.novo, :root:not([data-theme="light"]) .pp-selo.ok { color: #34d399; }
+:root:not([data-theme="light"]) .pp-selo.morno { color: #fbbf24; }
+:root:not([data-theme="light"]) .pp-selo.parado { color: #f87171; }
+.pp-barra { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 12px; }
+.pp-barra .pp-vistas { margin: 0; }
+.pp-bt-filtros.ativo { border-color: var(--primary); color: var(--text); background: rgba(139, 92, 246, 0.16); }
+.pp-filtros-painel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.pp-filtros-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 12px; }
+.pp-filtros-grade .ap-input { width: 100%; box-sizing: border-box; font-size: 14px; padding: 8px 10px; }
+.pp-filtros-painel .pp-busca { max-width: none; }
+.pp-filtros-pe { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.pp-rec-bem { font-size: 20px; }
+.pp-rec-etapa { background: color-mix(in srgb, var(--pp-cor) 18%, transparent); color: var(--text); border: 1px solid color-mix(in srgb, var(--pp-cor) 45%, transparent); }
+.pp-rec-lista .pp-selo { flex: none; }
+@media (max-width: 720px) {
+  .pp-quadro { grid-auto-columns: 88%; }
+}

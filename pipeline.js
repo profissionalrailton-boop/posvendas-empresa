@@ -18,9 +18,9 @@ const PIPE_CORES = ["#111827", "#dc2626", "#ea580c", "#ca8a04", "#65a30d", "#059
 
 let pp = null;                 // { cards, etiquetas, cardEtiq: Map(card → Set(etiqueta)), vendedores, fotos }
 let ppVista = "quadro";        // "quadro" | "reciclagem"
-let ppFiltro = { vendedor: "", etiqueta: "", busca: "" };
+let ppFiltro = null;           // ver ppFiltrosVazios
+let ppFiltrosAberto = false;
 let ppRecSel = new Set();      // cards marcados na reciclagem
-let ppRecMotivos = new Set();  // filtro de motivos na reciclagem
 let ppCanal = null, ppRecarga = null;
 
 const ppMoeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -38,19 +38,24 @@ async function carregarPipeline() {
   if (!ppLiberado()) { desenharPipelineEmBreve(raiz); return; }
   ppAoVivo();
   if (!raiz.childElementCount) raiz.appendChild(el("div", { class: "px-carregando" }, "Abrindo o pipeline…"));
-  const [c, e, ce, f, v] = await Promise.all([
+  if (!ppFiltro) ppFiltro = ppFiltrosVazios();
+  const [c, e, ce, f, v, cm] = await Promise.all([
     sb.from("pipe_cards").select("*").order("posicao").range(0, 9999),
     sb.from("pipe_etiquetas").select("*").order("nome"),
     sb.from("pipe_card_etiquetas").select("card_id, etiqueta_id").range(0, 49999),
     sb.from("vendedor_fotos").select("vendedor, foto_url"),
     sb.from("administrativo_vendedores").select("nome, ativo").order("nome"),
+    sb.from("pipe_comentarios").select("card_id").range(0, 49999),
   ]);
-  const erro = [c, e, ce, f, v].find((r) => r.error);
+  const erro = [c, e, ce, f, v, cm].find((r) => r.error);
   if (erro) { raiz.innerHTML = ""; raiz.appendChild(el("div", { class: "empty-state" }, "Não foi possível abrir o pipeline: " + erro.error.message)); return; }
   const cardEtiq = new Map();
   ce.data.forEach((x) => { if (!cardEtiq.has(x.card_id)) cardEtiq.set(x.card_id, new Set()); cardEtiq.get(x.card_id).add(x.etiqueta_id); });
+  const comentarios = new Map();
+  cm.data.forEach((x) => comentarios.set(x.card_id, (comentarios.get(x.card_id) || 0) + 1));
   pp = {
     cards: c.data,
+    comentarios,
     etiquetas: e.data,
     cardEtiq,
     fotos: new Map(f.data.map((x) => [x.vendedor, x.foto_url])),
@@ -68,17 +73,76 @@ function desenharPipelineEmBreve(raiz) {
   ]));
 }
 
+const PIPE_EMOJI_BEM = { "Imóvel": "🏠", "Automóvel": "🚗", "Moto": "🏍️", "Pesados": "🚚", "Serviços": "🛠️", "Outro": "📦" };
+const ppEmojiBem = (t) => PIPE_EMOJI_BEM[t] || "❔";
+// dias sem atividade (mudança de etapa, comentário ou troca de vendedor zeram)
+const ppParado = (x) => ppDiasDesde(x.atividade_em || x.etapa_desde);
+
+function ppFiltrosVazios() {
+  return { vendedor: "", etiqueta: "", busca: "", criadoDe: "", criadoAte: "", paradoMin: "", status: "perdidos", etapas: new Set(), motivos: new Set() };
+}
+// quantos filtros estão ligados (para o número no botão Filtros)
+function ppQtdFiltros() {
+  const f = ppFiltro;
+  let n = [f.vendedor, f.etiqueta, f.busca.trim(), f.criadoDe, f.criadoAte, f.paradoMin].filter(Boolean).length;
+  if (ppVista === "reciclagem") n += (f.status !== "perdidos" ? 1 : 0) + (f.etapas.size ? 1 : 0) + (f.motivos.size ? 1 : 0);
+  return n;
+}
+
+// filtros comuns (quadro e reciclagem)
 function ppVisiveis(lista) {
-  const b = ppFiltro.busca.trim().toLowerCase();
+  const f = ppFiltro;
+  const b = f.busca.trim().toLowerCase();
   const bDig = ppTelDigitos(b);
-  return lista.filter((x) =>
-    (!ppFiltro.vendedor || (ppFiltro.vendedor === "—" ? !x.vendedor : x.vendedor === ppFiltro.vendedor)) &&
-    (!ppFiltro.etiqueta || (pp.cardEtiq.get(x.id) || new Set()).has(Number(ppFiltro.etiqueta))) &&
-    (!b || (x.nome || "").toLowerCase().includes(b) || (bDig.length >= 4 && ppTelDigitos(x.telefone).includes(bDig))));
+  const de = f.criadoDe ? new Date(f.criadoDe + "T00:00:00-03:00").getTime() : -Infinity;
+  const ate = f.criadoAte ? new Date(f.criadoAte + "T23:59:59-03:00").getTime() : Infinity;
+  const min = f.paradoMin === "" ? 0 : Number(f.paradoMin);
+  return lista.filter((x) => {
+    const criado = new Date(x.criado_em).getTime();
+    return (!f.vendedor || (f.vendedor === "—" ? !x.vendedor : x.vendedor === f.vendedor)) &&
+      (!f.etiqueta || (pp.cardEtiq.get(x.id) || new Set()).has(Number(f.etiqueta))) &&
+      (!b || (x.nome || "").toLowerCase().includes(b) || (bDig.length >= 4 && ppTelDigitos(x.telefone).includes(bDig))) &&
+      criado >= de && criado <= ate &&
+      (!min || ppParado(x) >= min);
+  });
+}
+
+function ppPainelFiltros(raiz) {
+  const f = ppFiltro;
+  const redesenhar = () => desenharPipeline(raiz);
+  const campo = (rot, controle) => el("div", { class: "field" }, [el("label", { class: "atd-rot" }, rot), controle]);
+  const sel = (valor, opcoes, aoMudar, rot) => { const s = el("select", { class: "ap-input", "aria-label": rot, onchange: (e) => { aoMudar(e.target.value); redesenhar(); } }, opcoes.map(([v, t]) => el("option", { value: v }, t))); s.value = valor; return s; };
+  const data = (valor, aoMudar, rot) => el("input", { type: "date", class: "ap-input", value: valor, "aria-label": rot, onchange: (e) => { aoMudar(e.target.value); redesenhar(); } });
+  const busca = el("input", { type: "search", class: "ap-input pp-busca", placeholder: "Nome ou telefone", value: f.busca, "aria-label": "Buscar cliente" });
+  let t = null;
+  busca.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { f.busca = busca.value; const pos = busca.selectionStart; redesenhar(); const nb = raiz.querySelector(".pp-busca"); if (nb) { nb.focus(); nb.setSelectionRange(pos, pos); } }, 300); });
+  const chips = (lista, conjunto, rotulo) => el("div", { class: "pp-motivos" }, lista.map(([v, txt]) => el("button", { type: "button", class: "pp-motivo" + (conjunto.has(v) ? " sel" : ""), "aria-pressed": String(conjunto.has(v)),
+    onclick: () => { conjunto.has(v) ? conjunto.delete(v) : conjunto.add(v); redesenhar(); } }, txt)));
+
+  const rec = ppVista === "reciclagem";
+  const motivosExistentes = [...new Set(pp.cards.filter((x) => x.etapa === "reciclagem").map((x) => x.perdido_motivo || "Sem motivo"))];
+  return el("div", { class: "pp-filtros-painel" }, [
+    el("div", { class: "pp-filtros-grade" }, [
+      campo("Buscar", busca),
+      campo("Vendedor", sel(f.vendedor, [["", "Todos"], ...pp.vendedores.map((n) => [n, n]), ["—", "Sem vendedor"]], (v) => (f.vendedor = v), "Vendedor")),
+      campo("Etiqueta", sel(f.etiqueta, [["", "Todas"], ...pp.etiquetas.map((e) => [String(e.id), e.nome])], (v) => (f.etiqueta = v), "Etiqueta")),
+      campo("Parado há", sel(f.paradoMin, [["", "Qualquer tempo"], ["1", "1 dia ou mais"], ["3", "3 dias ou mais"], ["7", "7 dias ou mais"], ["15", "15 dias ou mais"], ["30", "30 dias ou mais"]], (v) => (f.paradoMin = v), "Dias parado")),
+      campo("Criado de", data(f.criadoDe, (v) => (f.criadoDe = v), "Criado a partir de")),
+      campo("Criado até", data(f.criadoAte, (v) => (f.criadoAte = v), "Criado até")),
+    ]),
+    rec ? campo("Situação", el("div", { class: "pp-motivos" }, [["perdidos", "♻ Perdidos"], ["ativos", "🟢 Ativos"], ["todos", "Todos"]].map(([v, txt]) =>
+      el("button", { type: "button", class: "pp-motivo" + (f.status === v ? " sel" : ""), "aria-pressed": String(f.status === v), onclick: () => { f.status = v; redesenhar(); } }, txt)))) : null,
+    rec && f.status !== "perdidos" ? campo("Etapa no funil (ativos)", chips(PIPE_ETAPAS.filter((e) => e.id !== "fechado").map((e) => [e.id, e.nome]), f.etapas)) : null,
+    rec && f.status !== "ativos" && motivosExistentes.length ? campo("Motivo da perda", chips(motivosExistentes.map((m) => [m, m]), f.motivos)) : null,
+    el("div", { class: "pp-filtros-pe" }, [
+      el("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => { ppFiltro = ppFiltrosVazios(); redesenhar(); } }, "Limpar filtros"),
+      el("button", { type: "button", class: "btn btn-primary btn-sm", onclick: () => { ppFiltrosAberto = false; redesenhar(); } }, "Fechar"),
+    ]),
+  ]);
 }
 
 function desenharPipeline(raiz) {
-  const rec = pp.cards.filter((x) => x.etapa === "reciclagem");
+  const nRec = pp.cards.filter((x) => x.etapa === "reciclagem").length;
   raiz.innerHTML = "";
   raiz.appendChild(el("div", { class: "px-topo pp-topo" }, [
     el("div", {}, [
@@ -91,30 +155,19 @@ function desenharPipeline(raiz) {
     ]),
   ]));
 
-  raiz.appendChild(el("div", { class: "dd-periodo pp-vistas", role: "tablist", "aria-label": "Visão" }, [
-    ["quadro", `Quadro (${pp.cards.length - rec.length})`],
-    ["reciclagem", `♻ Reciclagem (${rec.length})`],
-  ].map(([k, t]) => el("button", { type: "button", role: "tab", "aria-selected": String(ppVista === k), class: "dd-periodo-bt" + (ppVista === k ? " sel" : ""),
-    onclick: () => { ppVista = k; desenharPipeline(raiz); } }, t))));
+  const nFiltros = ppQtdFiltros();
+  raiz.appendChild(el("div", { class: "pp-barra" }, [
+    el("div", { class: "dd-periodo pp-vistas", role: "tablist", "aria-label": "Visão" }, [
+      ["quadro", `Quadro (${pp.cards.length - nRec})`],
+      ["reciclagem", `♻ Reciclagem (${nRec})`],
+    ].map(([k, t]) => el("button", { type: "button", role: "tab", "aria-selected": String(ppVista === k), class: "dd-periodo-bt" + (ppVista === k ? " sel" : ""),
+      onclick: () => { ppVista = k; ppRecSel.clear(); desenharPipeline(raiz); } }, t))),
+    el("button", { type: "button", class: "btn btn-secondary btn-sm pp-bt-filtros" + (nFiltros ? " ativo" : ""), "aria-expanded": String(ppFiltrosAberto),
+      onclick: () => { ppFiltrosAberto = !ppFiltrosAberto; desenharPipeline(raiz); } }, `⚙ Filtros${nFiltros ? ` (${nFiltros})` : ""}`),
+  ]));
+  if (ppFiltrosAberto) raiz.appendChild(ppPainelFiltros(raiz));
 
-  // filtros
-  const selVend = el("select", { class: "ap-input pp-filtro", "aria-label": "Filtrar por vendedor", onchange: (e) => { ppFiltro.vendedor = e.target.value; desenharPipeline(raiz); } }, [
-    el("option", { value: "" }, "Todos os vendedores"),
-    ...pp.vendedores.map((n) => el("option", { value: n }, n)),
-    el("option", { value: "—" }, "Sem vendedor"),
-  ]);
-  selVend.value = ppFiltro.vendedor;
-  const selEtiq = el("select", { class: "ap-input pp-filtro", "aria-label": "Filtrar por etiqueta", onchange: (e) => { ppFiltro.etiqueta = e.target.value; desenharPipeline(raiz); } }, [
-    el("option", { value: "" }, "Todas as etiquetas"),
-    ...pp.etiquetas.map((t) => el("option", { value: String(t.id) }, t.nome)),
-  ]);
-  selEtiq.value = ppFiltro.etiqueta;
-  const busca = el("input", { type: "search", class: "ap-input pp-filtro pp-busca", placeholder: "Buscar nome ou telefone", value: ppFiltro.busca, "aria-label": "Buscar cliente" });
-  let t = null;
-  busca.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { ppFiltro.busca = busca.value; const pos = busca.selectionStart; desenharPipeline(raiz); const nb = raiz.querySelector(".pp-busca"); nb.focus(); nb.setSelectionRange(pos, pos); }, 250); });
-  raiz.appendChild(el("div", { class: "pp-filtros" }, [selVend, selEtiq, busca]));
-
-  if (ppVista === "reciclagem") { raiz.appendChild(ppReciclagem(raiz, rec)); return; }
+  if (ppVista === "reciclagem") { raiz.appendChild(ppReciclagem(raiz)); return; }
 
   const quadro = el("div", { class: "pp-quadro" });
   PIPE_ETAPAS.forEach((etapa) => {
@@ -148,32 +201,49 @@ function ppEtiquetasDoCard(x) {
   return el("div", { class: "pp-etqs" }, pp.etiquetas.filter((t) => ids.has(t.id)).map((t) => el("span", { class: "pp-etq", style: `--etq:${t.cor}` }, t.nome)));
 }
 
+function ppSeloParado(x) {
+  if (x.etapa === "fechado") return el("span", { class: "pp-selo ok" }, x.fechado_em ? `✓ ${ddDataCurta(x.fechado_em)}` : "✓ Fechado");
+  const d = ppParado(x);
+  const cls = d >= 7 ? " parado" : d >= 3 ? " morno" : " novo";
+  return el("span", { class: "pp-selo" + cls, title: "Dias sem atividade (mudar de etapa ou comentar zera)" }, d === 0 ? "Hoje" : d === 1 ? "Ontem" : `${d} dias`);
+}
+
 function ppCartao(x) {
-  const dias = ppDiasDesde(x.etapa_desde);
-  const parado = x.etapa !== "fechado" && dias >= 7 ? " parado" : x.etapa !== "fechado" && dias >= 3 ? " morno" : "";
+  const nCom = pp.comentarios.get(x.id) || 0;
+  const zap = ppWhats(x.telefone);
+  const parar = (e) => e.stopPropagation();
   const card = el("article", { class: "pp-card", draggable: "true", tabindex: "0", role: "button", "aria-label": `Abrir ${x.nome}` }, [
-    el("div", { class: "pp-card-topo" }, [
-      el("strong", { class: "pp-card-nome" }, x.nome),
-      x.valor_credito ? el("span", { class: "pp-card-valor" }, ppMoeda.format(x.valor_credito)) : null,
+    el("div", { class: "pp-card-cab" }, [
+      el("span", { class: "pp-card-bem", title: x.tipo_bem || "Tipo do bem não informado", "aria-label": x.tipo_bem || "Tipo do bem não informado" }, ppEmojiBem(x.tipo_bem)),
+      ppSeloParado(x),
+      x.telefone ? el("a", { class: "pp-card-tel", href: `tel:${ppTelDigitos(x.telefone)}`, onclick: parar }, `📞 ${ddTel(x.telefone)}`) : null,
     ]),
-    x.tipo_bem || x.telefone ? el("small", { class: "pp-card-info" }, [x.tipo_bem, x.telefone ? ddTel(x.telefone) : null].filter(Boolean).join(" · ")) : null,
+    el("strong", { class: "pp-card-nome" }, x.nome),
+    x.tipo_bem ? el("small", { class: "pp-card-info" }, x.tipo_bem) : null,
     x.reuniao_em && (x.etapa === "agendamento" || x.etapa === "reuniao") ? el("small", { class: "pp-card-reuniao" }, `📅 ${dcDataHora(x.reuniao_em)}`) : null,
-    ppEtiquetasDoCard(x),
+    el("div", { class: "pp-card-meio" }, [
+      ppEtiquetasDoCard(x) || el("span"),
+      el("span", { class: "pp-card-valor" + (x.valor_credito ? "" : " zero") }, ppMoeda.format(Number(x.valor_credito) || 0)),
+    ]),
     el("div", { class: "pp-card-rodape" }, [
+      el("div", { class: "pp-card-acoes" }, [
+        x.telefone ? el("a", { class: "pp-acao lig", href: `tel:${ppTelDigitos(x.telefone)}`, title: "Ligar", "aria-label": `Ligar para ${x.nome}`, onclick: parar }, "📞") : null,
+        zap ? el("a", { class: "pp-acao zap", href: zap, target: "_blank", rel: "noopener", title: "WhatsApp", "aria-label": `WhatsApp de ${x.nome}`, onclick: parar }, "💬") : null,
+        el("span", { class: "pp-acao com", title: `${nCom} comentário(s)` }, ["🗨", nCom ? el("b", {}, String(nCom)) : null]),
+      ]),
       x.vendedor ? el("span", { class: "pp-card-vend" }, [avatarPerfil(x.vendedor, pp.fotos.get(x.vendedor), "pp-foto"), dcPrimeiro(x.vendedor)]) : el("span", { class: "pp-card-vend sem" }, "Sem vendedor"),
-      x.etapa === "fechado" ? el("span", { class: "pp-dias" }, x.fechado_em ? ddDataCurta(x.fechado_em) : "") : el("span", { class: "pp-dias" + parado, title: "Tempo nesta etapa" }, dias ? `${dias}d` : "hoje"),
     ]),
   ]);
   card.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", String(x.id)); e.dataTransfer.effectAllowed = "move"; card.classList.add("arrastando"); });
   card.addEventListener("dragend", () => card.classList.remove("arrastando"));
   card.addEventListener("click", () => ppModalCard(x));
-  card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ppModalCard(x); } });
+  card.addEventListener("keydown", (e) => { if (e.target === card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ppModalCard(x); } });
   return card;
 }
 
 async function ppMover(card, etapa, extra = {}) {
-  const antes = { etapa: card.etapa, etapa_desde: card.etapa_desde };
-  Object.assign(card, { etapa, etapa_desde: new Date().toISOString(), posicao: Date.now() / 1000 }, extra);
+  const antes = { etapa: card.etapa, etapa_desde: card.etapa_desde, atividade_em: card.atividade_em };
+  Object.assign(card, { etapa, etapa_desde: new Date().toISOString(), atividade_em: new Date().toISOString(), posicao: Date.now() / 1000 }, extra);
   desenharPipeline(document.getElementById("sx-pipeline"));
   const { error } = await sb.from("pipe_cards").update({ etapa, posicao: card.posicao, ...extra }).eq("id", card.id);
   if (error) { Object.assign(card, antes); desenharPipeline(document.getElementById("sx-pipeline")); showToast("Não foi possível mover: " + error.message); return false; }
@@ -317,6 +387,9 @@ async function ppCarregarConversa(c, coment, hist) {
     enviar.disabled = false;
     if (error) { showToast("Não foi possível comentar: " + error.message); return; }
     texto.value = "";
+    c.atividade_em = data.em;
+    pp.comentarios.set(c.id, (pp.comentarios.get(c.id) || 0) + 1);
+    desenharPipeline(document.getElementById("sx-pipeline")); // atualiza contador e "parado" do card atrás do modal
     itens = [data, ...itens];
     pintar(itens);
   });
@@ -351,45 +424,56 @@ function ppModalPerdeu(c) {
   });
 }
 
-// ---------- reciclagem: filtrar por motivo, marcar vários e redistribuir ----------
-function ppReciclagem(raiz, rec) {
-  const porMotivo = new Map();
-  rec.forEach((x) => { const m = x.perdido_motivo || "Sem motivo"; porMotivo.set(m, (porMotivo.get(m) || 0) + 1); });
-  const lista = ppVisiveis(rec).filter((x) => !ppRecMotivos.size || ppRecMotivos.has(x.perdido_motivo || "Sem motivo"))
-    .sort((a, b) => new Date(b.perdido_em || b.etapa_desde) - new Date(a.perdido_em || a.etapa_desde));
+// ---------- reciclagem: perdidos (e, se quiser, ativos) → marcar vários e redistribuir ----------
+function ppReciclagem(raiz) {
+  const f = ppFiltro;
+  const base = pp.cards.filter((x) => x.etapa !== "fechado" && (
+    f.status === "todos" ? true : f.status === "ativos" ? x.etapa !== "reciclagem" : x.etapa === "reciclagem"));
+  const lista = ppVisiveis(base)
+    .filter((x) => x.etapa === "reciclagem" ? (!f.motivos.size || f.motivos.has(x.perdido_motivo || "Sem motivo")) : (!f.etapas.size || f.etapas.has(x.etapa)))
+    .sort((a, b) => ppParado(b) - ppParado(a));
   [...ppRecSel].forEach((id) => { if (!lista.some((x) => x.id === id)) ppRecSel.delete(id); });
   const wrap = el("section", { class: "dd-bloco pp-rec" });
 
-  wrap.appendChild(el("div", { class: "pp-rec-motivos" }, [
-    el("span", { class: "atd-rot" }, "Motivo:"),
-    ...[...porMotivo.entries()].sort((a, b) => b[1] - a[1]).map(([m, n]) => el("button", { type: "button", class: "pp-motivo" + (ppRecMotivos.has(m) ? " sel" : ""), "aria-pressed": String(ppRecMotivos.has(m)),
-      onclick: () => { ppRecMotivos.has(m) ? ppRecMotivos.delete(m) : ppRecMotivos.add(m); desenharPipeline(raiz); } }, `${m} (${n})`)),
-  ]));
-
+  const rotulo = f.status === "ativos" ? "leads ativos" : f.status === "todos" ? "leads (ativos e perdidos)" : "leads perdidos";
   const todos = lista.length && lista.every((x) => ppRecSel.has(x.id));
   wrap.appendChild(el("div", { class: "pp-rec-barra" }, [
     el("label", { class: "pp-check" }, [
       el("input", { type: "checkbox", checked: todos ? "" : null, disabled: lista.length ? null : "", onchange: (e) => { lista.forEach((x) => (e.target.checked ? ppRecSel.add(x.id) : ppRecSel.delete(x.id))); desenharPipeline(raiz); } }),
-      `Selecionar todos (${lista.length})`,
+      `Selecionar todos · ${lista.length} ${rotulo}`,
     ]),
     el("button", { type: "button", class: "btn btn-primary btn-sm", disabled: ppRecSel.size ? null : "", onclick: () => ppModalRedistribuir(raiz) }, `↪ Redistribuir ${ppRecSel.size || ""}`.trim()),
   ]));
 
-  if (!lista.length) { wrap.appendChild(el("p", { class: "px-vazio" }, rec.length ? "Nenhum lead com esse filtro." : "Nenhum lead na reciclagem. Quando o vendedor marcar “Perdeu”, o lead aparece aqui.")); return wrap; }
-  wrap.appendChild(el("ul", { class: "pp-rec-lista" }, lista.map((x) => el("li", { class: ppRecSel.has(x.id) ? "sel" : "" }, [
-    el("input", { type: "checkbox", checked: ppRecSel.has(x.id) ? "" : null, "aria-label": `Selecionar ${x.nome}`, onchange: (e) => { e.target.checked ? ppRecSel.add(x.id) : ppRecSel.delete(x.id); desenharPipeline(raiz); } }),
-    el("button", { type: "button", class: "pp-rec-info", onclick: () => ppModalCard(x) }, [
-      el("strong", {}, x.nome),
-      el("small", {}, [x.tipo_bem, x.valor_credito ? ppMoeda.format(x.valor_credito) : null, x.telefone ? ddTel(x.telefone) : null].filter(Boolean).join(" · ")),
-      ppEtiquetasDoCard(x),
-    ]),
-    el("span", { class: "dd-chip pp-rec-motivo", title: x.perdido_obs || "" }, x.perdido_motivo || "Sem motivo"),
-    el("small", { class: "pp-rec-quem" }, `${x.perdido_por ? dcPrimeiro(x.perdido_por) + " · " : ""}${x.perdido_em ? ddDataCurta(x.perdido_em) : ""}`),
-  ]))));
+  if (!lista.length) {
+    wrap.appendChild(el("p", { class: "px-vazio" }, f.status === "perdidos" && !base.length
+      ? "Nenhum lead na reciclagem. Quando o vendedor marcar “Perdeu”, o lead aparece aqui. Para redistribuir leads ativos, abra Filtros › Situação › Ativos."
+      : "Nenhum lead com esses filtros."));
+    return wrap;
+  }
+  wrap.appendChild(el("ul", { class: "pp-rec-lista" }, lista.map((x) => {
+    const perdido = x.etapa === "reciclagem";
+    return el("li", { class: ppRecSel.has(x.id) ? "sel" : "" }, [
+      el("input", { type: "checkbox", checked: ppRecSel.has(x.id) ? "" : null, "aria-label": `Selecionar ${x.nome}`, onchange: (e) => { e.target.checked ? ppRecSel.add(x.id) : ppRecSel.delete(x.id); desenharPipeline(raiz); } }),
+      el("span", { class: "pp-rec-bem", "aria-hidden": "true" }, ppEmojiBem(x.tipo_bem)),
+      el("button", { type: "button", class: "pp-rec-info", onclick: () => ppModalCard(x) }, [
+        el("strong", {}, x.nome),
+        el("small", {}, [x.tipo_bem, x.valor_credito ? ppMoeda.format(x.valor_credito) : null, x.telefone ? ddTel(x.telefone) : null, `criado ${ddDataCurta(x.criado_em)}`].filter(Boolean).join(" · ")),
+        ppEtiquetasDoCard(x),
+      ]),
+      perdido
+        ? el("span", { class: "dd-chip pp-rec-motivo", title: x.perdido_obs || "" }, x.perdido_motivo || "Sem motivo")
+        : el("span", { class: `dd-chip pp-rec-etapa pp-col-${x.etapa}` }, PIPE_NOME_ETAPA[x.etapa]),
+      ppSeloParado(x),
+      el("small", { class: "pp-rec-quem" }, x.vendedor ? dcPrimeiro(x.vendedor) : "Sem vendedor"),
+    ]);
+  })));
   return wrap;
 }
 
 function ppModalRedistribuir(raiz) {
+  const sel = pp.cards.filter((x) => ppRecSel.has(x.id));
+  const nPerd = sel.filter((x) => x.etapa === "reciclagem").length, nAtiv = sel.length - nPerd;
   const escolhidos = new Set();
   const grade = el("div", { class: "dc-escolha" });
   const pintar = () => {
@@ -398,9 +482,13 @@ function ppModalRedistribuir(raiz) {
       onclick: () => { escolhidos.has(n) ? escolhidos.delete(n) : escolhidos.add(n); pintar(); } }, [avatarPerfil(n, pp.fotos.get(n), "dc-escolha-foto"), el("span", {}, dcPrimeiro(n))])));
   };
   pintar();
+  const explica = [
+    nPerd ? `${nPerd} perdido(s) voltam para Oportunidade` : null,
+    nAtiv ? `${nAtiv} ativo(s) continuam na mesma etapa, só troca o vendedor` : null,
+  ].filter(Boolean).join(" · ");
   const erro = el("div", { class: "auth-error hidden" });
   const ok = el("button", { type: "button", class: "btn btn-primary btn-block" }, "↪ Redistribuir");
-  const fechar = dcModal(`Redistribuir ${ppRecSel.size} lead(s)`, "Escolha um ou mais vendedores — os leads são divididos entre eles por igual e voltam para Oportunidade.", [el("div", { class: "field" }, [grade]), erro, ok]);
+  const fechar = dcModal(`Redistribuir ${sel.length} lead(s)`, `Escolha um ou mais vendedores — os leads são divididos por igual. ${explica}.`, [el("div", { class: "field" }, [grade]), erro, ok]);
   ok.addEventListener("click", async () => {
     if (!escolhidos.size) { erro.textContent = "Escolha pelo menos um vendedor."; erro.classList.remove("hidden"); return; }
     ok.disabled = true;
