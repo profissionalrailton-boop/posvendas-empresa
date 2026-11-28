@@ -152,7 +152,8 @@ async function pdfMontarCanvas(dados) {
 async function pdfGerarProposta(dados) {
   const [{ jsPDF }, canvas] = await Promise.all([pdfCarregarJsPDF(), pdfMontarCanvas(dados)]);
   const w = canvas.width / 2, h = canvas.height / 2;
-  const doc = new jsPDF({ orientation: "portrait", unit: "px", format: [w, h], hotfixes: ["px_scaling"], compress: true });
+  // 1 proposta: a página fica mais larga que alta → landscape (em portrait o jsPDF inverte e corta a imagem)
+  const doc = new jsPDF({ orientation: w > h ? "landscape" : "portrait", unit: "px", format: [w, h], hotfixes: ["px_scaling"], compress: true });
   doc.addImage(canvas.toDataURL("image/jpeg", 0.9), "JPEG", 0, 0, w, h);
   return doc.output("blob");
 }
