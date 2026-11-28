@@ -1647,3 +1647,15 @@ button.rp-pend:hover { background: rgba(245, 158, 11, 0.28); }
 .pp-vistas { display: flex; align-items: center; flex-wrap: wrap; }
 .pp-vend-wrap { display: inline-flex; margin-left: 6px; }
 .pp-vistas .pp-sel-vend { min-width: 230px; padding: 7px 10px; font-size: 13.5px; }
+
+/* Aviso de lead novo (pipeline.js → ppMostrarLeadNovo): canto de cima, some em 5 s */
+.pp-avisos { position: fixed; top: 16px; right: 16px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; width: min(340px, calc(100vw - 32px)); pointer-events: none; }
+.pp-aviso { pointer-events: auto; display: flex; align-items: center; gap: 11px; width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); border-left: 4px solid var(--primary); background: linear-gradient(var(--surface-2), var(--surface-2)), var(--bg-radial, var(--bg)); color: var(--text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35); animation: pp-aviso-entra 0.25s ease-out; transition: opacity 0.3s, transform 0.3s; }
+.pp-aviso:hover { border-color: var(--primary); }
+.pp-aviso.saindo { opacity: 0; transform: translateX(24px); }
+.pp-aviso-ico { font-size: 22px; flex: none; }
+.pp-aviso-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pp-aviso-txt strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-aviso-txt small { font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes pp-aviso-entra { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pp-aviso { animation: none; transition: none; } }

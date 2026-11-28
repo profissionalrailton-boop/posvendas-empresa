@@ -818,6 +818,7 @@ async function ppChecarLembretes() {
     if (error) return;
     ppAcesso = { ...data, email: perms.email };
   }
+  ppAvisoLeads();
   if (!ppAcesso.vendedor) return; // o dono não recebe lembrete de todos
   const agora = Date.now();
   const { data, error } = await sb.from("pipe_reunioes").select("id, cliente, quando, tipo, obs")
@@ -837,3 +838,63 @@ async function ppChecarLembretes() {
 }
 setInterval(ppChecarLembretes, 60000);
 setTimeout(ppChecarLembretes, 8000);
+
+// ---------- aviso de lead novo (canto de cima, some em 5 s, com som) ----------
+// vendedor: só os leads que caíram pra ele; dono: todos. Card criado à mão no Sistema (criado_por = e-mail) não avisa,
+// nem importação em massa. O RLS do Realtime já limita o vendedor aos próprios cards.
+let ppCanalLeads = null, ppCanalLeadsEmail = null, ppAudio = null, ppSomEm = 0;
+const ppLeadAutomatico = (c) => { const p = String(c.criado_por || ""); return !p.includes("@") && !/importa/i.test(p); };
+function ppAvisoLeads() {
+  if (!ppAcesso || (!ppAcesso.dono && !ppAcesso.vendedor)) return;
+  if (ppCanalLeads && ppCanalLeadsEmail === perms.email) return;
+  if (ppCanalLeads) { sb.removeChannel(ppCanalLeads); ppCanalLeads = null; }
+  ppCanalLeadsEmail = perms.email;
+  ppCanalLeads = sb.channel("pipe-leads-novos")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "pipe_cards" }, ({ new: c }) => {
+      if (!c || !ppLeadAutomatico(c) || !ppAcesso || ppAcesso.email !== perms.email) return;
+      if (!ppAcesso.dono && c.vendedor !== ppAcesso.vendedor) return;
+      ppMostrarLeadNovo(c);
+    })
+    .subscribe();
+}
+function ppPilhaAvisos() {
+  let p = document.getElementById("pp-avisos");
+  if (!p) { p = el("div", { id: "pp-avisos", class: "pp-avisos", role: "status", "aria-live": "polite" }); document.body.appendChild(p); }
+  return p;
+}
+function ppMostrarLeadNovo(c) {
+  const pilha = ppPilhaAvisos();
+  while (pilha.childElementCount >= 4) pilha.firstElementChild.remove(); // lote grande: mostra os 4 mais recentes
+  const linha2 = [c.tipo_bem ? `${ppEmojiBem(c.tipo_bem)} ${c.tipo_bem}` : null, c.origem, ppAcesso.dono && c.vendedor ? "→ " + dcPrimeiro(c.vendedor) : null].filter(Boolean).join(" · ");
+  const aviso = el("button", { type: "button", class: "pp-aviso", onclick: () => { aviso.remove(); abrir("negocios", "pipeline"); } }, [
+    el("span", { class: "pp-aviso-ico", "aria-hidden": "true" }, "🔔"),
+    el("span", { class: "pp-aviso-txt" }, [el("strong", {}, `Lead novo: ${c.nome || "sem nome"}`), linha2 ? el("small", {}, linha2) : null]),
+  ]);
+  pilha.appendChild(aviso);
+  setTimeout(() => { aviso.classList.add("saindo"); setTimeout(() => aviso.remove(), 300); }, 5000);
+  ppTocarSom();
+}
+// "plim" curto gerado na hora (sem arquivo); toca no máximo 1x a cada 1,5 s quando chega um lote
+function ppTocarSom() {
+  if (Date.now() - ppSomEm < 1500) return;
+  ppSomEm = Date.now();
+  try {
+    ppAudio = ppAudio || new (window.AudioContext || window.webkitAudioContext)();
+    if (ppAudio.state === "suspended") ppAudio.resume();
+    const t0 = ppAudio.currentTime;
+    [[880, 0], [1320, 0.14]].forEach(([f, d]) => {
+      const o = ppAudio.createOscillator(), g = ppAudio.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + d);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + d + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.35);
+      o.connect(g).connect(ppAudio.destination);
+      o.start(t0 + d); o.stop(t0 + d + 0.4);
+    });
+  } catch (e) { /* sem áudio */ }
+}
+// o navegador só libera som depois de um clique/tecla na página: destrava o áudio no primeiro gesto
+["pointerdown", "keydown"].forEach((ev) => document.addEventListener(ev, function destravar() {
+  try { ppAudio = ppAudio || new (window.AudioContext || window.webkitAudioContext)(); if (ppAudio.state === "suspended") ppAudio.resume(); } catch (e) { /* sem áudio */ }
+  document.removeEventListener(ev, destravar);
+}, { once: true }));
